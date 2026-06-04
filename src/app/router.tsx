@@ -4,49 +4,45 @@ import { LoginPage } from '../pages/LoginPage'
 import { CompleteProfilePage } from '../pages/CompleteProfilePage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { ProfilePage } from '../pages/ProfilePage'
+import { ProjectsPage } from '../pages/ProjectsPage'
+import { CreateProjectPage } from '../pages/CreateProjectPage'
+import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { RoadmapPage } from '../pages/RoadmapPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
 
 export const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <LandingPage />,
-  },
-  {
-    path: '/login',
-    element: <LoginPage />,
-  },
-  {
-    path: '/register',
-    element: <LoginPage />, // Redirects to Google sign-in (no separate register page)
-  },
-  {
-    path: '/complete-profile',
-    element: <CompleteProfilePage />,
-  },
-  {
-    path: '/roadmap',
-    element: <RoadmapPage />,
-  },
+  // ─── Public ───────────────────────────────────────────────────────────────
+  { path: '/',         element: <LandingPage /> },
+  { path: '/login',    element: <LoginPage /> },
+  { path: '/register', element: <LoginPage /> },
+  { path: '/roadmap',  element: <RoadmapPage /> },
+
+  // ─── Auth flow ────────────────────────────────────────────────────────────
+  { path: '/complete-profile', element: <CompleteProfilePage /> },
+
+  // ─── Protected ────────────────────────────────────────────────────────────
   {
     path: '/dashboard',
-    element: (
-      <ProtectedRoute>
-        <DashboardPage />
-      </ProtectedRoute>
-    ),
+    element: <ProtectedRoute><DashboardPage /></ProtectedRoute>,
   },
   {
     path: '/profile',
-    element: (
-      <ProtectedRoute>
-        <ProfilePage />
-      </ProtectedRoute>
-    ),
+    element: <ProtectedRoute><ProfilePage /></ProtectedRoute>,
   },
   {
-    path: '*',
-    element: <NotFoundPage />,
+    path: '/projects',
+    element: <ProtectedRoute><ProjectsPage /></ProtectedRoute>,
   },
+  {
+    path: '/projects/new',
+    element: <ProtectedRoute><CreateProjectPage /></ProtectedRoute>,
+  },
+  {
+    path: '/projects/:projectId',
+    element: <ProtectedRoute><ProjectDetailPage /></ProtectedRoute>,
+  },
+
+  // ─── 404 ──────────────────────────────────────────────────────────────────
+  { path: '*', element: <NotFoundPage /> },
 ])

@@ -77,8 +77,19 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
+
+    // Projects: owner-only create/read/update/delete
+    match /projects/{projectId} {
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if request.auth != null
+                                  && resource.data.uid == request.auth.uid;
+    }
   }
 }
+```
+
+> **If project creation shows a `permission-denied` error**, the `projects` rule above is either missing or not yet published in Firebase Console. Copy the full block above, paste it in Firestore → Rules, and click **Publish**.
 ```
 
 ### 5. Run development server

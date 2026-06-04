@@ -30,7 +30,7 @@ export function WhatsAppCTA() {
   return (
     <div
       ref={ref}
-      className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center"
+      className="fixed bottom-5 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-50 flex flex-col items-end"
       style={{ minWidth: 0 }}
     >
       {/* Expanded panel — appears above the button */}
