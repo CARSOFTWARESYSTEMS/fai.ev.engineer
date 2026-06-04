@@ -1,40 +1,45 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, ArrowLeft } from 'lucide-react'
-import { useAuth } from '../auth/MockAuthProvider'
+import { ArrowLeft, AlertCircle } from 'lucide-react'
+import { useAuth } from '../auth/hooks/useAuth'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { signIn } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const { firebaseUser, isLoading, isProfileComplete, signInWithGoogle } = useAuth()
+  const [isSigningIn, setIsSigningIn] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !password) {
-      setError('Please enter your email and password.')
-      return
-    }
+  // Auto-redirect once auth state resolves
+  useEffect(() => {
+    if (isLoading) return
+    if (!firebaseUser) return // stay on login
+    // Profile complete → dashboard, otherwise ProtectedRoute handles /complete-profile
+    navigate('/dashboard', { replace: true })
+  }, [isLoading, firebaseUser, isProfileComplete, navigate])
+
+  const handleGoogleSignIn = async () => {
     setError('')
-    setIsLoading(true)
+    setIsSigningIn(true)
     try {
-      await signIn(email, password)
-      navigate('/dashboard')
-    } catch {
-      setError('Invalid email or password. Please try again.')
+      await signInWithGoogle()
+      // onAuthStateChanged fires → useEffect above navigates
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? ''
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setError('')
+      } else {
+        setError('Sign-in failed. Please try again.')
+      }
     } finally {
-      setIsLoading(false)
+      setIsSigningIn(false)
     }
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-white">
-        <Link to="/" className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border bg-white">
+        <Link to="/" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
             <span className="text-white font-bold text-xs">F</span>
           </div>
@@ -48,118 +53,75 @@ export function LoginPage() {
           className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to website
+          <span className="hidden sm:inline">Back to website</span>
+          <span className="sm:hidden">Back</span>
         </Link>
       </div>
 
-      {/* Form card */}
+      {/* Card */}
       <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          <div className="card p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-text-primary">Welcome back</h1>
-              <p className="text-text-secondary text-sm mt-2">
-                Sign in to your FAI Engineer account
-              </p>
-            </div>
-
-            {/* Google OAuth button */}
-            <button
-              type="button"
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-border rounded-lg text-sm font-medium text-text-primary hover:bg-gray-50 transition-colors mb-6"
-            >
-              <GoogleIcon />
-              Continue with Google
-            </button>
-
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-white px-3 text-xs text-text-secondary">or sign in with email</span>
+        <div className="w-full max-w-sm">
+          {/* Logo mark */}
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+                <span className="text-white font-bold text-lg">F</span>
               </div>
             </div>
+            <h1 className="text-2xl font-bold text-text-primary">Welcome to FAI Engineer</h1>
+            <p className="text-text-secondary text-sm mt-2 leading-relaxed">
+              Sign in with your Google account to access<br className="hidden sm:block" /> your FAI drawing and inspection toolkit.
+            </p>
+          </div>
 
+          <div className="card p-6 sm:p-8">
             {error && (
-              <div className="mb-4 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-lg">
+              <div className="flex items-start gap-2.5 mb-5 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-lg">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1.5" htmlFor="email">
-                  Email address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="input-field"
-                  autoComplete="email"
-                  required
-                />
-              </div>
+            {/* Google Sign-In — primary action */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isSigningIn || isLoading}
+              className="w-full flex items-center justify-center gap-3 px-5 py-3.5 bg-white border-2 border-border rounded-xl text-sm font-semibold text-text-primary hover:border-primary/40 hover:bg-primary-light transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-sm"
+            >
+              {isSigningIn ? (
+                <>
+                  <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  Signing in…
+                </>
+              ) : (
+                <>
+                  <GoogleIcon />
+                  Continue with Google
+                </>
+              )}
+            </button>
 
-              <div>
-                <label className="block text-sm font-medium text-text-primary mb-1.5" htmlFor="password">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="input-field pr-12"
-                    autoComplete="current-password"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  >
-                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                  </button>
-                </div>
-                <div className="flex justify-end mt-1.5">
-                  <a href="/forgot-password" className="text-xs text-primary hover:underline">
-                    Forgot password?
-                  </a>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="btn-primary w-full mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Signing in…
-                  </span>
-                ) : (
-                  'Sign In'
-                )}
-              </button>
-            </form>
-
-            <p className="text-center text-sm text-text-secondary mt-6">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary font-semibold hover:underline">
-                Create account
-              </Link>
+            {/* Trust statement */}
+            <p className="text-center text-xs text-text-secondary mt-5 leading-relaxed">
+              We use Google Sign-In for secure, password-free access.<br />
+              Your drawing files are never uploaded to our servers.
             </p>
+
+            <div className="border-t border-border mt-5 pt-5">
+              <p className="text-center text-xs text-text-secondary">
+                Don&apos;t have an account?{' '}
+                <button
+                  onClick={handleGoogleSignIn}
+                  disabled={isSigningIn}
+                  className="text-primary font-semibold hover:underline disabled:opacity-60"
+                >
+                  Sign up with Google
+                </button>
+              </p>
+            </div>
           </div>
 
-          {/* Industry tagline */}
           <p className="text-center text-xs text-text-secondary mt-5 px-4">
             Built for aerospace, manufacturing, and quality teams.
           </p>
@@ -171,7 +133,7 @@ export function LoginPage() {
 
 function GoogleIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+    <svg width="20" height="20" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
       <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
       <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.909-2.259c-.806.54-1.837.86-3.047.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
       <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>

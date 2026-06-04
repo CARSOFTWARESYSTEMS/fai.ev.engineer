@@ -1,13 +1,13 @@
 import { RouterProvider } from 'react-router-dom'
-import { MockAuthProvider } from '../auth/MockAuthProvider'
+import { EVEngineerAuthProvider } from '../auth/EVEngineerAuthProvider'
 import { WhatsAppCTA } from '../components/ui/WhatsAppCTA'
 import { router } from './router'
 
 export function App() {
   return (
-    <MockAuthProvider>
+    <EVEngineerAuthProvider>
       <RouterProvider router={router} />
       <WhatsAppCTA />
-    </MockAuthProvider>
+    </EVEngineerAuthProvider>
   )
 }

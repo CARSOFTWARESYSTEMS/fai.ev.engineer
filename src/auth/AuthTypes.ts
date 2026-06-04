@@ -1,0 +1,47 @@
+import type { User as FirebaseUser } from 'firebase/auth'
+
+// ─── Firestore user document schema ──────────────────────────────────────────
+
+export interface EVEngineerUser {
+  uid: string
+  displayName: string
+  email: string
+  photoURL: string
+
+  // Contact
+  mobileNumber: string
+
+  // Organisation
+  organizationCode: string   // slug of first word of org name, or "default"
+  organizationName: string
+  gstNumber: string
+
+  // Role & state
+  role: string               // "user" | "admin"
+  profileCompleted: boolean
+
+  // Subscription
+  subscriptionPlan: 'trial' | 'monthly' | 'annual'
+
+  // Timestamps (ISO strings when read from Firestore)
+  createdAt: string
+  updatedAt: string
+  lastLoginAt: string
+}
+
+// ─── Auth context shape ───────────────────────────────────────────────────────
+
+export interface EVEngineerAuthContextValue {
+  /** Resolved EV.ENGINEER user profile from Firestore, null if not found yet */
+  user: EVEngineerUser | null
+  /** Raw Firebase auth user (available immediately after sign-in) */
+  firebaseUser: FirebaseUser | null
+  /** True while resolving auth state or loading Firestore profile */
+  isLoading: boolean
+  /** True when profileCompleted === true in Firestore */
+  isProfileComplete: boolean
+  signInWithGoogle: () => Promise<void>
+  signOut: () => Promise<void>
+  /** Re-fetches the Firestore profile into context (call after completeProfile) */
+  refreshProfile: () => Promise<void>
+}

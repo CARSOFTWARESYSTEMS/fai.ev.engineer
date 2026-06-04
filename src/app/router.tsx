@@ -1,8 +1,9 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { LandingPage } from '../pages/LandingPage'
 import { LoginPage } from '../pages/LoginPage'
-import { RegisterPage } from '../pages/RegisterPage'
+import { CompleteProfilePage } from '../pages/CompleteProfilePage'
 import { DashboardPage } from '../pages/DashboardPage'
+import { ProfilePage } from '../pages/ProfilePage'
 import { RoadmapPage } from '../pages/RoadmapPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
@@ -18,7 +19,11 @@ export const router = createBrowserRouter([
   },
   {
     path: '/register',
-    element: <RegisterPage />,
+    element: <LoginPage />, // Redirects to Google sign-in (no separate register page)
+  },
+  {
+    path: '/complete-profile',
+    element: <CompleteProfilePage />,
   },
   {
     path: '/roadmap',
@@ -29,6 +34,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <DashboardPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/profile',
+    element: (
+      <ProtectedRoute>
+        <ProfilePage />
       </ProtectedRoute>
     ),
   },
