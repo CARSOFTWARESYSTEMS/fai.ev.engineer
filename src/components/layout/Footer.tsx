@@ -1,4 +1,13 @@
 import { Link } from 'react-router-dom'
+import { MessageCircle, Mail, Phone } from 'lucide-react'
+
+const WHATSAPP_TEXT = encodeURIComponent('FAI.EV.ENGINEER - FAI Reports')
+
+const whatsappNumbers = [
+  { display: '+91 88804 23666', number: '918880423666', region: 'IN' },
+  { display: '+44 7714 296479', number: '447714296479', region: 'UK' },
+  { display: '+91 91082 06147', number: '919108206147', region: 'IN' },
+]
 
 const footerSections = [
   {
@@ -14,7 +23,7 @@ const footerSections = [
     heading: 'Resources',
     links: [
       { label: 'Documentation', href: '#' },
-      { label: 'Support', href: 'mailto:support@ev.engineer' },
+      { label: 'Support', href: 'mailto:info@iTelematics.com' },
       { label: 'FAQ', href: '#faq' },
     ],
   },
@@ -22,7 +31,7 @@ const footerSections = [
     heading: 'Company',
     links: [
       { label: 'About EV.ENGINEER', href: '#' },
-      { label: 'Contact', href: 'mailto:hello@ev.engineer' },
+      { label: 'Contact', href: 'mailto:info@iTelematics.com' },
     ],
   },
   {
@@ -44,9 +53,11 @@ export function Footer() {
   return (
     <footer className="bg-text-primary text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-10">
-          {/* Brand column — wider */}
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-10">
+
+          {/* Brand + Contact column — spans 2 cols on large screens */}
+          <div className="lg:col-span-2">
+            {/* Logo */}
             <div className="flex items-center gap-2.5 mb-4">
               <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center shrink-0">
                 <span className="text-white font-bold text-sm">F</span>
@@ -56,9 +67,56 @@ export function Footer() {
                 <span className="text-[10px] font-medium text-slate-400 tracking-wide">by EV.ENGINEER</span>
               </div>
             </div>
-            <p className="text-sm text-slate-400 leading-relaxed">
+
+            <p className="text-sm text-slate-400 leading-relaxed mb-5">
               Browser-based toolkit for engineering drawing ballooning and AS9102 First Article Inspection report preparation.
             </p>
+
+            {/* Email */}
+            <a
+              href="mailto:info@iTelematics.com"
+              className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-5 group"
+            >
+              <Mail className="w-4 h-4 text-primary group-hover:text-white transition-colors" />
+              info@iTelematics.com
+            </a>
+
+            {/* WhatsApp numbers */}
+            <div className="mt-1">
+              <div className="flex items-center gap-2 mb-3">
+                <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  WhatsApp / Call
+                </span>
+              </div>
+              <div className="flex flex-col gap-2">
+                {whatsappNumbers.map((n) => (
+                  <div key={n.number} className="flex items-center gap-2">
+                    <a
+                      href={`https://wa.me/${n.number}?text=${WHATSAPP_TEXT}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-[#25D366] transition-colors group"
+                      aria-label={`WhatsApp ${n.display}`}
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-[#25D366]/60 group-hover:text-[#25D366] transition-colors" />
+                      {n.display}
+                    </a>
+                    <a
+                      href={`tel:${n.number}`}
+                      className="text-slate-600 hover:text-slate-400 transition-colors"
+                      aria-label={`Call ${n.display}`}
+                    >
+                      <Phone className="w-3 h-3" />
+                    </a>
+                    <span className="text-[10px] text-slate-600 font-mono">{n.region}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-600 mt-2 leading-relaxed">
+                Tap to open WhatsApp with a prefilled message.
+              </p>
+            </div>
           </div>
 
           {/* Link columns */}
