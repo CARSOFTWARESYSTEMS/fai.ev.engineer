@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.development
+.env.production
+.firebase/
+.DS_Store
+coverage/
+exports/
+reports/
+downloads/
+temp/
+uploads/
+*.local
