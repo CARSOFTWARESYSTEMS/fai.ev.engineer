@@ -8,6 +8,7 @@ import { ProjectsPage } from '../pages/ProjectsPage'
 import { CreateProjectPage } from '../pages/CreateProjectPage'
 import { EditProjectPage } from '../pages/EditProjectPage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
+import { ProjectPdfViewerPage } from '../pages/ProjectPdfViewerPage'
 import { RoadmapPage } from '../pages/RoadmapPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
@@ -46,6 +47,10 @@ export const router = createBrowserRouter([
   {
     path: '/projects/:projectId/edit',
     element: <ProtectedRoute><EditProjectPage /></ProtectedRoute>,
+  },
+  {
+    path: '/projects/:projectId/pdf',
+    element: <ProtectedRoute><ProjectPdfViewerPage /></ProtectedRoute>,
   },
 
   // ─── 404 ──────────────────────────────────────────────────────────────────

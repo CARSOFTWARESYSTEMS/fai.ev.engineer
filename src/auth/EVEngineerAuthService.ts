@@ -3,6 +3,7 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth'
+import { clearGoogleDriveSession } from '../lib/googleDrive'
 import {
   doc,
   getDoc,
@@ -169,5 +170,7 @@ export async function touchLastLogin(uid: string): Promise<void> {
 // ─── Sign-out ─────────────────────────────────────────────────────────────────
 
 export async function signOutUser(): Promise<void> {
+  console.log('[DRIVE] Clearing Drive session on sign-out')
+  clearGoogleDriveSession()
   await signOut(firebaseAuth)
 }

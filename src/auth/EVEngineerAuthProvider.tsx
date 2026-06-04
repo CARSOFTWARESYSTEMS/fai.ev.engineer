@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useCallback } from 'react'
+import { ReactNode, useState, useEffect, useCallback, useRef } from 'react'
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth'
 import { firebaseAuth } from '../firebase/auth'
 import { EVEngineerAuthContext } from './EVEngineerAuthContext'
@@ -9,6 +9,7 @@ import {
   getUserProfile,
   touchLastLogin,
 } from './EVEngineerAuthService'
+import { clearGoogleDriveSession } from '../lib/googleDrive'
 
 interface Props {
   children: ReactNode
@@ -18,6 +19,9 @@ export function EVEngineerAuthProvider({ children }: Props) {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null)
   const [user, setUser] = useState<EVEngineerUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Tracks the previously seen Firebase UID so we can detect user switches
+  const prevUidRef = useRef<string | null>(null)
 
   const isProfileComplete = user?.profileCompleted === true
 
@@ -33,6 +37,16 @@ export function EVEngineerAuthProvider({ children }: Props) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, async (fbUser) => {
       setIsLoading(true)
+
+      // Clear Drive session whenever the signed-in user changes or logs out
+      const prevUid = prevUidRef.current
+      const nextUid = fbUser?.uid ?? null
+      if (prevUid !== nextUid) {
+        console.log('[DRIVE] User changed, clearing Drive session')
+        clearGoogleDriveSession()
+      }
+      prevUidRef.current = nextUid
+
       setFirebaseUser(fbUser)
 
       if (fbUser) {

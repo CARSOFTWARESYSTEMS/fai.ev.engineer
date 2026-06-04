@@ -25,9 +25,19 @@ export interface FAIProject {
   status: ProjectStatus
   version: number
 
-  // Future: PDF and Drive
+  // PDF Drawing — stored in Google Drive under FAI.EV.ENGINEER/{uid}/{projectId}/
   sourcePdfName: string
+  sourcePdfSize?: number
+  sourcePdfUploadedAt?: unknown
+  sourcePdfUploadedBy?: string
+  pdfStatus?: 'none' | 'uploaded'
+
+  // Google Drive folder + file references
   googleDriveFileId: string
+  googleDriveViewUrl?: string
+  googleDriveRootFolderId?: string
+  googleDriveUserFolderId?: string
+  googleDriveProjectFolderId?: string
 
   // Timestamps — stored as Firestore Timestamp, typed as unknown for safety
   createdAt: unknown

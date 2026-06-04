@@ -92,6 +92,23 @@ service cloud.firestore {
 > **If project creation shows a `permission-denied` error**, the `projects` rule above is either missing or not yet published in Firebase Console. Copy the full block above, paste it in Firestore → Rules, and click **Publish**.
 
 > **Delete Project** permanently removes the Firestore project document (`deleteDoc`). This is an irreversible operation in MVP. The `delete` permission in the rule above grants this access only to the document owner.
+
+### 5. Firebase Storage Rules
+
+In Firebase Console → Storage → Rules, paste and publish:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /projectFiles/{projectId}/{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+PDF files are stored at: `projectFiles/{projectId}/drawing.pdf`
 ```
 
 ### 5. Run development server

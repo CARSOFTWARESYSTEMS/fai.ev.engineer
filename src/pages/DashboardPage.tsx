@@ -240,6 +240,22 @@ export function DashboardPage() {
           </div>
         </div>
 
+        {/* Stats strip */}
+        {!projectsLoading && (
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            {[
+              { label: 'Projects',     value: projects.length },
+              { label: 'PDF Uploaded', value: projects.filter(p => p.pdfStatus === 'uploaded').length },
+              { label: 'Draft',        value: projects.filter(p => p.status === 'draft').length },
+            ].map((stat) => (
+              <div key={stat.label} className="card p-4 text-center">
+                <p className="text-2xl font-bold text-text-primary">{stat.value}</p>
+                <p className="text-xs text-text-secondary mt-0.5">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Feature-aware cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           {dashboardCards.map((card) => {

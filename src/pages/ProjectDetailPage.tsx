@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -14,10 +14,20 @@ import {
   Pencil,
   Trash2,
   LayoutDashboard,
+  AlertCircle,
+  Eye,
+  RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { getProjectById, deleteProject } from '../projects/project.service'
+import {
+  uploadProjectPdf,
+  validatePdfFile,
+  getPdfErrorMessage,
+  tryCleanupProjectDriveFolder,
+} from '../projects/projectFile.service'
+import { loadGisScript, requestDriveToken } from '../lib/googleDrive'
 import {
   type FAIProject,
   fmtTimestamp,
@@ -56,8 +66,57 @@ export function ProjectDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
 
-  const [showDelete, setShowDelete] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDelete,  setShowDelete]  = useState(false)
+  const [isDeleting,  setIsDeleting]  = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Pre-load GIS script on mount so it's ready when user clicks Upload
+  // This ensures requestAccessToken() fires synchronously within the user gesture
+  useEffect(() => { loadGisScript().catch(() => {}) }, [])
+
+  // Request Drive token BEFORE opening the file picker.
+  // The OAuth popup MUST be triggered from a direct button click (user gesture).
+  // File input onChange fires after the OS picker closes — Chrome no longer
+  // considers that a user gesture, so window.open() is blocked there.
+  const handleUploadClick = async () => {
+    setUploadError('')
+    try {
+      await requestDriveToken(user?.email ?? '')
+    } catch (err) {
+      setUploadError(getPdfErrorMessage(err))
+      return
+    }
+    fileInputRef.current?.click()
+  }
+
+  const handlePdfSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    const validationError = validatePdfFile(file)
+    if (validationError) { setUploadError(validationError); return }
+
+    setUploadError('')
+    setIsUploading(true)
+    try {
+      await uploadProjectPdf(
+        project!.projectId,
+        user!.uid,
+        user!.email ?? '',
+        file,
+        project!.googleDriveFileId || undefined
+      )
+      const updated = await getProjectById(project!.projectId)
+      if (updated) setProject(updated)
+    } catch (err) {
+      setUploadError(getPdfErrorMessage(err))
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   useEffect(() => {
     if (!projectId) return
@@ -88,6 +147,10 @@ export function ProjectDetailPage() {
     if (!projectId || !user) return
     setIsDeleting(true)
     try {
+      // Clean up Google Drive project folder (best-effort — never blocks Firestore delete)
+      if (project?.googleDriveProjectFolderId) {
+        await tryCleanupProjectDriveFolder(project.googleDriveProjectFolderId)
+      }
       await deleteProject(projectId, user.uid)
       setShowDelete(false)
       navigate('/projects', { replace: true })
@@ -236,22 +299,106 @@ export function ProjectDetailPage() {
               </div>
             </div>
 
-            {/* PDF placeholder */}
-            <div className="card p-5 border-dashed">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center shrink-0">
-                  <UploadCloud className="w-5 h-5 text-text-secondary" />
+            {/* Drawing PDF */}
+            <div className="card p-5">
+              <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4">
+                Drawing PDF
+              </h2>
+
+              {uploadError && (
+                <div className="mb-3 px-3 py-2 bg-error/10 border border-error/20 text-error text-xs rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {uploadError}
                 </div>
+              )}
+
+              {project.pdfStatus === 'uploaded' && project.googleDriveFileId ? (
+                /* ── PDF uploaded ── */
                 <div>
-                  <h3 className="font-semibold text-text-primary text-sm">PDF Drawing</h3>
-                  <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-                    PDF viewer and balloon tool will be available in the next phase.
-                  </p>
-                  <span className="inline-block mt-2 text-xs bg-warning/10 text-warning font-semibold px-2 py-0.5 rounded-full">
-                    Coming in Day 5
-                  </span>
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-9 h-9 bg-primary-light rounded-lg flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-text-primary truncate">
+                        {project.sourcePdfName}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-0.5">
+                        {project.sourcePdfSize
+                          ? `${(project.sourcePdfSize / (1024 * 1024)).toFixed(1)} MB · `
+                          : ''}
+                        {fmtTimestamp(project.sourcePdfUploadedAt)}
+                      </p>
+                      {project.sourcePdfUploadedBy && (
+                        <p className="text-xs text-text-secondary">
+                          by {project.sourcePdfUploadedBy}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      to={`/projects/${project.projectId}/pdf`}
+                      className="btn-primary text-sm w-full justify-center"
+                    >
+                      <Eye className="w-4 h-4" />
+                      View PDF
+                    </Link>
+                    <button
+                      onClick={handleUploadClick}
+                      disabled={isUploading}
+                      className="btn-secondary text-sm w-full justify-center disabled:opacity-60"
+                    >
+                      {isUploading ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          Uploading…
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4" />
+                          Replace PDF
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* ── No PDF ── */
+                <div className="flex flex-col items-center text-center py-3 gap-3">
+                  <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <UploadCloud className="w-5 h-5 text-text-secondary" />
+                  </div>
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    No drawing PDF uploaded yet.
+                  </p>
+                  <button
+                    onClick={handleUploadClick}
+                    disabled={isUploading}
+                    className="btn-primary text-sm w-full justify-center disabled:opacity-60"
+                  >
+                    {isUploading ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Uploading…
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-4 h-4" />
+                        Upload PDF
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={handlePdfSelect}
+              />
             </div>
 
             {/* Org */}
