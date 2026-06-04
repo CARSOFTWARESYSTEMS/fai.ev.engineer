@@ -168,7 +168,7 @@ export function ProfilePage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-8">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 py-8 pb-28">
         <div className="mb-7">
           <h1 className="text-2xl font-bold text-text-primary">Edit Profile</h1>
           <p className="text-sm text-text-secondary mt-1">
@@ -228,7 +228,7 @@ export function ProfilePage() {
         </div>
 
         {/* Editable fields */}
-        <form onSubmit={handleSubmit} className="card p-6">
+        <form id="edit-profile-form" onSubmit={handleSubmit} className="card p-6">
           <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-5">
             Contact &amp; Organization
           </h2>
@@ -330,35 +330,34 @@ export function ProfilePage() {
               </div>
             </div>
 
-            {/* Action row */}
-            <div className="flex items-center gap-3 pt-2 border-t border-border mt-1">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {isSaving ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Saving…
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Save Profile
-                  </>
-                )}
-              </button>
-              <Link
-                to="/dashboard"
-                className="btn-ghost text-sm"
-              >
-                Cancel
-              </Link>
-            </div>
           </div>
         </form>
       </main>
+
+      {/* ── Sticky action bar ─────────────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-border shadow-lg">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+          <button
+            type="submit"
+            form="edit-profile-form"
+            disabled={isSaving}
+            className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Saving…
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Save Profile
+              </>
+            )}
+          </button>
+          <Link to="/dashboard" className="btn-ghost text-sm">Cancel</Link>
+        </div>
+      </div>
     </div>
   )
 }

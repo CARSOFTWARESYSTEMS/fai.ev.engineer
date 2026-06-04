@@ -2,6 +2,8 @@ import {
   collection,
   doc,
   setDoc,
+  updateDoc,
+  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -10,7 +12,7 @@ import {
   type FieldValue,
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
-import type { FAIProject, CreateProjectInput } from './project.types'
+import type { FAIProject, CreateProjectInput, UpdateProjectInput } from './project.types'
 
 // Separate write type uses FieldValue for timestamps
 type ProjectWriteDoc = Omit<FAIProject, 'createdAt' | 'updatedAt'> & {
@@ -118,5 +120,50 @@ export async function getProjectById(projectId: string): Promise<FAIProject | nu
   } catch (err) {
     console.error('[PROJECT] Failed to fetch project:', projectId, err)
     return null
+  }
+}
+
+// ─── Update ───────────────────────────────────────────────────────────────────
+
+export async function updateProject(
+  projectId: string,
+  _uid: string,
+  data: UpdateProjectInput
+): Promise<void> {
+  console.log('[PROJECT] Update started:', projectId)
+
+  const patch: Record<string, unknown> = { updatedAt: serverTimestamp() }
+
+  if (data.projectName  !== undefined) patch.projectName  = data.projectName.trim()
+  if (data.customerName !== undefined) patch.customerName = data.customerName.trim()
+  if (data.partNumber   !== undefined) patch.partNumber   = data.partNumber.trim()
+  if (data.partName     !== undefined) patch.partName     = data.partName.trim()
+  if (data.drawingNumber   !== undefined) patch.drawingNumber   = data.drawingNumber.trim()
+  if (data.drawingRevision !== undefined) patch.drawingRevision = data.drawingRevision.trim()
+  if (data.material    !== undefined) patch.material    = data.material.trim()
+  if (data.description !== undefined) patch.description = data.description.trim()
+  if (data.status      !== undefined) patch.status      = data.status
+
+  try {
+    await updateDoc(doc(firestore, 'projects', projectId), patch)
+    console.log('[PROJECT] Update success:', projectId)
+  } catch (err) {
+    const e = err as { code?: string; message?: string }
+    console.error('[PROJECT] Update failed:', e.code, e.message)
+    throw err
+  }
+}
+
+// ─── Delete (permanent) ───────────────────────────────────────────────────────
+
+export async function deleteProject(projectId: string, _uid: string): Promise<void> {
+  console.log('[PROJECT] Delete started:', projectId)
+  try {
+    await deleteDoc(doc(firestore, 'projects', projectId))
+    console.log('[PROJECT] Delete success:', projectId)
+  } catch (err) {
+    const e = err as { code?: string; message?: string }
+    console.error('[PROJECT] Delete failed:', e.code, e.message)
+    throw err
   }
 }

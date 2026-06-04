@@ -49,6 +49,20 @@ export interface CreateProjectInput {
   description?: string
 }
 
+// ─── Input shape for updateProject() ─────────────────────────────────────────
+
+export interface UpdateProjectInput {
+  projectName?: string
+  customerName?: string
+  partNumber?: string
+  partName?: string
+  drawingNumber?: string
+  drawingRevision?: string
+  material?: string
+  description?: string
+  status?: ProjectStatus
+}
+
 // ─── Display helper ───────────────────────────────────────────────────────────
 
 export function fmtTimestamp(ts: unknown): string {

@@ -157,7 +157,7 @@ export function CreateProjectPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 pb-28">
         <div className="flex items-center gap-3 mb-7">
           <div className="w-10 h-10 bg-primary-light rounded-xl flex items-center justify-center shrink-0">
             <FolderPlus className="w-5 h-5 text-primary" />
@@ -181,7 +181,7 @@ export function CreateProjectPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        <form id="create-project-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
           {/* Required fields */}
           <div className="card p-6">
             <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-5">
@@ -275,29 +275,33 @@ export function CreateProjectPage() {
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Creating…
-                </>
-              ) : (
-                <>
-                  <FolderPlus className="w-4 h-4" />
-                  Create Project
-                </>
-              )}
-            </button>
-            <Link to="/dashboard" className="btn-ghost text-sm">Cancel</Link>
-          </div>
         </form>
       </main>
+
+      {/* ── Sticky action bar ─────────────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-border shadow-lg">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+          <button
+            type="submit"
+            form="create-project-form"
+            disabled={isSaving}
+            className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {isSaving ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Creating…
+              </>
+            ) : (
+              <>
+                <FolderPlus className="w-4 h-4" />
+                Create Project
+              </>
+            )}
+          </button>
+          <Link to="/dashboard" className="btn-ghost text-sm">Cancel</Link>
+        </div>
+      </div>
     </div>
   )
 }

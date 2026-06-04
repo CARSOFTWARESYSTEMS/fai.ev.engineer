@@ -4,9 +4,9 @@ import { X, Phone, ChevronDown } from 'lucide-react'
 const WHATSAPP_TEXT = encodeURIComponent('FAI.EV.ENGINEER - FAI Reports')
 
 const numbers = [
-  { display: '+91 88804 23666', number: '918880423666', region: 'India' },
-  { display: '+44 7714 296479', number: '447714296479', region: 'UK' },
-  { display: '+91 91082 06147', number: '919108206147', region: 'India' },
+  { display: '+91 88804 23666', number: '918880423666', role: 'Sales & Marketing' },
+  { display: '+44 7714 296479', number: '447714296479', role: 'Sales & Marketing' },
+  { display: '+91 91082 06147', number: '919108206147', role: 'Technical Support' },
 ]
 
 // WhatsApp brand green
@@ -68,7 +68,7 @@ export function WhatsAppCTA() {
                   <p className="text-sm font-semibold text-text-primary font-mono tracking-wide">
                     {n.display}
                   </p>
-                  <p className="text-xs text-text-secondary mt-0.5">{n.region}</p>
+                  <p className="text-xs text-text-secondary mt-0.5">{n.role}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Call button */}

@@ -17,7 +17,7 @@ function Spinner() {
 
 export function CompleteProfilePage() {
   const navigate = useNavigate()
-  const { firebaseUser, isLoading, isProfileComplete, refreshProfile } = useAuth()
+  const { firebaseUser, isLoading, isProfileComplete, refreshProfile, signOut } = useAuth()
 
   const [mobile, setMobile] = useState('')
   const [orgName, setOrgName] = useState('')
@@ -244,6 +244,15 @@ export function CompleteProfilePage() {
                 ) : (
                   'Continue to Dashboard'
                 )}
+              </button>
+
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={async () => { await signOut(); navigate('/', { replace: true }) }}
+                className="btn-ghost w-full text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Cancel
               </button>
             </form>
           </div>

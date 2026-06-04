@@ -8,16 +8,20 @@ import {
   Search,
   ChevronDown,
   AlertCircle,
+  CheckCircle2,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
-import { getUserProjects } from '../projects/project.service'
+import { getUserProjects, deleteProject } from '../projects/project.service'
 import {
   type FAIProject,
   fmtTimestamp,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
 } from '../projects/project.types'
+import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 
 type SortKey = 'updated' | 'created' | 'name'
 
@@ -40,6 +44,10 @@ export function ProjectsPage() {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortKey>('updated')
 
+  const [projectToDelete, setProjectToDelete] = useState<FAIProject | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteSuccess, setDeleteSuccess] = useState(false)
+
   const load = async () => {
     if (!firebaseUser) return
     setIsLoading(true)
@@ -55,6 +63,33 @@ export function ProjectsPage() {
   }
 
   useEffect(() => { load() }, [firebaseUser?.uid])
+
+  const handleDeleteConfirm = async () => {
+    if (!projectToDelete || !firebaseUser) return
+    setIsDeleting(true)
+    try {
+      await deleteProject(projectToDelete.projectId, firebaseUser.uid)
+      setProjects((prev) => prev.filter((p) => p.projectId !== projectToDelete.projectId))
+      setProjectToDelete(null)
+      setDeleteSuccess(true)
+      setTimeout(() => setDeleteSuccess(false), 4000)
+    } catch (err) {
+      const code = (err as { code?: string })?.code ?? ''
+      if (code.includes('permission-denied')) {
+        setError('You do not have permission to delete this project.')
+      } else if (code.includes('not-found')) {
+        setError('Project not found or already deleted.')
+        setProjects((prev) => prev.filter((p) => p.projectId !== projectToDelete.projectId))
+      } else if (code.includes('unavailable') || code.includes('network-request-failed')) {
+        setError('Firestore is temporarily unavailable. Please try again.')
+      } else {
+        setError('Unable to delete project. Please try again.')
+      }
+      setProjectToDelete(null)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const filteredProjects = useMemo(() => {
     let result = [...projects]
@@ -193,6 +228,14 @@ export function ProjectsPage() {
           </div>
         )}
 
+        {/* Success */}
+        {deleteSuccess && (
+          <div className="mb-5 flex items-center gap-2.5 px-4 py-3 bg-success/10 border border-success/20 text-success text-sm rounded-xl">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            Project deleted successfully.
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <div className="mb-5 flex items-start gap-2.5 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-xl">
@@ -289,15 +332,27 @@ export function ProjectsPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3 sm:flex-col sm:items-end shrink-0">
-                        <span className="text-xs text-text-secondary">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="hidden md:block text-xs text-text-secondary">
                           {fmtTimestamp(project.updatedAt)}
                         </span>
                         <button
                           onClick={() => navigate(`/projects/${project.projectId}`)}
                           className="flex items-center gap-1.5 text-xs font-semibold text-primary px-3 py-2 rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-colors">
-                          Open Project
+                          Open
                           <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                        <Link
+                          to={`/projects/${project.projectId}/edit`}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary px-3 py-2 rounded-lg border border-border hover:bg-gray-50 transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Edit</span>
+                        </Link>
+                        <button
+                          onClick={() => setProjectToDelete(project)}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-red-600 px-3 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Delete</span>
                         </button>
                       </div>
                     </div>
@@ -311,6 +366,15 @@ export function ProjectsPage() {
           </>
         )}
       </main>
+
+      {projectToDelete && (
+        <DeleteProjectModal
+          projectName={projectToDelete.projectName}
+          isDeleting={isDeleting}
+          onCancel={() => setProjectToDelete(null)}
+          onConfirm={handleDeleteConfirm}
+        />
+      )}
     </div>
   )
 }

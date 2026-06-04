@@ -6,6 +6,7 @@ import { DashboardPage } from '../pages/DashboardPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { CreateProjectPage } from '../pages/CreateProjectPage'
+import { EditProjectPage } from '../pages/EditProjectPage'
 import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { RoadmapPage } from '../pages/RoadmapPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
   {
     path: '/projects/:projectId',
     element: <ProtectedRoute><ProjectDetailPage /></ProtectedRoute>,
+  },
+  {
+    path: '/projects/:projectId/edit',
+    element: <ProtectedRoute><EditProjectPage /></ProtectedRoute>,
   },
 
   // ─── 404 ──────────────────────────────────────────────────────────────────

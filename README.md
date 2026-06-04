@@ -90,6 +90,8 @@ service cloud.firestore {
 ```
 
 > **If project creation shows a `permission-denied` error**, the `projects` rule above is either missing or not yet published in Firebase Console. Copy the full block above, paste it in Firestore → Rules, and click **Publish**.
+
+> **Delete Project** permanently removes the Firestore project document (`deleteDoc`). This is an irreversible operation in MVP. The `delete` permission in the rule above grants this access only to the document owner.
 ```
 
 ### 5. Run development server
@@ -228,11 +230,38 @@ src/
 - Complete Profile flow (WhatsApp + org details)
 - 3-state ProtectedRoute
 
-### Day 3 — Upcoming
+### Day 3 — Product Key Engine (Complete)
+- ProductConfigProvider + feature flags per organization
+- Multi-tenant product key system (`?pk=` URL param)
+- Theme, logo, pricing, and feature access per org
+
+### Day 4 — Project Management (Complete)
+- Create, list, detail, edit, and delete projects
+- Permanent delete — removes Firestore document (`deleteDoc`)
+- Soft-delete replaced by permanent delete in MVP
+
+### Day 5 — Upcoming
 - PDF Drawing Viewer
 - Manual Balloon Tool
 - Feature Table (characteristic table)
 - AS9102 Form 3 Export
+
+---
+
+## Delete Project Behavior
+
+Delete Project permanently removes the Firestore document using `deleteDoc`. This is irreversible in MVP.
+
+The Firestore `delete` permission in the security rules grants this to the document owner only.
+
+### Future Admin Portal (not part of MVP)
+
+When the Admin Portal is implemented, the following features may be introduced:
+
+- Archive Project (soft delete with status = archived)
+- Restore Project
+- Audit History
+- Deleted Project Recovery
 
 ---
 

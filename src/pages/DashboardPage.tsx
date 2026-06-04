@@ -41,6 +41,7 @@ const sprintStatus = [
   { label: 'Product Key + Org Feature Config', done: true },
   { label: 'Project creation + metadata', done: true },
   { label: 'Project list + detail view', done: true },
+  { label: 'Edit + delete projects (soft delete)', done: true },
   { label: 'PDF Viewer', done: false },
   { label: 'Balloon Tool', done: false },
   { label: 'Feature Table', done: false },
@@ -362,6 +363,11 @@ export function DashboardPage() {
                         className="text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-colors border border-primary/20">
                         Open
                       </button>
+                      <Link
+                        to={`/projects/${project.projectId}/edit`}
+                        className="text-xs font-semibold text-text-secondary hover:text-primary hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                        Edit
+                      </Link>
                     </div>
                   </div>
                 )
@@ -414,7 +420,7 @@ export function DashboardPage() {
         {/* Sprint status */}
         <div className="card p-6">
           <h2 className="font-semibold text-text-primary mb-4">
-            Sprint Progress — Days 1–4 Complete
+            Sprint Progress — Days 1–4.2 Complete
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {sprintStatus.map((item) => (
