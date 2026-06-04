@@ -51,16 +51,31 @@ VITE_FIREBASE_APP_ID=your_app_id
 VITE_GOOGLE_DRIVE_CLIENT_ID=your_drive_client_id
 ```
 
-### 4. Firestore Security Rules (minimum for development)
+### 4. Firestore Security Rules
 
-In Firebase Console → Firestore → Rules:
+In Firebase Console → Firestore → Rules, paste and publish:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+    // Users can read and update only their own profile
+    match /users/{userId} {
+      allow read, create, update: if request.auth != null
+                                 && request.auth.uid == userId;
+    }
+
+    // Product configs: authenticated read, no client write
+    match /productConfigs/{productKey} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Organization configs: authenticated read, no client write
+    match /organizationConfigs/{organizationCode} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
   }
 }
