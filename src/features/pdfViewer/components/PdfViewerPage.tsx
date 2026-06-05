@@ -9,6 +9,8 @@ import { requestDriveToken } from '../../../lib/googleDrive'
 import type { FAIProject } from '../../../projects/project.types'
 import type { PageNaturalSize } from '../types/pdfViewerTypes'
 import { usePdfViewer } from '../hooks/usePdfViewer'
+import { useBalloons } from '../../ballooning/hooks/useBalloons'
+import { BalloonLayer } from '../../ballooning/components/BalloonLayer'
 import { PdfToolbar } from './PdfToolbar'
 import { PdfCanvas } from './PdfCanvas'
 import { PdfLoadingState } from './PdfLoadingState'
@@ -25,6 +27,12 @@ export function PdfViewerPage() {
   const [error, setError] = useState('')
 
   const viewer = usePdfViewer()
+
+  // Balloon hooks: projectId/userId may be '' before project loads; useBalloons guards internally
+  const balloons = useBalloons({
+    projectId: projectId ?? '',
+    userId: user?.uid ?? '',
+  })
 
   // Revoke blob URL on unmount to free memory
   useEffect(() => {
@@ -156,6 +164,8 @@ export function PdfViewerPage() {
         currentPage={viewer.currentPage}
         numPages={viewer.numPages}
         isFullscreen={viewer.isFullscreen}
+        isBalloonMode={balloons.isBalloonMode}
+        hasSelectedBalloon={!!balloons.selectedId}
         onZoomIn={viewer.zoomIn}
         onZoomOut={viewer.zoomOut}
         onFitWidth={viewer.fitWidth}
@@ -165,6 +175,8 @@ export function PdfViewerPage() {
         onRotate={viewer.rotateClockwise}
         onDownload={handleDownload}
         onToggleFullscreen={viewer.toggleFullscreen}
+        onToggleBalloonMode={balloons.toggleBalloonMode}
+        onDeleteSelectedBalloon={balloons.deleteSelected}
       />
       <div className="flex-1 overflow-auto">
         <PdfCanvas
@@ -175,6 +187,19 @@ export function PdfViewerPage() {
           onDocumentLoad={handleDocumentLoad}
           onPageLoad={handlePageLoad}
           onDocumentError={handleDocumentError}
+          overlay={
+            <BalloonLayer
+              balloons={balloons.balloons}
+              currentPage={viewer.currentPage}
+              isBalloonMode={balloons.isBalloonMode}
+              selectedId={balloons.selectedId}
+              onSelect={balloons.setSelectedId}
+              onAddBalloon={(xPercent, yPercent) =>
+                balloons.addBalloon(viewer.currentPage, xPercent, yPercent)
+              }
+              onMoveBalloon={balloons.moveBalloon}
+            />
+          }
         />
       </div>
     </div>

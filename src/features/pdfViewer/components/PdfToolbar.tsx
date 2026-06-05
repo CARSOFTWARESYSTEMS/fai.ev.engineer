@@ -12,6 +12,8 @@ import {
   Download,
   Maximize,
   Minimize,
+  Target,
+  Trash2,
 } from 'lucide-react'
 
 interface PdfToolbarProps {
@@ -25,6 +27,8 @@ interface PdfToolbarProps {
   currentPage: number
   numPages: number
   isFullscreen: boolean
+  isBalloonMode: boolean
+  hasSelectedBalloon: boolean
   onZoomIn: () => void
   onZoomOut: () => void
   onFitWidth: () => void
@@ -34,6 +38,8 @@ interface PdfToolbarProps {
   onRotate: () => void
   onDownload: () => void
   onToggleFullscreen: () => void
+  onToggleBalloonMode: () => void
+  onDeleteSelectedBalloon: () => void
 }
 
 export function PdfToolbar({
@@ -47,6 +53,8 @@ export function PdfToolbar({
   currentPage,
   numPages,
   isFullscreen,
+  isBalloonMode,
+  hasSelectedBalloon,
   onZoomIn,
   onZoomOut,
   onFitWidth,
@@ -56,6 +64,8 @@ export function PdfToolbar({
   onRotate,
   onDownload,
   onToggleFullscreen,
+  onToggleBalloonMode,
+  onDeleteSelectedBalloon,
 }: PdfToolbarProps) {
   const canPrev = currentPage > 1
   const canNext = numPages > 0 && currentPage < numPages
@@ -167,6 +177,35 @@ export function PdfToolbar({
               : <Maximize className="w-4 h-4 text-text-secondary" />
             }
           </button>
+
+          <span className="text-border mx-1 select-none">|</span>
+
+          {/* Balloon mode toggle */}
+          <button
+            onClick={onToggleBalloonMode}
+            title={isBalloonMode ? 'Exit balloon mode' : 'Add balloons'}
+            className={[
+              'flex items-center gap-1 px-2 py-2 rounded-lg transition-colors text-xs font-semibold',
+              isBalloonMode
+                ? 'bg-primary text-white hover:bg-primary-dark'
+                : 'text-text-secondary hover:bg-gray-100',
+            ].join(' ')}
+          >
+            <Target className="w-4 h-4" />
+            <span className="hidden sm:inline">Balloon</span>
+          </button>
+
+          {/* Delete selected balloon — only shown when a balloon is selected */}
+          {hasSelectedBalloon && (
+            <button
+              onClick={onDeleteSelectedBalloon}
+              title="Delete selected balloon"
+              className="flex items-center gap-1 px-2 py-2 rounded-lg text-error hover:bg-red-50 transition-colors text-xs font-semibold"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          )}
         </div>
 
         {/* Right: file name + product logo */}
