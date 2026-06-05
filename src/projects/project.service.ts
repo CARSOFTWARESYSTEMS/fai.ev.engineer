@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { FAIProject, CreateProjectInput, UpdateProjectInput } from './project.types'
+import { requestDriveToken, deleteFileFromDrive, deleteProjectFolderFromDrive } from '../lib/googleDrive'
 
 // Separate write type uses FieldValue for timestamps
 type ProjectWriteDoc = Omit<FAIProject, 'createdAt' | 'updatedAt'> & {
@@ -156,11 +157,52 @@ export async function updateProject(
 
 // ─── Delete (permanent) ───────────────────────────────────────────────────────
 
-export async function deleteProject(projectId: string, _uid: string): Promise<void> {
+export async function deleteProject(projectId: string, _uid: string, userEmail: string): Promise<void> {
   console.log('[PROJECT] Delete started:', projectId)
+
+  // Load project to read Drive IDs before deleting
+  const snap = await getDoc(doc(firestore, 'projects', projectId))
+  const project = snap.exists() ? (snap.data() as FAIProject) : null
+
+  const driveFileId   = project?.googleDriveFileId ?? ''
+  const driveFolderId = project?.googleDriveProjectFolderId ?? ''
+
+  // Delete Drive file first — permission errors block the entire delete
+  if (driveFileId) {
+    console.log('[DRIVE] Deleting project PDF:', driveFileId)
+    try {
+      const accessToken = await requestDriveToken(userEmail)
+      await deleteFileFromDrive(accessToken, driveFileId)
+      console.log('[DRIVE] PDF deleted')
+    } catch (err) {
+      const msg = ((err as { message?: string })?.message ?? '').toLowerCase()
+      if (msg.includes('403') || msg.includes('permission') || msg.includes('access_denied')) {
+        throw new Error(
+          'Unable to delete project because the uploaded PDF could not be removed from Google Drive.'
+        )
+      }
+      // 404 or other transient errors — file may already be gone, continue
+      console.warn('[DRIVE] PDF delete skipped:', (err as { message?: string })?.message)
+    }
+  }
+
+  // Delete Drive project folder (best-effort — never blocks Firestore delete)
+  if (driveFolderId) {
+    console.log('[DRIVE] Deleting project folder:', driveFolderId)
+    try {
+      const accessToken = await requestDriveToken(userEmail)
+      await deleteProjectFolderFromDrive(accessToken, driveFolderId)
+      console.log('[DRIVE] Project folder deleted')
+    } catch (err) {
+      console.warn('[DRIVE] Project folder delete skipped:', (err as { message?: string })?.message)
+    }
+  }
+
+  // Delete Firestore document
   try {
     await deleteDoc(doc(firestore, 'projects', projectId))
-    console.log('[PROJECT] Delete success:', projectId)
+    console.log('[PROJECT] Firestore project deleted')
+    console.log('[PROJECT] Delete completed:', projectId)
   } catch (err) {
     const e = err as { code?: string; message?: string }
     console.error('[PROJECT] Delete failed:', e.code, e.message)

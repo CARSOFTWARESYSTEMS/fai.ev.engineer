@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -10,10 +10,21 @@ import {
   Key,
   Building2,
   Lock,
+  UploadCloud,
+  Eye,
+  FileText,
+  RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { getProjectById, updateProject, deleteProject } from '../projects/project.service'
+import {
+  uploadProjectPdf,
+  deleteProjectPdf,
+  validatePdfFile,
+  getPdfErrorMessage,
+} from '../projects/projectFile.service'
+import { loadGisScript, requestDriveToken } from '../lib/googleDrive'
 import {
   type FAIProject,
   type ProjectStatus,
@@ -102,9 +113,17 @@ export function EditProjectPage() {
   const [showDelete,   setShowDelete]   = useState(false)
   const [isDeleting,   setIsDeleting]   = useState(false)
   const [deleteError,  setDeleteError]  = useState('')
+  const [isUploading,      setIsUploading]      = useState(false)
+  const [uploadError,      setUploadError]      = useState('')
+  const [isDeletingPdf,    setIsDeletingPdf]    = useState(false)
+  const [confirmDeletePdf, setConfirmDeletePdf] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const set = (field: keyof FormState) => (value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }))
+
+  // Pre-load GIS script so Drive token popup fires on button click (user gesture)
+  useEffect(() => { loadGisScript().catch(() => {}) }, [])
 
   // ── Load project ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -137,6 +156,62 @@ export function EditProjectPage() {
       })
       .finally(() => setIsLoading(false))
   }, [projectId, user?.uid])
+
+  // ── PDF upload ──────────────────────────────────────────────────────────────
+  const handleUploadClick = async () => {
+    setUploadError('')
+    try {
+      await requestDriveToken(user?.email ?? '')
+    } catch (err) {
+      setUploadError(getPdfErrorMessage(err))
+      return
+    }
+    fileInputRef.current?.click()
+  }
+
+  const handlePdfSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+
+    const validationError = validatePdfFile(file)
+    if (validationError) { setUploadError(validationError); return }
+
+    setUploadError('')
+    setIsUploading(true)
+    try {
+      await uploadProjectPdf(
+        project!.projectId,
+        user!.uid,
+        user!.email ?? '',
+        file,
+        project!.googleDriveFileId || undefined
+      )
+      const updated = await getProjectById(project!.projectId)
+      if (updated) setProject(updated)
+    } catch (err) {
+      setUploadError(getPdfErrorMessage(err))
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleDeletePdf = async () => {
+    if (!project || !user) return
+    setIsDeletingPdf(true)
+    setUploadError('')
+    try {
+      await deleteProjectPdf(project.projectId, user.uid, project.googleDriveFileId, user.email ?? '')
+      const updated = await getProjectById(project.projectId)
+      if (updated) setProject(updated)
+      setConfirmDeletePdf(false)
+    } catch {
+      setUploadError('Unable to delete PDF. Please try again.')
+      setConfirmDeletePdf(false)
+    } finally {
+      setIsDeletingPdf(false)
+    }
+  }
 
   // ── Save ────────────────────────────────────────────────────────────────────
   const handleSave = async (e: React.FormEvent) => {
@@ -177,11 +252,15 @@ export function EditProjectPage() {
     setIsDeleting(true)
     setDeleteError('')
     try {
-      await deleteProject(projectId, user.uid)
+      await deleteProject(projectId, user.uid, user.email ?? '')
       setShowDelete(false)
       navigate('/projects', { replace: true })
     } catch (err) {
-      setDeleteError(firestoreError(err, 'delete'))
+      const msg = (err as { message?: string })?.message ?? ''
+      setDeleteError(
+        msg.includes('Google Drive') ? msg : firestoreError(err, 'delete')
+      )
+      setShowDelete(false)
       setIsDeleting(false)
     }
   }
@@ -374,27 +453,151 @@ export function EditProjectPage() {
             </div>
           </div>
 
+          {/* Drawing PDF */}
+          <div className="card p-6">
+            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4">
+              Drawing PDF
+            </h2>
+
+            {uploadError && (
+              <div className="mb-3 px-3 py-2 bg-error/10 border border-error/20 text-error text-xs rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                {uploadError}
+              </div>
+            )}
+
+            {project.pdfStatus === 'uploaded' && project.googleDriveFileId ? (
+              <div>
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-9 h-9 bg-primary-light rounded-lg flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-text-primary truncate">{project.sourcePdfName}</p>
+                    <p className="text-xs text-text-secondary mt-0.5">
+                      {project.sourcePdfSize
+                        ? `${(project.sourcePdfSize / (1024 * 1024)).toFixed(1)} MB · `
+                        : ''}
+                      {fmtTimestamp(project.sourcePdfUploadedAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Link
+                    to={`/projects/${projectId}/pdf`}
+                    className="btn-primary text-sm w-full justify-center"
+                  >
+                    <Eye className="w-4 h-4" />
+                    View PDF
+                  </Link>
+
+                  {confirmDeletePdf ? (
+                    <div className="flex flex-col items-center gap-2 py-2.5 px-3 bg-red-50 rounded-lg border border-red-100">
+                      <span className="text-xs text-text-secondary">Remove this PDF permanently?</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleDeletePdf}
+                          disabled={isDeletingPdf}
+                          className="text-xs font-semibold text-white bg-error hover:bg-red-700 disabled:opacity-60 px-3 py-1.5 rounded-md transition-colors"
+                        >
+                          {isDeletingPdf ? 'Deleting…' : 'Yes, Delete'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeletePdf(false)}
+                          disabled={isDeletingPdf}
+                          className="text-xs font-medium text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-md hover:bg-red-100 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleUploadClick}
+                        disabled={isUploading || isDeletingPdf}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 bg-white text-primary font-semibold text-sm rounded-lg border border-primary hover:bg-primary-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isUploading ? (
+                          <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4 shrink-0" />
+                        )}
+                        {isUploading ? 'Uploading…' : 'Replace PDF'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeletePdf(true)}
+                        disabled={isUploading || isDeletingPdf}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-error font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-4 h-4 shrink-0" />
+                        Delete PDF
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                  <UploadCloud className="w-5 h-5 text-text-secondary" />
+                </div>
+                <p className="text-sm text-text-secondary mb-3">No drawing PDF uploaded yet.</p>
+                <button
+                  type="button"
+                  onClick={handleUploadClick}
+                  disabled={isUploading}
+                  className="btn-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Uploading…
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-4 h-4" />
+                      Upload PDF
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={handlePdfSelect}
+            />
+          </div>
+
           {/* Read-only context */}
           <div className="card p-5 bg-gray-50">
-            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4 flex items-center gap-2">
+            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
               <Lock className="w-3.5 h-3.5" />
               Read-Only Fields
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-2">
+            <div className="divide-y divide-border">
               {[
-                { label: 'Product Key',       value: project.productKey,       mono: true,  icon: <Key className="w-3.5 h-3.5 text-primary" /> },
-                { label: 'Org Code',          value: project.organizationCode, mono: true,  icon: <Building2 className="w-3.5 h-3.5 text-primary" /> },
-                { label: 'Organization',      value: project.organizationName, mono: false, icon: <Building2 className="w-3.5 h-3.5 text-primary" /> },
-                { label: 'Version',           value: `v${project.version}`,    mono: true,  icon: null },
-                { label: 'Created',           value: fmtTimestamp(project.createdAt), mono: false, icon: null },
-                { label: 'Last Updated',      value: fmtTimestamp(project.updatedAt), mono: false, icon: null },
+                { label: 'Product Key',   value: project.productKey,             mono: true,  icon: <Key      className="w-3.5 h-3.5 text-primary" /> },
+                { label: 'Org Code',      value: project.organizationCode,       mono: true,  icon: <Building2 className="w-3.5 h-3.5 text-primary" /> },
+                { label: 'Organization',  value: project.organizationName,       mono: false, icon: <Building2 className="w-3.5 h-3.5 text-primary" /> },
+                { label: 'Version',       value: `v${project.version}`,          mono: true,  icon: null },
+                { label: 'Created',       value: fmtTimestamp(project.createdAt),mono: false, icon: null },
+                { label: 'Last Updated',  value: fmtTimestamp(project.updatedAt),mono: false, icon: null },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between text-sm py-1.5">
+                <div key={item.label} className="flex items-center justify-between py-2.5 text-sm">
                   <span className="text-text-secondary flex items-center gap-1.5">
                     {item.icon}
                     {item.label}
                   </span>
-                  <span className={`font-medium text-text-primary text-xs ${item.mono ? 'font-mono' : ''}`}>
+                  <span className={`font-medium text-text-primary ${item.mono ? 'font-mono text-xs' : ''}`}>
                     {item.value || '—'}
                   </span>
                 </div>

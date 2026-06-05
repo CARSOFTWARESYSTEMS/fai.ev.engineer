@@ -68,14 +68,17 @@ export function ProjectsPage() {
     if (!projectToDelete || !firebaseUser) return
     setIsDeleting(true)
     try {
-      await deleteProject(projectToDelete.projectId, firebaseUser.uid)
+      await deleteProject(projectToDelete.projectId, firebaseUser.uid, firebaseUser.email ?? '')
       setProjects((prev) => prev.filter((p) => p.projectId !== projectToDelete.projectId))
       setProjectToDelete(null)
       setDeleteSuccess(true)
       setTimeout(() => setDeleteSuccess(false), 4000)
     } catch (err) {
+      const msg  = (err as { message?: string })?.message ?? ''
       const code = (err as { code?: string })?.code ?? ''
-      if (code.includes('permission-denied')) {
+      if (msg.includes('Google Drive')) {
+        setError(msg)
+      } else if (code.includes('permission-denied')) {
         setError('You do not have permission to delete this project.')
       } else if (code.includes('not-found')) {
         setError('Project not found or already deleted.')

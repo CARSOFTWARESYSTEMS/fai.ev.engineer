@@ -82,14 +82,15 @@ export async function uploadProjectPdf(
 // Keeps the project folder + user folder + root folder intact.
 
 export async function deleteProjectPdf(
-  projectId:      string,
-  _uid:           string,
-  driveFileId:    string
+  projectId:   string,
+  _uid:        string,
+  driveFileId: string,
+  userEmail?:  string
 ): Promise<void> {
   console.log('[PDF] Delete started:', projectId)
 
   try {
-    const accessToken = await requestDriveToken() // uses cached token from upload session
+    const accessToken = await requestDriveToken(userEmail)
     await deleteFileFromDrive(accessToken, driveFileId)
 
     await updateDoc(doc(firestore, 'projects', projectId), {

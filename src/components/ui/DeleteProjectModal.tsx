@@ -28,8 +28,8 @@ export function DeleteProjectModal({ projectName, isDeleting, onCancel, onConfir
             <h2 className="text-lg font-bold text-text-primary">Delete Project?</h2>
             <p className="text-sm text-text-secondary mt-1.5 leading-relaxed">
               This will permanently delete{' '}
-              <span className="font-semibold text-text-primary">"{projectName}"</span>.
-              This action cannot be undone.
+              <span className="font-semibold text-text-primary">"{projectName}"</span>{' '}
+              and its uploaded PDF files from Google Drive. This action cannot be undone.
             </p>
           </div>
         </div>

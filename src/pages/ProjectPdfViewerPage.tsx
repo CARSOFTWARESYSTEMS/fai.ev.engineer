@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, FileText, AlertCircle } from 'lucide-react'
+import { ArrowLeft, FileText, AlertCircle, LayoutDashboard } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { getProjectById } from '../projects/project.service'
@@ -85,17 +85,24 @@ export function ProjectPdfViewerPage() {
       {/* Header */}
       <header className="bg-white border-b border-border shrink-0 h-14">
         <div className="max-w-full mx-auto px-4 sm:px-6 h-full flex items-center justify-between gap-4">
-          {/* Left — nav + project info */}
-          <div className="flex items-center gap-3 min-w-0">
+          {/* Left — nav buttons + project info */}
+          <div className="flex items-center gap-2 min-w-0">
             <Link
               to={`/projects/${projectId}`}
-              className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors shrink-0"
+              className="btn-secondary text-sm shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
-              Project
+              <span>Back</span>
             </Link>
-            <span className="text-border hidden sm:block">/</span>
-            <div className="hidden sm:flex items-center gap-2 min-w-0">
+            <Link
+              to="/dashboard"
+              className="btn-ghost text-sm shrink-0"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </Link>
+            <span className="text-border hidden md:block">/</span>
+            <div className="hidden md:flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 bg-primary-light rounded-lg flex items-center justify-center shrink-0">
                 <FileText className="w-3.5 h-3.5 text-primary" />
               </div>

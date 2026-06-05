@@ -23,9 +23,9 @@ import { useProductConfig } from '../config/hooks/useProductConfig'
 import { getProjectById, deleteProject } from '../projects/project.service'
 import {
   uploadProjectPdf,
+  deleteProjectPdf,
   validatePdfFile,
   getPdfErrorMessage,
-  tryCleanupProjectDriveFolder,
 } from '../projects/projectFile.service'
 import { loadGisScript, requestDriveToken } from '../lib/googleDrive'
 import {
@@ -66,10 +66,13 @@ export function ProjectDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
 
-  const [showDelete,  setShowDelete]  = useState(false)
-  const [isDeleting,  setIsDeleting]  = useState(false)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadError, setUploadError] = useState('')
+  const [showDelete,      setShowDelete]      = useState(false)
+  const [isDeleting,      setIsDeleting]      = useState(false)
+  const [deleteError,     setDeleteError]     = useState('')
+  const [isUploading,     setIsUploading]     = useState(false)
+  const [uploadError,     setUploadError]     = useState('')
+  const [confirmDeletePdf, setConfirmDeletePdf] = useState(false)
+  const [isDeletingPdf,   setIsDeletingPdf]   = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Pre-load GIS script on mount so it's ready when user clicks Upload
@@ -118,6 +121,23 @@ export function ProjectDetailPage() {
     }
   }
 
+  const handleDeletePdf = async () => {
+    if (!project || !user) return
+    setIsDeletingPdf(true)
+    setUploadError('')
+    try {
+      await deleteProjectPdf(project.projectId, user.uid, project.googleDriveFileId, user.email ?? '')
+      const updated = await getProjectById(project.projectId)
+      if (updated) setProject(updated)
+      setConfirmDeletePdf(false)
+    } catch {
+      setUploadError('Unable to delete PDF. Please try again.')
+      setConfirmDeletePdf(false)
+    } finally {
+      setIsDeletingPdf(false)
+    }
+  }
+
   useEffect(() => {
     if (!projectId) return
     getProjectById(projectId)
@@ -146,15 +166,15 @@ export function ProjectDetailPage() {
   const handleDeleteConfirm = async () => {
     if (!projectId || !user) return
     setIsDeleting(true)
+    setDeleteError('')
     try {
-      // Clean up Google Drive project folder (best-effort — never blocks Firestore delete)
-      if (project?.googleDriveProjectFolderId) {
-        await tryCleanupProjectDriveFolder(project.googleDriveProjectFolderId)
-      }
-      await deleteProject(projectId, user.uid)
+      await deleteProject(projectId, user.uid, user.email ?? '')
       setShowDelete(false)
       navigate('/projects', { replace: true })
-    } catch {
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? ''
+      setDeleteError(msg || 'Unable to delete project. Please try again.')
+      setShowDelete(false)
       setIsDeleting(false)
     }
   }
@@ -250,6 +270,13 @@ export function ProjectDetailPage() {
           </div>
         </div>
 
+        {deleteError && (
+          <div className="mb-5 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-xl flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            {deleteError}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Main details */}
           <div className="lg:col-span-2 card p-6">
@@ -344,23 +371,51 @@ export function ProjectDetailPage() {
                       <Eye className="w-4 h-4" />
                       View PDF
                     </Link>
-                    <button
-                      onClick={handleUploadClick}
-                      disabled={isUploading}
-                      className="btn-secondary text-sm w-full justify-center disabled:opacity-60"
-                    >
-                      {isUploading ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                          Uploading…
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4" />
-                          Replace PDF
-                        </>
-                      )}
-                    </button>
+
+                    {confirmDeletePdf ? (
+                      <div className="flex flex-col items-center gap-2 py-2.5 px-3 bg-red-50 rounded-lg border border-red-100">
+                        <span className="text-xs text-text-secondary">Remove this PDF permanently?</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleDeletePdf}
+                            disabled={isDeletingPdf}
+                            className="text-xs font-semibold text-white bg-error hover:bg-red-700 disabled:opacity-60 px-3 py-1.5 rounded-md transition-colors"
+                          >
+                            {isDeletingPdf ? 'Deleting…' : 'Yes, Delete'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeletePdf(false)}
+                            disabled={isDeletingPdf}
+                            className="text-xs font-medium text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-md hover:bg-red-100 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleUploadClick}
+                          disabled={isUploading || isDeletingPdf}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 bg-white text-primary font-semibold text-sm rounded-lg border border-primary hover:bg-primary-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {isUploading ? (
+                            <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4 shrink-0" />
+                          )}
+                          <span className="lg:hidden">{isUploading ? 'Uploading…' : 'Replace PDF'}</span>
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeletePdf(true)}
+                          disabled={isUploading || isDeletingPdf}
+                          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-error font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="w-4 h-4 shrink-0" />
+                          <span className="lg:hidden">Delete PDF</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (

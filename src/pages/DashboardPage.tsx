@@ -16,6 +16,8 @@ import {
   FileText,
   ArrowRight,
   RefreshCw,
+  Eye,
+  UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
@@ -23,7 +25,6 @@ import { FEATURE_LABELS, type FeatureKey } from '../config/productConfig.types'
 import { getUserProjects } from '../projects/project.service'
 import {
   type FAIProject,
-  fmtTimestamp,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
 } from '../projects/project.types'
@@ -353,38 +354,67 @@ export function DashboardPage() {
             <div className="flex flex-col divide-y divide-border">
               {recentProjects.map((project) => {
                 const statusClass = PROJECT_STATUS_COLORS[project.status]
+                const hasPdf = project.pdfStatus === 'uploaded' && !!project.googleDriveFileId
                 return (
                   <div key={project.projectId}
-                    className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors">
-                    <div className="w-8 h-8 bg-primary-light rounded-lg flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4 text-primary" />
-                    </div>
+                    className="flex items-start gap-3 py-3.5 first:pt-0 last:pb-0">
+
+                    {/* Clickable icon → project detail */}
+                    <Link to={`/projects/${project.projectId}`}
+                      className="w-9 h-9 bg-primary-light rounded-lg flex items-center justify-center shrink-0 hover:bg-primary group transition-colors mt-0.5">
+                      <FileText className="w-4 h-4 text-primary group-hover:text-white transition-colors" />
+                    </Link>
+
+                    {/* Project info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-text-primary truncate">
-                        {project.projectName}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <Link to={`/projects/${project.projectId}`}
+                          className="text-sm font-semibold text-text-primary hover:text-primary truncate transition-colors">
+                          {project.projectName}
+                        </Link>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${statusClass}`}>
+                          {PROJECT_STATUS_LABELS[project.status]}
+                        </span>
+                      </div>
                       <p className="text-xs text-text-secondary font-mono truncate">
                         {project.partNumber} · {project.drawingNumber} · Rev {project.drawingRevision}
                       </p>
+
+                      {/* PDF row */}
+                      {hasPdf ? (
+                        <Link to={`/projects/${project.projectId}/pdf`}
+                          className="inline-flex items-center gap-1 mt-1 text-xs text-primary hover:underline max-w-full">
+                          <FileText className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{project.sourcePdfName}</span>
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 mt-1 text-xs text-text-secondary">
+                          <UploadCloud className="w-3 h-3 shrink-0" />
+                          No PDF uploaded
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full hidden sm:block ${statusClass}`}>
-                        {PROJECT_STATUS_LABELS[project.status]}
-                      </span>
-                      <span className="text-xs text-text-secondary hidden md:block">
-                        {fmtTimestamp(project.updatedAt)}
-                      </span>
-                      <button
-                        onClick={() => navigate(`/projects/${project.projectId}`)}
-                        className="text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-colors border border-primary/20">
-                        Open
-                      </button>
-                      <Link
-                        to={`/projects/${project.projectId}/edit`}
-                        className="text-xs font-semibold text-text-secondary hover:text-primary hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors">
-                        Edit
+
+                    {/* Quick actions */}
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      {hasPdf && canAccess('pdfViewer') && (
+                        <Link to={`/projects/${project.projectId}/pdf`}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-colors border border-primary/20">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">View PDF</span>
+                        </Link>
+                      )}
+                      <Link to={`/projects/${project.projectId}/edit`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </Link>
+                      <Link to={`/projects/${project.projectId}`}
+                        className="inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-primary hover:bg-gray-100 rounded-lg transition-colors">
+                        <ArrowRight className="w-4 h-4" />
                       </Link>
                     </div>
+
                   </div>
                 )
               })}
