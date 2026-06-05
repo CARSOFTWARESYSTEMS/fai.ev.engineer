@@ -70,7 +70,11 @@ function DueBadge({ project }: { project: FAIProject }) {
 
 // ─── Shared project mini-card (Kanban) ────────────────────────────────────────
 
-function KanbanCard({ project, onDelete }: { project: FAIProject; onDelete: (p: FAIProject) => void }) {
+function KanbanCard({ project, canDelete, onDelete }: {
+  project: FAIProject
+  canDelete: boolean
+  onDelete: (p: FAIProject) => void
+}) {
   const hasPdf      = project.pdfStatus === 'uploaded' && !!project.googleDriveFileId
   const priorityCls = getPriorityBadgeClass(project.priority)
   const priorityDot = getPriorityDotClass(project.priority)
@@ -112,11 +116,13 @@ function KanbanCard({ project, onDelete }: { project: FAIProject; onDelete: (p: 
           <Pencil className="w-3.5 h-3.5" />
           Edit
         </Link>
-        <button
-          onClick={() => onDelete(project)}
-          className="inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        {canDelete && (
+          <button
+            onClick={() => onDelete(project)}
+            className="inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -127,8 +133,9 @@ function KanbanCard({ project, onDelete }: { project: FAIProject; onDelete: (p: 
 export function ProjectsPage() {
   const navigate      = useNavigate()
   const [searchParams] = useSearchParams()
-  const { firebaseUser } = useAuth()
+  const { user, firebaseUser } = useAuth()
   const { productConfig, canAccess } = useProductConfig()
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
   const [projects, setProjects]   = useState<FAIProject[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -170,7 +177,7 @@ export function ProjectsPage() {
 
   // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
-    if (!projectToDelete || !firebaseUser) return
+    if (!isAdmin || !projectToDelete || !firebaseUser) return
     setIsDeleting(true)
     try {
       await deleteProject(projectToDelete.projectId, firebaseUser.uid, firebaseUser.email ?? '')
@@ -468,11 +475,13 @@ export function ProjectsPage() {
                       <Pencil className="w-3.5 h-3.5" />
                       Edit
                     </Link>
-                    <button
-                      onClick={() => setProjectToDelete(project)}
-                      className="ml-auto inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => setProjectToDelete(project)}
+                        className="ml-auto inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -505,6 +514,7 @@ export function ProjectsPage() {
                       <KanbanCard
                         key={project.projectId}
                         project={project}
+                        canDelete={isAdmin}
                         onDelete={setProjectToDelete}
                       />
                     ))
@@ -518,7 +528,7 @@ export function ProjectsPage() {
       </main>
 
       {/* Delete modal */}
-      {projectToDelete && (
+      {isAdmin && projectToDelete && (
         <DeleteProjectModal
           projectName={projectToDelete.projectName}
           isDeleting={isDeleting}

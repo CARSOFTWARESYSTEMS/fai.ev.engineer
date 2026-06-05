@@ -89,6 +89,8 @@ export interface UpdateProjectInput {
   material?: string
   description?: string
   status?: EditableProjectStatus
+  priority?: ProjectPriority
+  dueDate?: string
 }
 
 // ─── Display helpers ──────────────────────────────────────────────────────────

@@ -103,7 +103,14 @@ export function UserAvatarMenu() {
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-sm font-bold text-text-primary truncate">{displayName}</p>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <p className="text-sm font-bold text-text-primary truncate">{displayName}</p>
+                  {isAdmin && (
+                    <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded shrink-0">
+                      {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-text-secondary truncate">{email}</p>
               </div>
             </div>
@@ -142,30 +149,31 @@ export function UserAvatarMenu() {
               Edit Profile
             </Link>
 
-            <button
-              disabled
-              className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary opacity-40 cursor-not-allowed w-full text-left"
-              role="menuitem"
-            >
-              <Settings className="w-4 h-4 shrink-0" />
-              Settings
-              <span className="ml-auto text-[10px] bg-gray-100 px-1.5 py-0.5 rounded font-medium">
-                Soon
-              </span>
-            </button>
-
             {isAdmin && (
-              <button
-                disabled
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary opacity-40 cursor-not-allowed w-full text-left"
-                role="menuitem"
-              >
-                <Shield className="w-4 h-4 shrink-0" />
-                Admin Panel
-                <span className="ml-auto text-[10px] bg-gray-100 px-1.5 py-0.5 rounded font-medium">
-                  Soon
-                </span>
-              </button>
+              <>
+                <button
+                  disabled
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary opacity-40 cursor-not-allowed w-full text-left"
+                  role="menuitem"
+                >
+                  <Settings className="w-4 h-4 shrink-0" />
+                  Settings
+                  <span className="ml-auto text-[10px] bg-gray-100 px-1.5 py-0.5 rounded font-medium">
+                    Soon
+                  </span>
+                </button>
+                <button
+                  disabled
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary opacity-40 cursor-not-allowed w-full text-left"
+                  role="menuitem"
+                >
+                  <Shield className="w-4 h-4 shrink-0" />
+                  Admin Panel
+                  <span className="ml-auto text-[10px] bg-gray-100 px-1.5 py-0.5 rounded font-medium">
+                    Soon
+                  </span>
+                </button>
+              </>
             )}
           </div>
 

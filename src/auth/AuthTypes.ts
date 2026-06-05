@@ -2,6 +2,8 @@ import type { User as FirebaseUser } from 'firebase/auth'
 
 // ─── Firestore user document schema ──────────────────────────────────────────
 
+export type UserRole = 'user' | 'admin' | 'super_admin'
+
 export interface EVEngineerUser {
   uid: string
   displayName: string
@@ -17,7 +19,7 @@ export interface EVEngineerUser {
   gstNumber: string
 
   // Role & state
-  role: string               // "user" | "admin"
+  role: UserRole
   profileCompleted: boolean
 
   // Subscription

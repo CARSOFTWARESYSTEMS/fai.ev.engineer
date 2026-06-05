@@ -139,7 +139,7 @@ export function DashboardPage() {
   }, [firebaseUser?.uid])
 
   const handleDeleteConfirm = async () => {
-    if (!projectToDelete || !firebaseUser) return
+    if (!isAdmin || !projectToDelete || !firebaseUser) return
     setIsDeleting(true)
     try {
       await deleteProject(projectToDelete.projectId, firebaseUser.uid, firebaseUser.email ?? '')
@@ -496,11 +496,13 @@ export function DashboardPage() {
                         <Pencil className="w-3 h-3" />
                         Edit
                       </Link>
-                      <button
-                        onClick={() => setProjectToDelete(project)}
-                        className="ml-auto inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => setProjectToDelete(project)}
+                          className="ml-auto inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
@@ -571,7 +573,7 @@ export function DashboardPage() {
 
       </main>
 
-      {projectToDelete && (
+      {isAdmin && projectToDelete && (
         <DeleteProjectModal
           projectName={projectToDelete.projectName}
           isDeleting={isDeleting}

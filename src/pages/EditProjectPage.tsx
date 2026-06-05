@@ -14,6 +14,8 @@ import {
   Eye,
   FileText,
   RefreshCw,
+  Shield,
+  CalendarDays,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
@@ -32,6 +34,12 @@ import {
   PROJECT_STATUS_LABELS,
   EDITABLE_STATUS_OPTIONS,
 } from '../projects/project.types'
+import {
+  PRIORITY_LABELS,
+  normalisePriority,
+  type ProjectPriority,
+} from '../projects/projectPriority'
+import { toDate } from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 
 interface FormState {
@@ -44,9 +52,21 @@ interface FormState {
   material: string
   description: string
   status: EditableProjectStatus
+  priority: ProjectPriority
+  dueDate: string
 }
 
 const EDITABLE_STATUSES = EDITABLE_STATUS_OPTIONS
+const PRIORITY_OPTIONS: ProjectPriority[] = ['critical', 'high', 'medium', 'low']
+
+function toDateInputValue(value: unknown): string {
+  const date = toDate(value)
+  if (!date) return ''
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 function firestoreError(err: unknown, action: 'update' | 'delete'): string {
   const code = (err as { code?: string })?.code ?? ''
@@ -106,6 +126,8 @@ export function EditProjectPage() {
     material: '',
     description: '',
     status: 'draft',
+    priority: 'medium',
+    dueDate: '',
   })
 
   const [isSaving,     setIsSaving]     = useState(false)
@@ -145,6 +167,8 @@ export function EditProjectPage() {
           material:        p.material,
           description:     p.description,
           status:          (p.status === 'complete' ? 'completed' : p.status) as EditableProjectStatus,
+          priority:        normalisePriority(p.priority),
+          dueDate:         toDateInputValue(p.dueDate),
         })
       })
       .catch((err: { code?: string }) => {
@@ -225,9 +249,12 @@ export function EditProjectPage() {
     if (!form.drawingNumber.trim())   { setSaveError('Drawing Number is required.'); return }
     if (!form.drawingRevision.trim()) { setSaveError('Drawing Revision is required.'); return }
 
+    const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+    if (isAdmin && !form.dueDate) { setSaveError('Due Date is required for admin updates.'); return }
+
     setIsSaving(true)
     try {
-      await updateProject(projectId!, user!.uid, {
+      await updateProject(projectId!, user!.uid, user!.role, {
         projectName:     form.projectName,
         customerName:    form.customerName,
         partNumber:      form.partNumber,
@@ -237,6 +264,10 @@ export function EditProjectPage() {
         material:        form.material,
         description:     form.description,
         status:          form.status,
+        ...(isAdmin ? {
+          priority: form.priority,
+          dueDate: form.dueDate,
+        } : {}),
       })
       setSaveSuccess(true)
       setTimeout(() => navigate(`/projects/${projectId}`), 800)
@@ -249,7 +280,8 @@ export function EditProjectPage() {
 
   // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
-    if (!projectId || !user) return
+    const canDelete = user?.role === 'admin' || user?.role === 'super_admin'
+    if (!canDelete || !projectId || !user) return
     setIsDeleting(true)
     setDeleteError('')
     try {
@@ -290,6 +322,8 @@ export function EditProjectPage() {
     )
   }
 
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -322,18 +356,88 @@ export function EditProjectPage() {
       </header>
 
       <main className="flex-1 max-w-3xl mx-auto w-full px-4 sm:px-6 py-8 pb-28">
-        {/* Page title */}
-        <div className="flex items-center gap-3 mb-7">
-          <div className="w-10 h-10 bg-primary-light rounded-xl flex items-center justify-center shrink-0">
-            <FolderOpen className="w-5 h-5 text-primary" />
+        {/* Page title + status */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-primary-light rounded-xl flex items-center justify-center shrink-0">
+              <FolderOpen className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-text-primary">Edit Project</h1>
+              <p className="text-sm text-text-secondary mt-0.5">
+                Update drawing and part information.
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-text-primary">Edit Project</h1>
-            <p className="text-sm text-text-secondary mt-0.5">
-              Update drawing and part information.
-            </p>
+
+          <div className="w-full sm:w-52 shrink-0">
+            <label htmlFor="status" className="block text-xs font-semibold text-text-secondary mb-1.5">
+              Status
+            </label>
+            <select
+              id="status"
+              value={form.status}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, status: e.target.value as EditableProjectStatus }))
+              }
+              className="input-field"
+            >
+              {EDITABLE_STATUSES.map((status) => (
+                <option key={status} value={status}>{PROJECT_STATUS_LABELS[status]}</option>
+              ))}
+            </select>
           </div>
         </div>
+
+        {/* Admin planning */}
+        {isAdmin && (
+          <div className="rounded-xl border border-primary/20 bg-primary-light/50 p-4 mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield className="w-4 h-4 text-primary shrink-0" />
+              <div>
+                <h2 className="text-sm font-semibold text-text-primary">Admin Planning</h2>
+                <p className="text-xs text-text-secondary">Admin-only planning controls.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="priority" className="block text-xs font-semibold text-text-secondary mb-1.5">
+                  Priority
+                </label>
+                <select
+                  id="priority"
+                  value={form.priority}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, priority: e.target.value as ProjectPriority }))
+                  }
+                  className="input-field bg-white"
+                >
+                  {PRIORITY_OPTIONS.map((priority) => (
+                    <option key={priority} value={priority}>{PRIORITY_LABELS[priority]}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="dueDate" className="block text-xs font-semibold text-text-secondary mb-1.5">
+                  Due Date
+                </label>
+                <div className="relative">
+                  <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                  <input
+                    id="dueDate"
+                    type="date"
+                    value={form.dueDate}
+                    onChange={(e) => setForm((prev) => ({ ...prev, dueDate: e.target.value }))}
+                    className="input-field pl-10 bg-white"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Save error */}
         {saveError && (
@@ -393,64 +497,6 @@ export function EditProjectPage() {
                 value={form.customerName} onChange={set('customerName')}
                 placeholder="e.g. Airbus"
               />
-            </div>
-          </div>
-
-          {/* Optional fields */}
-          <div className="card p-6">
-            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-5">
-              Additional Details{' '}
-              <span className="font-normal normal-case text-text-secondary">(optional)</span>
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <Field
-                label="Part Name" id="partName"
-                value={form.partName} onChange={set('partName')}
-                placeholder="e.g. Mounting Bracket"
-              />
-              <Field
-                label="Material" id="material"
-                value={form.material} onChange={set('material')}
-                placeholder="e.g. Aluminium 6061-T6"
-              />
-              <div className="sm:col-span-2">
-                <label htmlFor="description" className="block text-sm font-medium text-text-primary mb-1.5">
-                  Description
-                  <span className="text-text-secondary font-normal text-xs ml-1.5">optional</span>
-                </label>
-                <textarea
-                  id="description"
-                  rows={3}
-                  value={form.description}
-                  onChange={(e) => set('description')(e.target.value)}
-                  placeholder="Brief description of the FAI scope or notes…"
-                  className="input-field resize-none placeholder-slate-300"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Status */}
-          <div className="card p-6">
-            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-5">
-              Project Status
-            </h2>
-            <div>
-              <label htmlFor="status" className="block text-sm font-medium text-text-primary mb-1.5">
-                Status
-              </label>
-              <select
-                id="status"
-                value={form.status}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, status: e.target.value as EditableProjectStatus }))
-                }
-                className="input-field"
-              >
-                {EDITABLE_STATUSES.map((s) => (
-                  <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
-                ))}
-              </select>
             </div>
           </div>
 
@@ -578,6 +624,40 @@ export function EditProjectPage() {
             />
           </div>
 
+          {/* Optional fields */}
+          <div className="card p-6">
+            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-5">
+              Additional Details{' '}
+              <span className="font-normal normal-case text-text-secondary">(optional)</span>
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <Field
+                label="Part Name" id="partName"
+                value={form.partName} onChange={set('partName')}
+                placeholder="e.g. Mounting Bracket"
+              />
+              <Field
+                label="Material" id="material"
+                value={form.material} onChange={set('material')}
+                placeholder="e.g. Aluminium 6061-T6"
+              />
+              <div className="sm:col-span-2">
+                <label htmlFor="description" className="block text-sm font-medium text-text-primary mb-1.5">
+                  Description
+                  <span className="text-text-secondary font-normal text-xs ml-1.5">optional</span>
+                </label>
+                <textarea
+                  id="description"
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => set('description')(e.target.value)}
+                  placeholder="Brief description of the FAI scope or notes…"
+                  className="input-field resize-none placeholder-slate-300"
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Read-only context */}
           <div className="card p-5 bg-gray-50">
             <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -633,18 +713,20 @@ export function EditProjectPage() {
             </button>
             <Link to={`/projects/${projectId}`} className="btn-ghost text-sm">Cancel</Link>
           </div>
-          <button
-            type="button"
-            onClick={() => { setDeleteError(''); setShowDelete(true) }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-red-600 font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete Project
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => { setDeleteError(''); setShowDelete(true) }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 text-red-600 font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Project
+            </button>
+          )}
         </div>
       </div>
 
-      {showDelete && (
+      {isAdmin && showDelete && (
         <DeleteProjectModal
           projectName={project.projectName}
           isDeleting={isDeleting}

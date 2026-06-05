@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore'
 import { firebaseAuth } from '../firebase/auth'
 import { firestore } from '../firebase/firestore'
-import type { EVEngineerUser } from './AuthTypes'
+import type { EVEngineerUser, UserRole } from './AuthTypes'
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
@@ -126,6 +126,7 @@ export interface UpdateProfileParams {
   organizationName: string
   organizationCode: string
   gstNumber: string
+  role?: Exclude<UserRole, 'super_admin'>
 }
 
 export async function updateUserProfile(
@@ -136,13 +137,19 @@ export async function updateUserProfile(
   console.log('[AUTH] Fields:', JSON.stringify(data, null, 2))
 
   try {
-    await updateDoc(doc(firestore, 'users', uid), {
+    const patch: Record<string, unknown> = {
       mobileNumber: data.mobileNumber.trim(),
       organizationName: data.organizationName.trim(),
       organizationCode: data.organizationCode.trim(),
       gstNumber: data.gstNumber.trim(),
       updatedAt: serverTimestamp(),
-    })
+    }
+    if (data.role === 'user' || data.role === 'admin') {
+      const currentProfile = await getDoc(doc(firestore, 'users', uid))
+      if (currentProfile.data()?.role !== 'super_admin') patch.role = data.role
+    }
+
+    await updateDoc(doc(firestore, 'users', uid), patch)
     console.log('[AUTH] Profile updated successfully for uid:', uid)
   } catch (err: unknown) {
     const { code, message } = extractFirebaseError(err)

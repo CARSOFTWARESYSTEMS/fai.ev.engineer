@@ -34,6 +34,17 @@ import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
 } from '../projects/project.types'
+import {
+  getPriorityBadgeClass,
+  getPriorityLabel,
+  normalisePriority,
+} from '../projects/projectPriority'
+import { getProjectDueDate } from '../projects/projectFilters'
+import {
+  dueDateStatus,
+  fmtDueDate,
+  isDueThisWeek,
+} from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 
 function DetailRow({ icon, label, value, mono }: {
@@ -164,7 +175,8 @@ export function ProjectDetailPage() {
   }, [projectId, user?.uid])
 
   const handleDeleteConfirm = async () => {
-    if (!projectId || !user) return
+    const canDelete = user?.role === 'admin' || user?.role === 'super_admin'
+    if (!canDelete || !projectId || !user) return
     setIsDeleting(true)
     setDeleteError('')
     try {
@@ -205,6 +217,20 @@ export function ProjectDetailPage() {
   }
 
   const statusClass = PROJECT_STATUS_COLORS[project.status]
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const priority = normalisePriority(project.priority)
+  const priorityLabel = getPriorityLabel(priority)
+  const priorityClass = getPriorityBadgeClass(priority)
+  const dueDate = getProjectDueDate(project)
+  const dueLabel = dueDate ? fmtDueDate(dueDate) : 'Not available'
+  const dueStatus = dueDateStatus(dueDate)
+  const dueClass = dueStatus === 'overdue'
+    ? 'bg-red-100 text-red-700 border-red-200'
+    : dueStatus === 'today'
+      ? 'bg-orange-100 text-orange-700 border-orange-200'
+      : dueDate && isDueThisWeek(dueDate)
+        ? 'bg-blue-50 text-blue-700 border-blue-200'
+        : 'bg-gray-50 text-text-secondary border-border'
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -235,10 +261,16 @@ export function ProjectDetailPage() {
         {/* Project header */}
         <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-6">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap mb-1">
-              <h1 className="text-2xl font-bold text-text-primary">{project.projectName}</h1>
+            <h1 className="text-2xl font-bold text-text-primary mb-2">{project.projectName}</h1>
+            <div className="flex items-center gap-2 flex-wrap mb-2">
               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusClass}`}>
                 {PROJECT_STATUS_LABELS[project.status]}
+              </span>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${priorityClass}`}>
+                {priorityLabel} Priority
+              </span>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${dueClass}`}>
+                Due: {dueLabel}
               </span>
             </div>
             <p className="text-sm text-text-secondary font-mono">
@@ -260,13 +292,15 @@ export function ProjectDetailPage() {
               <Pencil className="w-4 h-4" />
               <span className="hidden sm:inline">Edit</span>
             </Link>
-            <button
-              onClick={() => setShowDelete(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 text-red-600 font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowDelete(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-red-600 font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -312,6 +346,8 @@ export function ProjectDetailPage() {
               <div className="flex flex-col gap-3">
                 {[
                   { label: 'Status', value: PROJECT_STATUS_LABELS[project.status] },
+                  { label: 'Priority', value: priorityLabel },
+                  { label: 'Due Date', value: dueLabel },
                   { label: 'Version', value: `v${project.version}` },
                   { label: 'Product Key', value: project.productKey },
                   { label: 'Org Code', value: project.organizationCode },
@@ -483,7 +519,7 @@ export function ProjectDetailPage() {
         </div>
       </main>
 
-      {showDelete && (
+      {isAdmin && showDelete && (
         <DeleteProjectModal
           projectName={project.projectName}
           isDeleting={isDeleting}

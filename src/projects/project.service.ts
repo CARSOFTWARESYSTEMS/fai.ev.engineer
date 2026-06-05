@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { FAIProject, CreateProjectInput, UpdateProjectInput } from './project.types'
+import type { UserRole } from '../auth/AuthTypes'
 import { requestDriveToken, deleteFileFromDrive, deleteProjectFolderFromDrive } from '../lib/googleDrive'
 
 // Separate write type uses FieldValue for timestamps
@@ -139,6 +140,7 @@ export async function getProjectById(projectId: string): Promise<FAIProject | nu
 export async function updateProject(
   projectId: string,
   _uid: string,
+  callerRole: UserRole,
   data: UpdateProjectInput
 ): Promise<void> {
   console.log('[PROJECT] Update started:', projectId)
@@ -155,6 +157,22 @@ export async function updateProject(
   if (data.description !== undefined) patch.description = data.description.trim()
   if (data.status      !== undefined) patch.status      = data.status
 
+  const isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
+  if (isAdmin && data.priority !== undefined) patch.priority = data.priority
+  if (isAdmin && data.dueDate !== undefined) {
+    const [year, month, day] = data.dueDate.split('-').map(Number)
+    const dueDate = new Date(year, month - 1, day)
+    if (
+      !year || !month || !day ||
+      dueDate.getFullYear() !== year ||
+      dueDate.getMonth() !== month - 1 ||
+      dueDate.getDate() !== day
+    ) {
+      throw new Error('Invalid due date.')
+    }
+    patch.dueDate = Timestamp.fromDate(dueDate)
+  }
+
   try {
     await updateDoc(doc(firestore, 'projects', projectId), patch)
     console.log('[PROJECT] Update success:', projectId)
@@ -169,6 +187,12 @@ export async function updateProject(
 
 export async function deleteProject(projectId: string, _uid: string, userEmail: string): Promise<void> {
   console.log('[PROJECT] Delete started:', projectId)
+
+  const userSnap = await getDoc(doc(firestore, 'users', _uid))
+  const role = userSnap.data()?.role
+  if (role !== 'admin' && role !== 'super_admin') {
+    throw new Error('Insufficient permissions to delete project')
+  }
 
   // Load project to read Drive IDs before deleting
   const snap = await getDoc(doc(firestore, 'projects', projectId))

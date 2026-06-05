@@ -129,6 +129,14 @@ npm run build
 
 ## Authentication Flow (EVEngineerAuth)
 
+### Temporary Admin Toggle
+
+For MVP/internal testing only. Production admin access will later be controlled by organization roles and secure admin rules.
+
+### Temporary Delete Permissions
+
+Project deletion is limited to `admin` and `super_admin` roles for MVP. Future organization roles such as Member, Reviewer, Project Lead, Admin, and Super Admin will control permissions.
+
 ### New User
 
 ```
@@ -178,6 +186,7 @@ Continue with Google
   "organizationCode": "fortius",
   "organizationName": "Fortius Machining Solutions",
   "gstNumber": "29ABCDE1234F1Z5",
+  "role": "user",
   "subscriptionPlan": "trial",
   "createdAt": "2026-06-04T10:00:00.000Z",
   "lastLoginAt": "2026-06-04T10:00:00.000Z"
