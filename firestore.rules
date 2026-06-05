@@ -73,18 +73,20 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       // ── projects/{projectId}/balloons/{balloonId} ─────────────────────────
-      //
-      // Access is gated on owning the parent project document.
-      // isProjectOwner() does one extra Firestore read per rule evaluation;
-      // it short-circuits — only evaluated when the caller is authenticated.
       match /balloons/{balloonId} {
         allow read:   if isProjectOwner(projectId);
-
         allow create: if isProjectOwner(projectId) &&
                          request.resource.data.createdBy == uid();
-
         allow update: if isProjectOwner(projectId);
+        allow delete: if isProjectOwner(projectId);
+      }
 
+      // ── projects/{projectId}/features/{featureId} ─────────────────────────
+      match /features/{featureId} {
+        allow read:   if isProjectOwner(projectId);
+        allow create: if isProjectOwner(projectId) &&
+                         request.resource.data.createdBy == uid();
+        allow update: if isProjectOwner(projectId);
         allow delete: if isProjectOwner(projectId);
       }
     }

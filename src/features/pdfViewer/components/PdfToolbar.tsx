@@ -14,6 +14,7 @@ import {
   Minimize,
   Target,
   Trash2,
+  TableProperties,
 } from 'lucide-react'
 
 interface PdfToolbarProps {
@@ -29,6 +30,7 @@ interface PdfToolbarProps {
   isFullscreen: boolean
   isBalloonMode: boolean
   hasSelectedBalloon: boolean
+  isTableOpen: boolean
   onZoomIn: () => void
   onZoomOut: () => void
   onFitWidth: () => void
@@ -40,6 +42,7 @@ interface PdfToolbarProps {
   onToggleFullscreen: () => void
   onToggleBalloonMode: () => void
   onDeleteSelectedBalloon: () => void
+  onToggleTable: () => void
 }
 
 export function PdfToolbar({
@@ -55,6 +58,7 @@ export function PdfToolbar({
   isFullscreen,
   isBalloonMode,
   hasSelectedBalloon,
+  isTableOpen,
   onZoomIn,
   onZoomOut,
   onFitWidth,
@@ -66,6 +70,7 @@ export function PdfToolbar({
   onToggleFullscreen,
   onToggleBalloonMode,
   onDeleteSelectedBalloon,
+  onToggleTable,
 }: PdfToolbarProps) {
   const canPrev = currentPage > 1
   const canNext = numPages > 0 && currentPage < numPages
@@ -206,6 +211,23 @@ export function PdfToolbar({
               <span className="hidden sm:inline">Delete</span>
             </button>
           )}
+
+          <span className="text-border mx-1 select-none">|</span>
+
+          {/* Feature table toggle */}
+          <button
+            onClick={onToggleTable}
+            title={isTableOpen ? 'Hide feature table' : 'Show feature table'}
+            className={[
+              'flex items-center gap-1 px-2 py-2 rounded-lg transition-colors text-xs font-semibold',
+              isTableOpen
+                ? 'bg-primary text-white hover:bg-primary-dark'
+                : 'text-text-secondary hover:bg-gray-100',
+            ].join(' ')}
+          >
+            <TableProperties className="w-4 h-4" />
+            <span className="hidden sm:inline">Table</span>
+          </button>
         </div>
 
         {/* Right: file name + product logo */}

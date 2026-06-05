@@ -11,6 +11,8 @@ import type { PageNaturalSize } from '../types/pdfViewerTypes'
 import { usePdfViewer } from '../hooks/usePdfViewer'
 import { useBalloons } from '../../ballooning/hooks/useBalloons'
 import { BalloonLayer } from '../../ballooning/components/BalloonLayer'
+import { useFeatures } from '../../featureTable/hooks/useFeatures'
+import { FeatureTablePanel } from '../../featureTable/components/FeatureTablePanel'
 import { PdfToolbar } from './PdfToolbar'
 import { PdfCanvas } from './PdfCanvas'
 import { PdfLoadingState } from './PdfLoadingState'
@@ -25,16 +27,13 @@ export function PdfViewerPage() {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isTableOpen, setIsTableOpen] = useState(false)
 
   const viewer = usePdfViewer()
+  const balloons = useBalloons({ projectId: projectId ?? '', userId: user?.uid ?? '' })
+  const features = useFeatures({ projectId: projectId ?? '', userId: user?.uid ?? '' })
 
-  // Balloon hooks: projectId/userId may be '' before project loads; useBalloons guards internally
-  const balloons = useBalloons({
-    projectId: projectId ?? '',
-    userId: user?.uid ?? '',
-  })
-
-  // Revoke blob URL on unmount to free memory
+  // Revoke blob URL on unmount
   useEffect(() => {
     return () => {
       setPdfBlobUrl(prev => {
@@ -49,7 +48,6 @@ export function PdfViewerPage() {
     setIsLoading(true)
     setError('')
 
-    // Revoke any previous blob URL before fetching new one
     setPdfBlobUrl(prev => {
       if (prev) URL.revokeObjectURL(prev)
       return null
@@ -71,7 +69,6 @@ export function PdfViewerPage() {
       }
       setProject(p)
 
-      // Fetch PDF binary from Google Drive using authenticated API
       const token = await requestDriveToken(user.email ?? '')
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${p.googleDriveFileId}?alt=media`,
@@ -88,9 +85,7 @@ export function PdfViewerPage() {
     }
   }, [projectId, user?.uid, user?.email])
 
-  useEffect(() => {
-    loadPdf()
-  }, [loadPdf])
+  useEffect(() => { loadPdf() }, [loadPdf])
 
   const handleDownload = useCallback(() => {
     if (!pdfBlobUrl || !project) return
@@ -117,7 +112,7 @@ export function PdfViewerPage() {
     setError('PDF could not be rendered. The file may be corrupted or an unsupported format.')
   }, [])
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
+  // ── Loading ─────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="h-screen flex flex-col bg-gray-900">
@@ -126,7 +121,7 @@ export function PdfViewerPage() {
     )
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────────
+  // ── Error ───────────────────────────────────────────────────────────────────
   if (error || !project || !pdfBlobUrl) {
     return (
       <div className="h-screen flex flex-col bg-background">
@@ -150,7 +145,7 @@ export function PdfViewerPage() {
     )
   }
 
-  // ── Viewer ───────────────────────────────────────────────────────────────────
+  // ── Viewer ──────────────────────────────────────────────────────────────────
   return (
     <div className="h-screen flex flex-col bg-gray-900" ref={viewer.containerRef}>
       <PdfToolbar
@@ -166,6 +161,7 @@ export function PdfViewerPage() {
         isFullscreen={viewer.isFullscreen}
         isBalloonMode={balloons.isBalloonMode}
         hasSelectedBalloon={!!balloons.selectedId}
+        isTableOpen={isTableOpen}
         onZoomIn={viewer.zoomIn}
         onZoomOut={viewer.zoomOut}
         onFitWidth={viewer.fitWidth}
@@ -177,30 +173,59 @@ export function PdfViewerPage() {
         onToggleFullscreen={viewer.toggleFullscreen}
         onToggleBalloonMode={balloons.toggleBalloonMode}
         onDeleteSelectedBalloon={balloons.deleteSelected}
+        onToggleTable={() => setIsTableOpen(o => !o)}
       />
-      <div className="flex-1 overflow-auto">
-        <PdfCanvas
-          pdfBlobUrl={pdfBlobUrl}
-          currentPage={viewer.currentPage}
-          scale={viewer.scale}
-          rotation={viewer.rotation}
-          onDocumentLoad={handleDocumentLoad}
-          onPageLoad={handlePageLoad}
-          onDocumentError={handleDocumentError}
-          overlay={
-            <BalloonLayer
+
+      {/* Main content: PDF + (optional) Feature Table panel */}
+      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
+
+        {/* PDF area */}
+        <div className="flex-1 overflow-auto min-h-0">
+          <PdfCanvas
+            pdfBlobUrl={pdfBlobUrl}
+            currentPage={viewer.currentPage}
+            scale={viewer.scale}
+            rotation={viewer.rotation}
+            onDocumentLoad={handleDocumentLoad}
+            onPageLoad={handlePageLoad}
+            onDocumentError={handleDocumentError}
+            overlay={
+              <BalloonLayer
+                balloons={balloons.balloons}
+                currentPage={viewer.currentPage}
+                isBalloonMode={balloons.isBalloonMode}
+                selectedId={balloons.selectedId}
+                onSelect={balloons.setSelectedId}
+                onAddBalloon={(xPercent, yPercent) =>
+                  balloons.addBalloon(viewer.currentPage, xPercent, yPercent)
+                }
+                onMoveBalloon={balloons.moveBalloon}
+              />
+            }
+          />
+        </div>
+
+        {/* Feature Table panel — right side on desktop, bottom on mobile */}
+        {isTableOpen && (
+          <div className="
+            border-t border-border lg:border-t-0 lg:border-l
+            bg-white flex-shrink-0
+            h-[45vh] lg:h-auto lg:w-[500px]
+            overflow-hidden flex flex-col
+          ">
+            <FeatureTablePanel
+              features={features.features}
               balloons={balloons.balloons}
-              currentPage={viewer.currentPage}
-              isBalloonMode={balloons.isBalloonMode}
-              selectedId={balloons.selectedId}
-              onSelect={balloons.setSelectedId}
-              onAddBalloon={(xPercent, yPercent) =>
-                balloons.addBalloon(viewer.currentPage, xPercent, yPercent)
-              }
-              onMoveBalloon={balloons.moveBalloon}
+              selectedBalloonId={balloons.selectedId}
+              projectId={project.projectId}
+              userId={user?.uid ?? ''}
+              onAddFeature={features.addFeature}
+              onUpdateFeature={features.updateFeature}
+              onDeleteFeature={features.deleteFeature}
+              onSelectBalloon={balloons.setSelectedId}
             />
-          }
-        />
+          </div>
+        )}
       </div>
     </div>
   )
