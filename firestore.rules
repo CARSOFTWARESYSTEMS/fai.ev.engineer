@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function isOwner(ownerUid) {
+      return uid() == ownerUid;
+    }
+
+    // Reads the caller's role from users/{uid}.role.
+    // get() inside rules bypasses the rules themselves — no circular dependency.
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(uid()))
+               .data.get('role', 'member');
+    }
+
+    function isAdmin() {
+      return isAuth() && userRole() in ['admin', 'super_admin'];
+    }
+
+    // Checks that the caller owns the project — used by balloon subcollection.
+    function isProjectOwner(projectId) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/projects/$(projectId)).data.uid == uid();
+    }
+
+    // ── users/{userId} ────────────────────────────────────────────────────────
+    match /users/{userId} {
+      // Users can read their own profile; admins can read any profile.
+      allow read:   if isAuth() && (isOwner(userId) || isAdmin());
+      // Only the user themselves can create their own profile document.
+      allow create: if isAuth() && isOwner(userId);
+      // Users can update their own profile; admins can update any.
+      allow update: if isAuth() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── productConfigs/{pk} ───────────────────────────────────────────────────
+    match /productConfigs/{pk} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── organizationConfigs/{orgCode} ─────────────────────────────────────────
+    match /organizationConfigs/{orgCode} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── projects/{projectId} ──────────────────────────────────────────────────
+    match /projects/{projectId} {
+      // Owner or admin can read a project.
+      allow read:   if isAuth() && (isOwner(resource.data.uid) || isAdmin());
+
+      // Any authenticated user can create a project as long as the uid field
+      // matches their own auth UID (prevents creating projects on behalf of others).
+      allow create: if isAuth() && isOwner(request.resource.data.uid);
+
+      // Owner or admin can update (admin needed for priority/dueDate writes).
+      allow update: if isAuth() && (isOwner(resource.data.uid) || isAdmin());
+
+      // Only admins can delete projects (enforced in deleteProject() service too).
+      allow delete: if isAdmin();
+
+      // ── projects/{projectId}/balloons/{balloonId} ─────────────────────────
+      //
+      // Access is gated on owning the parent project document.
+      // isProjectOwner() does one extra Firestore read per rule evaluation;
+      // it short-circuits — only evaluated when the caller is authenticated.
+      match /balloons/{balloonId} {
+        allow read:   if isProjectOwner(projectId);
+
+        allow create: if isProjectOwner(projectId) &&
+                         request.resource.data.createdBy == uid();
+
+        allow update: if isProjectOwner(projectId);
+
+        allow delete: if isProjectOwner(projectId);
+      }
+    }
+  }
+}
