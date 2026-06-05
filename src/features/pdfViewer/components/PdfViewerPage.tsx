@@ -28,6 +28,63 @@ export function PdfViewerPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isTableOpen, setIsTableOpen] = useState(false)
+  const [tableLayout, setTableLayout] = useState<'right' | 'bottom'>(() => {
+    const saved = localStorage.getItem('fai-feature-table-layout')
+    return saved === 'bottom' ? 'bottom' : 'right'
+  })
+
+  const toggleTableLayout = useCallback(() => {
+    setTableLayout(prev => {
+      const next = prev === 'right' ? 'bottom' : 'right'
+      localStorage.setItem('fai-feature-table-layout', next)
+      return next
+    })
+  }, [])
+
+  const [bottomHeight, setBottomHeight] = useState<number>(() => {
+    const saved = localStorage.getItem('fai-panel-bottom-height')
+    return saved ? parseInt(saved) : Math.round(window.innerHeight / 3)
+  })
+  const [rightWidth, setRightWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('fai-panel-right-width')
+    return saved ? parseInt(saved) : 600
+  })
+
+  const handleResizeBottom = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = bottomHeight
+    let h = startH
+    const onMove = (ev: PointerEvent) => {
+      h = Math.max(150, Math.min(Math.round(window.innerHeight * 0.75), startH + startY - ev.clientY))
+      setBottomHeight(h)
+    }
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      localStorage.setItem('fai-panel-bottom-height', String(h))
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }, [bottomHeight])
+
+  const handleResizeRight = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = rightWidth
+    let w = startW
+    const onMove = (ev: PointerEvent) => {
+      w = Math.max(320, Math.min(Math.round(window.innerWidth * 0.65), startW + startX - ev.clientX))
+      setRightWidth(w)
+    }
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      localStorage.setItem('fai-panel-right-width', String(w))
+    }
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+  }, [rightWidth])
 
   const viewer = usePdfViewer()
   const balloons = useBalloons({ projectId: projectId ?? '', userId: user?.uid ?? '' })
@@ -177,7 +234,7 @@ export function PdfViewerPage() {
       />
 
       {/* Main content: PDF + (optional) Feature Table panel */}
-      <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
+      <div className={`flex-1 overflow-hidden flex flex-col${tableLayout === 'right' ? ' lg:flex-row' : ''}`}>
 
         {/* PDF area */}
         <div className="flex-1 overflow-auto min-h-0">
@@ -205,25 +262,54 @@ export function PdfViewerPage() {
           />
         </div>
 
-        {/* Feature Table panel — right side on desktop, bottom on mobile */}
+        {/* Feature Table panel — right side or bottom based on layout preference */}
         {isTableOpen && (
-          <div className="
-            border-t border-border lg:border-t-0 lg:border-l
-            bg-white flex-shrink-0
-            h-[45vh] lg:h-auto lg:w-[500px]
-            overflow-hidden flex flex-col
-          ">
-            <FeatureTablePanel
-              features={features.features}
-              balloons={balloons.balloons}
-              selectedBalloonId={balloons.selectedId}
-              projectId={project.projectId}
-              userId={user?.uid ?? ''}
-              onAddFeature={features.addFeature}
-              onUpdateFeature={features.updateFeature}
-              onDeleteFeature={features.deleteFeature}
-              onSelectBalloon={balloons.setSelectedId}
-            />
+          <div
+            style={{
+              width: tableLayout === 'right' ? rightWidth : undefined,
+              height: tableLayout === 'bottom' ? bottomHeight : undefined,
+            }}
+            className={[
+              'bg-white flex-shrink-0 max-w-full border-border',
+              tableLayout === 'right'
+                ? 'flex flex-row h-[33vh] lg:h-auto border-t lg:border-t-0 lg:border-l'
+                : 'flex flex-col border-t',
+            ].join(' ')}
+          >
+            {/* Resize handle */}
+            {tableLayout === 'right' ? (
+              <div
+                onPointerDown={handleResizeRight}
+                title="Drag to resize panel"
+                className="hidden lg:flex w-1.5 cursor-ew-resize shrink-0 items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group touch-none"
+              >
+                <div className="h-8 w-0.5 rounded-full bg-gray-300 group-hover:bg-primary/60" />
+              </div>
+            ) : (
+              <div
+                onPointerDown={handleResizeBottom}
+                title="Drag to resize panel"
+                className="h-3 cursor-ns-resize shrink-0 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors group border-b border-border touch-none"
+              >
+                <div className="w-8 h-1 rounded-full bg-gray-300 group-hover:bg-gray-500" />
+              </div>
+            )}
+            {/* Panel content */}
+            <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
+              <FeatureTablePanel
+                features={features.features}
+                balloons={balloons.balloons}
+                selectedBalloonId={balloons.selectedId}
+                projectId={project.projectId}
+                userId={user?.uid ?? ''}
+                onAddFeature={features.addFeature}
+                onUpdateFeature={features.updateFeature}
+                onDeleteFeature={features.deleteFeature}
+                onSelectBalloon={balloons.setSelectedId}
+                tableLayout={tableLayout}
+                onToggleLayout={toggleTableLayout}
+              />
+            </div>
           </div>
         )}
       </div>

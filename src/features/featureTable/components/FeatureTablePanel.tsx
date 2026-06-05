@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PlusCircle, TableProperties } from 'lucide-react'
+import { PlusCircle, TableProperties, PanelRight, PanelBottom } from 'lucide-react'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
 import type { Feature, FeatureInput, FeatureFormData } from '../types/featureTypes'
 import { FeatureTableRow } from './FeatureTableRow'
@@ -18,6 +18,8 @@ interface FeatureTablePanelProps {
   onUpdateFeature: (featureId: string, data: FeatureFormData) => void
   onDeleteFeature: (featureId: string) => void
   onSelectBalloon: (balloonId: string) => void
+  tableLayout: 'right' | 'bottom'
+  onToggleLayout: () => void
 }
 
 export function FeatureTablePanel({
@@ -30,6 +32,8 @@ export function FeatureTablePanel({
   onUpdateFeature,
   onDeleteFeature,
   onSelectBalloon,
+  tableLayout,
+  onToggleLayout,
 }: FeatureTablePanelProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -97,23 +101,35 @@ export function FeatureTablePanel({
             </span>
           )}
         </div>
-        {canAddFeature && (
+        <div className="flex items-center gap-1">
+          {canAddFeature && (
+            <button
+              onClick={() => setEditingId(NEW)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-primary border border-primary rounded-lg hover:bg-primary-light transition-colors"
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              Add Feature {selectedBalloon && `for ①${selectedBalloon.balloonNumber}`}
+            </button>
+          )}
+          {selectedBalloon && linkedFeature && editingId !== linkedFeature.id && (
+            <button
+              onClick={() => setEditingId(linkedFeature.id)}
+              className="text-xs text-primary hover:underline px-1"
+            >
+              Edit linked feature
+            </button>
+          )}
           <button
-            onClick={() => setEditingId(NEW)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-primary border border-primary rounded-lg hover:bg-primary-light transition-colors"
+            onClick={onToggleLayout}
+            title={tableLayout === 'right' ? 'Switch to bottom drawer' : 'Switch to right panel'}
+            className="p-1 rounded hover:bg-gray-100 transition-colors"
           >
-            <PlusCircle className="w-3.5 h-3.5" />
-            Add Feature {selectedBalloon && `for ①${selectedBalloon.balloonNumber}`}
+            {tableLayout === 'right'
+              ? <PanelBottom className="w-4 h-4 text-text-secondary" />
+              : <PanelRight className="w-4 h-4 text-text-secondary" />
+            }
           </button>
-        )}
-        {selectedBalloon && linkedFeature && editingId !== linkedFeature.id && (
-          <button
-            onClick={() => setEditingId(linkedFeature.id)}
-            className="text-xs text-primary hover:underline"
-          >
-            Edit linked feature
-          </button>
-        )}
+        </div>
       </div>
 
       {/* Context hint */}
@@ -135,7 +151,7 @@ export function FeatureTablePanel({
       {/* Table */}
       {(features.length > 0 || editingId === NEW) && (
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-xs min-w-[580px] border-collapse">
+          <table className="w-full text-xs border-collapse">
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
                 {COLS.map((col, i) => (

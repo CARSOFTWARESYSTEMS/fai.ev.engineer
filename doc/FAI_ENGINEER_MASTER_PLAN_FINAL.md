@@ -451,3 +451,321 @@ Then move to the next phase.
 The first success milestone:
 
 A user logs in, creates a project, uploads a PDF, places balloons, creates features, and exports AS9102 Form 3.
+
+
+# FAI Engineer - Known Limitations & Technical Debt Register
+
+## PDF Viewer Foundation
+
+### PDF-001
+
+Issue:
+iOS Safari fullscreen is not supported.
+
+Impact:
+Fullscreen button may do nothing on iOS Safari.
+
+Status:
+Accepted limitation.
+
+Future:
+Provide iOS-specific fullscreen fallback.
+
+---
+
+### PDF-002
+
+Issue:
+PDF.js increases bundle size by approximately 1 MB.
+
+Impact:
+Larger initial application load.
+
+Status:
+Accepted limitation.
+
+Future:
+Lazy load PDF Viewer route using React.lazy().
+
+---
+
+### PDF-003
+
+Issue:
+Direct navigation to PDF page may trigger Google Drive OAuth popup.
+
+Impact:
+Popup blockers can interfere with authentication.
+
+Status:
+Accepted limitation.
+
+Future:
+Improve token acquisition flow.
+
+---
+
+## Ballooning Foundation
+
+### BAL-001
+
+Issue:
+Deleting Balloon #2 from [1,2,3] results in [1,3].
+
+Impact:
+Number gaps remain.
+
+Status:
+Out of scope.
+
+Future:
+Implement renumbering tool.
+
+---
+
+### BAL-002
+
+Issue:
+Balloon numbering is client-side.
+
+Impact:
+Two users could create duplicate numbers.
+
+Status:
+Not relevant for single-user MVP.
+
+Future:
+Server-side numbering.
+
+---
+
+### BAL-003
+
+Issue:
+Mobile scrolling and balloon placement share touch gestures.
+
+Impact:
+Users may accidentally place balloons while scrolling.
+
+Status:
+Accepted limitation.
+
+Future:
+Separate placement mode from scrolling mode.
+
+---
+
+### BAL-004
+
+Issue:
+No collaborative editing.
+
+Impact:
+Single-user ownership model only.
+
+Status:
+Accepted.
+
+Future:
+Team collaboration.
+
+---
+
+## Feature Table Foundation
+
+### FT-001
+
+Issue:
+Deleting a balloon does not delete linked feature rows.
+
+Impact:
+Orphaned feature records remain.
+
+Status:
+Known limitation.
+
+Future:
+Cascade delete or warning dialog.
+
+Priority:
+High
+
+---
+
+### FT-002
+
+Issue:
+Features are stored separately from balloons.
+
+Impact:
+Link integrity depends on balloonId.
+
+Status:
+Acceptable architecture.
+
+Future:
+Add validation and cleanup tools.
+
+---
+
+### FT-003
+
+Issue:
+Feature table does not export anywhere yet.
+
+Impact:
+Data remains internal.
+
+Status:
+Expected.
+
+Future:
+AS9102 Form 3 Export.
+
+---
+
+## Firestore
+
+### FS-001
+
+Issue:
+Firestore rules must be manually published.
+
+Impact:
+Local rule changes do not automatically become active.
+
+Status:
+Operational process.
+
+Future:
+CI/CD deployment pipeline.
+
+---
+
+### FS-002
+
+Issue:
+Firebase CLI deployment blocked for some accounts.
+
+Impact:
+Rules may require Console publishing.
+
+Status:
+Known environment issue.
+
+Future:
+Grant proper Firebase permissions.
+
+---
+
+## MVP Scope Items Not Yet Implemented
+
+### MVP-001
+
+Leader Lines
+
+Status:
+Not started.
+
+---
+
+### MVP-002
+
+Balloon Renumbering
+
+Status:
+Not started.
+
+---
+
+### MVP-003
+
+Multi-Select Balloons
+
+Status:
+Not started.
+
+---
+
+### MVP-004
+
+AS9102 Form 3 Export
+
+Status:
+Not started.
+
+---
+
+### MVP-005
+
+Project Revisioning
+
+Status:
+Not started.
+
+---
+
+### MVP-006
+
+Audit History
+
+Status:
+Not started.
+
+---
+
+### MVP-007
+
+Team Collaboration
+
+Status:
+Not started.
+
+---
+
+### MVP-008
+
+OCR
+
+Status:
+Explicitly deferred.
+
+---
+
+### MVP-009
+
+Dimension Parsing
+
+Status:
+Explicitly deferred.
+
+---
+
+### MVP-010
+
+GD&T Parsing
+
+Status:
+Explicitly deferred.
+
+---
+
+### MVP-011
+
+AI Characteristic Extraction
+
+Status:
+Explicitly deferred.
+
+---
+
+## Architecture Decisions To Preserve
+
+1. Browser-first PDF processing.
+2. Google Drive used for PDF storage.
+3. Firestore used for metadata only.
+4. Balloon coordinates stored as normalized percentages.
+5. Balloons and Features stored in separate collections.
+6. Single-user ownership model for MVP.
+7. OCR and AI features excluded from MVP.
+8. Incremental delivery approach.

@@ -18,7 +18,7 @@ export function FeatureTableRow({
 }: FeatureTableRowProps) {
   return (
     <tr className={[
-      'border-b border-border transition-colors',
+      'border-b border-border transition-colors group',
       isLinked ? 'bg-primary-light' : 'hover:bg-gray-50',
     ].join(' ')}>
       <td className="px-2 py-1.5 text-xs tabular-nums text-center text-text-secondary">
@@ -42,8 +42,11 @@ export function FeatureTableRow({
       <td className="px-2 py-1.5 text-xs text-text-secondary max-w-[80px] truncate" title={feature.comments}>
         {feature.comments || '—'}
       </td>
-      <td className="px-1 py-1.5">
-        <div className="flex items-center gap-0.5">
+      <td className="px-1 py-1.5 w-10">
+        <div className={[
+          'flex items-center gap-0.5 transition-opacity',
+          isLinked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        ].join(' ')}>
           <button
             onClick={() => onEdit(feature.id)}
             title="Edit feature"
