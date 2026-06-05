@@ -107,6 +107,7 @@ export function CreateProjectPage() {
           productKey,
           organizationCode: user?.organizationCode || 'default',
           organizationName: user?.organizationName || organizationConfig.organizationName,
+          defaultDueDays: organizationConfig.settings?.defaultDueDays ?? 7,
         }
       )
       navigate(`/projects/${project.projectId}`, { replace: true })

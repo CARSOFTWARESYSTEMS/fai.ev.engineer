@@ -1,6 +1,18 @@
-// ─── Project status ───────────────────────────────────────────────────────────
+import type { ProjectPriority } from './projectPriority'
 
-export type ProjectStatus = 'draft' | 'in-progress' | 'complete' | 'archived'
+// ─── Project status ───────────────────────────────────────────────────────────
+// Keep 'in-progress' and 'complete' in union for backward-compat with existing
+// Firestore documents. New documents use 'in-progress', 'review', 'completed'.
+
+export type ProjectStatus =
+  | 'draft'
+  | 'in-progress'
+  | 'review'
+  | 'complete'       // legacy — display as "Completed"
+  | 'completed'
+  | 'archived'
+
+export type EditableProjectStatus = 'draft' | 'in-progress' | 'review' | 'completed' | 'archived'
 
 // ─── Firestore document: projects/{projectId} ─────────────────────────────────
 
@@ -25,6 +37,13 @@ export interface FAIProject {
   status: ProjectStatus
   version: number
 
+  // Priority — defaults to 'medium' if missing
+  priority?: ProjectPriority
+
+  // Due date
+  dueDate?: unknown                  // Firestore Timestamp
+  defaultDueDaysApplied?: number
+
   // PDF Drawing — stored in Google Drive under FAI.EV.ENGINEER/{uid}/{projectId}/
   sourcePdfName: string
   sourcePdfSize?: number
@@ -47,12 +66,10 @@ export interface FAIProject {
 // ─── Input shape for createProject() ─────────────────────────────────────────
 
 export interface CreateProjectInput {
-  // Required
   projectName: string
   partNumber: string
   drawingNumber: string
   drawingRevision: string
-  // Optional
   customerName?: string
   partName?: string
   material?: string
@@ -70,10 +87,10 @@ export interface UpdateProjectInput {
   drawingRevision?: string
   material?: string
   description?: string
-  status?: ProjectStatus
+  status?: EditableProjectStatus
 }
 
-// ─── Display helper ───────────────────────────────────────────────────────────
+// ─── Display helpers ──────────────────────────────────────────────────────────
 
 export function fmtTimestamp(ts: unknown): string {
   if (!ts) return '—'
@@ -89,15 +106,23 @@ export function fmtTimestamp(ts: unknown): string {
 }
 
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  draft: 'Draft',
+  'draft':       'Draft',
   'in-progress': 'In Progress',
-  complete: 'Complete',
-  archived: 'Archived',
+  'review':      'Review',
+  'complete':    'Completed',
+  'completed':   'Completed',
+  'archived':    'Archived',
 }
 
 export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
-  draft: 'bg-warning/10 text-warning',
+  'draft':       'bg-warning/10 text-warning',
   'in-progress': 'bg-primary/10 text-primary',
-  complete: 'bg-success/10 text-success',
-  archived: 'bg-gray-100 text-text-secondary',
+  'review':      'bg-purple-100 text-purple-700',
+  'complete':    'bg-success/10 text-success',
+  'completed':   'bg-success/10 text-success',
+  'archived':    'bg-gray-100 text-text-secondary',
 }
+
+export const EDITABLE_STATUS_OPTIONS: EditableProjectStatus[] = [
+  'draft', 'in-progress', 'review', 'completed', 'archived',
+]

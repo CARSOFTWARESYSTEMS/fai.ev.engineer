@@ -27,9 +27,10 @@ import {
 import { loadGisScript, requestDriveToken } from '../lib/googleDrive'
 import {
   type FAIProject,
-  type ProjectStatus,
+  type EditableProjectStatus,
   fmtTimestamp,
   PROJECT_STATUS_LABELS,
+  EDITABLE_STATUS_OPTIONS,
 } from '../projects/project.types'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 
@@ -42,10 +43,10 @@ interface FormState {
   drawingRevision: string
   material: string
   description: string
-  status: ProjectStatus
+  status: EditableProjectStatus
 }
 
-const EDITABLE_STATUSES: ProjectStatus[] = ['draft', 'in-progress', 'complete', 'archived']
+const EDITABLE_STATUSES = EDITABLE_STATUS_OPTIONS
 
 function firestoreError(err: unknown, action: 'update' | 'delete'): string {
   const code = (err as { code?: string })?.code ?? ''
@@ -143,7 +144,7 @@ export function EditProjectPage() {
           drawingRevision: p.drawingRevision,
           material:        p.material,
           description:     p.description,
-          status:          p.status as ProjectStatus,
+          status:          (p.status === 'complete' ? 'completed' : p.status) as EditableProjectStatus,
         })
       })
       .catch((err: { code?: string }) => {
@@ -442,7 +443,7 @@ export function EditProjectPage() {
                 id="status"
                 value={form.status}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, status: e.target.value as ProjectStatus }))
+                  setForm((prev) => ({ ...prev, status: e.target.value as EditableProjectStatus }))
                 }
                 className="input-field"
               >

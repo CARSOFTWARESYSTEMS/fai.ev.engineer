@@ -9,6 +9,7 @@ import {
   query,
   where,
   serverTimestamp,
+  Timestamp,
   type FieldValue,
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
@@ -28,6 +29,7 @@ interface CreateProjectContext {
   productKey: string
   organizationCode: string
   organizationName: string
+  defaultDueDays?: number
 }
 
 export async function createProject(
@@ -35,6 +37,10 @@ export async function createProject(
   ctx: CreateProjectContext
 ): Promise<FAIProject> {
   const docRef = doc(collection(firestore, 'projects'))
+
+  const defaultDueDays = ctx.defaultDueDays ?? 7
+  const dueDateMs = Date.now() + defaultDueDays * 24 * 60 * 60 * 1000
+  const dueDate   = Timestamp.fromMillis(dueDateMs)
 
   const writeDoc: ProjectWriteDoc = {
     projectId: docRef.id,
@@ -54,6 +60,10 @@ export async function createProject(
 
     status: 'draft',
     version: 1,
+
+    priority: 'medium',
+    dueDate,
+    defaultDueDaysApplied: defaultDueDays,
 
     sourcePdfName: '',
     googleDriveFileId: '',

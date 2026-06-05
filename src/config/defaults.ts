@@ -47,4 +47,7 @@ export const DEFAULT_ORG_CONFIG: OrganizationConfig = {
     maxUsers: 1,
     maxExportsPerMonth: 5,
   },
+  settings: {
+    defaultDueDays: 7,
+  },
 }

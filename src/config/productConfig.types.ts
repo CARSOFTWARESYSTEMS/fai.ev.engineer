@@ -62,6 +62,10 @@ export interface OrgLimits {
   maxExportsPerMonth: number
 }
 
+export interface OrgSettings {
+  defaultDueDays?: number
+}
+
 export interface OrganizationConfig {
   organizationCode: string
   organizationName: string
@@ -71,6 +75,7 @@ export interface OrganizationConfig {
   status: 'active' | 'inactive' | 'suspended'
   enabledFeatures: ProductFeatures
   limits: OrgLimits
+  settings?: OrgSettings
 }
 
 // ─── Context value ────────────────────────────────────────────────────────────

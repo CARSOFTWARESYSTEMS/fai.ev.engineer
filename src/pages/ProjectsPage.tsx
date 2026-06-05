@@ -2,15 +2,19 @@ import { useEffect, useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   FolderPlus,
-  ArrowRight,
   FileText,
-  RefreshCw,
   Search,
-  ChevronDown,
   AlertCircle,
   CheckCircle2,
   Pencil,
   Trash2,
+  Eye,
+  ArrowRight,
+  LayoutList,
+  LayoutGrid,
+  ChevronDown,
+  Clock,
+  UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
@@ -21,42 +25,137 @@ import {
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
 } from '../projects/project.types'
+import {
+  getPriorityLabel,
+  getPriorityBadgeClass,
+  getPriorityDotClass,
+} from '../projects/projectPriority'
+import {
+  getProjectDueDate,
+  filterProjects,
+  type DueDateFilter,
+} from '../projects/projectFilters'
+import { fmtDueDate, dueDateStatus } from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 
-type SortKey = 'updated' | 'created' | 'name'
+type ViewMode = 'list' | 'kanban'
 
-function getMillis(ts: unknown): number {
-  if (!ts) return 0
-  if (typeof (ts as { toMillis?: () => number }).toMillis === 'function') {
-    return (ts as { toMillis: () => number }).toMillis()
-  }
-  return 0
+// ─── Kanban column config ─────────────────────────────────────────────────────
+
+const KANBAN_COLUMNS = [
+  { key: 'draft',       label: 'Draft',       colorCls: 'border-t-warning' },
+  { key: 'in-progress', label: 'In Progress', colorCls: 'border-t-primary' },
+  { key: 'review',      label: 'Review',      colorCls: 'border-t-purple-500' },
+  { key: 'completed',   label: 'Completed',   colorCls: 'border-t-success' },
+] as const
+
+// ─── Due date badge ───────────────────────────────────────────────────────────
+
+function DueBadge({ project }: { project: FAIProject }) {
+  const due = getProjectDueDate(project)
+  if (!due) return null
+  const status = dueDateStatus(due)
+  const cls = {
+    overdue: 'text-red-600 font-semibold',
+    today:   'text-orange-600 font-medium',
+    soon:    'text-warning font-medium',
+    ok:      'text-text-secondary',
+    none:    'text-text-secondary',
+  }[status]
+  return (
+    <span className={`text-xs ${cls} flex items-center gap-1`}>
+      <Clock className="w-3 h-3 shrink-0" />
+      {status === 'overdue' && '⚠ '}{fmtDueDate(due)}
+    </span>
+  )
 }
+
+// ─── Shared project mini-card (Kanban) ────────────────────────────────────────
+
+function KanbanCard({ project, onDelete }: { project: FAIProject; onDelete: (p: FAIProject) => void }) {
+  const hasPdf      = project.pdfStatus === 'uploaded' && !!project.googleDriveFileId
+  const priorityCls = getPriorityBadgeClass(project.priority)
+  const priorityDot = getPriorityDotClass(project.priority)
+
+  return (
+    <div className="bg-white rounded-xl border border-border p-3.5 hover:border-primary/30 hover:shadow-sm transition-all flex flex-col gap-2">
+      {/* Priority + name */}
+      <div className="flex items-start justify-between gap-1.5">
+        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${priorityCls}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${priorityDot}`} />
+          {getPriorityLabel(project.priority)}
+        </span>
+        {hasPdf && (
+          <FileText className="w-3.5 h-3.5 text-primary shrink-0" aria-label={project.sourcePdfName} />
+        )}
+      </div>
+
+      <Link to={`/projects/${project.projectId}`}
+        className="text-sm font-semibold text-text-primary hover:text-primary line-clamp-2 transition-colors leading-snug">
+        {project.projectName}
+      </Link>
+
+      <div className="text-xs text-text-secondary font-mono leading-relaxed">
+        <span>{project.partNumber}</span>
+        {project.drawingRevision && <span> · Rev {project.drawingRevision}</span>}
+      </div>
+
+      <DueBadge project={project} />
+
+      {/* Actions */}
+      <div className="flex items-center gap-1 mt-1 pt-2 border-t border-border">
+        <Link to={`/projects/${project.projectId}`}
+          className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold text-primary hover:bg-primary-light py-1.5 rounded-lg transition-colors">
+          <Eye className="w-3.5 h-3.5" />
+          Open
+        </Link>
+        <Link to={`/projects/${project.projectId}/edit`}
+          className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-gray-100 py-1.5 rounded-lg transition-colors">
+          <Pencil className="w-3.5 h-3.5" />
+          Edit
+        </Link>
+        <button
+          onClick={() => onDelete(project)}
+          className="inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export function ProjectsPage() {
   const navigate = useNavigate()
-  const { user, firebaseUser } = useAuth()
+  const { firebaseUser } = useAuth()
   const { productConfig, canAccess } = useProductConfig()
 
-  const [projects, setProjects] = useState<FAIProject[]>([])
+  const [projects, setProjects]   = useState<FAIProject[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState<SortKey>('updated')
+  const [error, setError]         = useState('')
+  const [viewMode, setViewMode]   = useState<ViewMode>('list')
 
+  // Filters
+  const [search,         setSearch]         = useState('')
+  const [statusFilter,   setStatusFilter]   = useState('all')
+  const [priorityFilter, setPriorityFilter] = useState('all')
+  const [dueDateFilter,  setDueDateFilter]  = useState<DueDateFilter>('all')
+
+  // Delete modal
   const [projectToDelete, setProjectToDelete] = useState<FAIProject | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteSuccess, setDeleteSuccess] = useState(false)
+  const [isDeleting,      setIsDeleting]      = useState(false)
+  const [deleteSuccess,   setDeleteSuccess]   = useState(false)
 
   const load = async () => {
     if (!firebaseUser) return
     setIsLoading(true)
     setError('')
     try {
-      const list = await getUserProjects(firebaseUser.uid)
-      setProjects(list)
+      const data = await getUserProjects(firebaseUser.uid)
+      setProjects(data.filter(p => p.status !== 'deleted' as string))
     } catch {
-      setError('Failed to load projects. Check your connection and try again.')
+      setError('Unable to load projects. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -64,12 +163,13 @@ export function ProjectsPage() {
 
   useEffect(() => { load() }, [firebaseUser?.uid])
 
+  // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
     if (!projectToDelete || !firebaseUser) return
     setIsDeleting(true)
     try {
       await deleteProject(projectToDelete.projectId, firebaseUser.uid, firebaseUser.email ?? '')
-      setProjects((prev) => prev.filter((p) => p.projectId !== projectToDelete.projectId))
+      setProjects(prev => prev.filter(p => p.projectId !== projectToDelete.projectId))
       setProjectToDelete(null)
       setDeleteSuccess(true)
       setTimeout(() => setDeleteSuccess(false), 4000)
@@ -82,9 +182,7 @@ export function ProjectsPage() {
         setError('You do not have permission to delete this project.')
       } else if (code.includes('not-found')) {
         setError('Project not found or already deleted.')
-        setProjects((prev) => prev.filter((p) => p.projectId !== projectToDelete.projectId))
-      } else if (code.includes('unavailable') || code.includes('network-request-failed')) {
-        setError('Firestore is temporarily unavailable. Please try again.')
+        setProjects(prev => prev.filter(p => p.projectId !== projectToDelete.projectId))
       } else {
         setError('Unable to delete project. Please try again.')
       }
@@ -94,87 +192,53 @@ export function ProjectsPage() {
     }
   }
 
-  const filteredProjects = useMemo(() => {
-    let result = [...projects]
+  // ── Filtered projects ───────────────────────────────────────────────────────
+  const filteredProjects = useMemo(() =>
+    filterProjects(projects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter, search }),
+    [projects, statusFilter, priorityFilter, dueDateFilter, search]
+  )
 
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (p) =>
-          p.projectName.toLowerCase().includes(q) ||
-          p.partNumber.toLowerCase().includes(q) ||
-          p.drawingNumber.toLowerCase().includes(q)
-      )
-    }
+  const hasFilters = search || statusFilter !== 'all' || priorityFilter !== 'all' || dueDateFilter !== 'all'
 
-    if (sortBy === 'name') {
-      result.sort((a, b) => a.projectName.localeCompare(b.projectName))
-    } else if (sortBy === 'created') {
-      result.sort((a, b) => getMillis(b.createdAt) - getMillis(a.createdAt))
-    } else {
-      // updated — already sorted by service, but re-sort in case filter changed order
-      result.sort((a, b) => getMillis(b.updatedAt) - getMillis(a.updatedAt))
-    }
-
-    return result
-  }, [projects, search, sortBy])
-
-  // Feature-disabled friendly message
-  if (!canAccess('projectList')) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <header className="bg-white border-b border-border">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link to="/dashboard" className="text-sm text-text-secondary hover:text-primary transition-colors">
-                ← Dashboard
-              </Link>
-              <span className="text-border">/</span>
-              <span className="text-sm font-semibold text-text-primary">Projects</span>
-            </div>
-          </div>
-        </header>
-        <div className="flex-1 flex flex-col items-center justify-center px-4 text-center py-20">
-          <AlertCircle className="w-10 h-10 text-warning mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-text-primary mb-2">Project list not enabled</h2>
-          <p className="text-text-secondary max-w-sm mb-6">
-            Project listing is not enabled for your organization. Contact your administrator to enable this feature.
-          </p>
-          <Link to="/dashboard" className="btn-secondary">Back to Dashboard</Link>
-        </div>
-      </div>
-    )
+  const clearFilters = () => {
+    setSearch('')
+    setStatusFilter('all')
+    setPriorityFilter('all')
+    setDueDateFilter('all')
   }
 
+  // ── Kanban buckets ──────────────────────────────────────────────────────────
+  const kanbanBuckets = useMemo(() => {
+    return KANBAN_COLUMNS.map(col => ({
+      ...col,
+      projects: filteredProjects.filter(p =>
+        p.status === col.key || (col.key === 'completed' && p.status === 'complete')
+      ),
+    }))
+  }, [filteredProjects])
+
+  // ── Header / loading / error states ────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <Link to="/dashboard"
-                className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors">
-                <FileText className="w-4 h-4" />
-                Dashboard
+                className="flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors shrink-0">
+                ← Dashboard
               </Link>
               <span className="text-border">/</span>
-              <span className="text-sm font-semibold text-text-primary">My Projects</span>
+              <span className="text-sm font-bold text-text-primary">My Projects</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
-                  <span className="text-white font-bold text-xs">F</span>
-                </div>
-                <span className="text-sm font-bold text-text-primary">{productConfig.productName}</span>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+                <span className="text-white font-bold text-xs">F</span>
               </div>
-              {canAccess('createProject') && (
-                <button onClick={() => navigate('/projects/new')} className="btn-primary text-sm px-4 py-2.5">
-                  <FolderPlus className="w-4 h-4" />
-                  <span className="hidden sm:inline">New Project</span>
-                  <span className="sm:hidden">New</span>
-                </button>
-              )}
+              <span className="hidden sm:block text-sm font-bold text-text-primary">
+                {productConfig.productName}
+              </span>
             </div>
           </div>
         </div>
@@ -182,194 +246,290 @@ export function ProjectsPage() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Page title */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+        {/* Page title + New Project */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">My Projects</h1>
-            <p className="text-sm text-text-secondary mt-0.5">
-              {user?.organizationName
-                ? `${user.organizationName} — FAI projects`
-                : 'View and manage your FAI projects.'}
-            </p>
+            {!isLoading && (
+              <p className="text-sm text-text-secondary mt-0.5">
+                {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+                {hasFilters ? ' matching filters' : ''}
+              </p>
+            )}
           </div>
-          <button onClick={load} disabled={isLoading}
-            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-primary transition-colors px-3 py-2 rounded-lg hover:bg-primary-light self-start sm:self-auto"
-            aria-label="Refresh">
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          {canAccess('createProject') && (
+            <button onClick={() => navigate('/projects/new')} className="btn-primary text-sm">
+              <FolderPlus className="w-4 h-4" />
+              + New Project
+            </button>
+          )}
         </div>
 
-        {/* Search + Sort toolbar */}
-        {!isLoading && projects.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-3 mb-5">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by project name, part number, drawing number…"
-                className="input-field pl-10 placeholder-slate-300"
-              />
-            </div>
-
-            {/* Sort */}
-            <div className="relative shrink-0">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortKey)}
-                className="input-field pr-9 appearance-none cursor-pointer text-sm w-full sm:w-48"
-              >
-                <option value="updated">Latest Updated</option>
-                <option value="created">Latest Created</option>
-                <option value="name">Project Name (A–Z)</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-            </div>
+        {/* Notifications */}
+        {error && (
+          <div className="mb-5 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-xl flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {error}
           </div>
         )}
-
-        {/* Success */}
         {deleteSuccess && (
-          <div className="mb-5 flex items-center gap-2.5 px-4 py-3 bg-success/10 border border-success/20 text-success text-sm rounded-xl">
+          <div className="mb-5 px-4 py-3 bg-success/10 border border-success/20 text-success text-sm rounded-xl flex items-center gap-2.5">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
             Project deleted successfully.
           </div>
         )}
 
-        {/* Error */}
-        {error && (
-          <div className="mb-5 flex items-start gap-2.5 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-xl">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            {error}
+        {/* ── Controls ──────────────────────────────────────────────────────── */}
+        <div className="flex flex-wrap gap-2 mb-5 items-center">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search projects…"
+              className="pl-9 pr-3 py-2 text-sm border border-border rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+            />
+          </div>
+
+          {/* Status filter */}
+          <div className="relative">
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+              className="appearance-none pl-3 pr-7 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer">
+              <option value="all">All Status</option>
+              <option value="draft">Draft</option>
+              <option value="in-progress">In Progress</option>
+              <option value="review">Review</option>
+              <option value="completed">Completed</option>
+              <option value="archived">Archived</option>
+            </select>
+            <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+          </div>
+
+          {/* Priority filter */}
+          <div className="relative">
+            <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)}
+              className="appearance-none pl-3 pr-7 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer">
+              <option value="all">All Priority</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+          </div>
+
+          {/* Due date filter */}
+          <div className="relative">
+            <select value={dueDateFilter} onChange={e => setDueDateFilter(e.target.value as DueDateFilter)}
+              className="appearance-none pl-3 pr-7 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer">
+              <option value="all">All Dates</option>
+              <option value="overdue">Overdue</option>
+              <option value="today">Today</option>
+              <option value="this_week">This Week</option>
+              <option value="this_month">This Month</option>
+            </select>
+            <ChevronDown className="w-3 h-3 absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
+          </div>
+
+          {hasFilters && (
+            <button onClick={clearFilters}
+              className="text-sm font-medium text-text-secondary hover:text-error transition-colors px-2 py-2">
+              Clear
+            </button>
+          )}
+
+          {/* View toggle — push to right */}
+          <div className="ml-auto flex items-center border border-border rounded-lg overflow-hidden bg-white">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors ${
+                viewMode === 'list' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-50'
+              }`}>
+              <LayoutList className="w-3.5 h-3.5" />
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors border-l border-border ${
+                viewMode === 'kanban' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-50'
+              }`}>
+              <LayoutGrid className="w-3.5 h-3.5" />
+              Kanban
+            </button>
+          </div>
+        </div>
+
+        {/* ── Loading ──────────────────────────────────────────────────────── */}
+        {isLoading && (
+          <div className="flex flex-col gap-3">
+            {[1, 2, 3].map(n => (
+              <div key={n} className="h-20 bg-white rounded-xl border border-border animate-pulse" />
+            ))}
           </div>
         )}
 
-        {/* Loading skeleton */}
-        {isLoading && (
-          <div className="flex flex-col gap-4">
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="card p-5 animate-pulse">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-xl shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-gray-100 rounded w-1/3" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
+        {/* ── Empty state ───────────────────────────────────────────────────── */}
+        {!isLoading && filteredProjects.length === 0 && (
+          <div className="text-center py-16">
+            <FileText className="w-10 h-10 text-border mx-auto mb-4" />
+            {hasFilters ? (
+              <>
+                <p className="text-sm text-text-secondary mb-3">No projects match the current filters.</p>
+                <button onClick={clearFilters}
+                  className="text-sm font-semibold text-primary hover:underline">Clear filters</button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-text-secondary mb-4">No projects yet.</p>
+                {canAccess('createProject') && (
+                  <button onClick={() => navigate('/projects/new')} className="btn-primary text-sm">
+                    <FolderPlus className="w-4 h-4" />
+                    Create First Project
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── LIST VIEW ─────────────────────────────────────────────────────── */}
+        {!isLoading && filteredProjects.length > 0 && viewMode === 'list' && (
+          <div className="flex flex-col gap-3">
+            {filteredProjects.map(project => {
+              const statusClass  = PROJECT_STATUS_COLORS[project.status]
+              const priorityCls  = getPriorityBadgeClass(project.priority)
+              const priorityDot  = getPriorityDotClass(project.priority)
+              const hasPdf       = project.pdfStatus === 'uploaded' && !!project.googleDriveFileId
+
+              return (
+                <div key={project.projectId}
+                  className="bg-white rounded-xl border border-border p-4 hover:border-primary/30 hover:shadow-sm transition-all">
+
+                  {/* Row 1: priority + name + status */}
+                  <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${priorityCls}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${priorityDot}`} />
+                        {getPriorityLabel(project.priority)}
+                      </span>
+                      <Link to={`/projects/${project.projectId}`}
+                        className="text-sm font-bold text-text-primary hover:text-primary truncate transition-colors">
+                        {project.projectName}
+                      </Link>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusClass}`}>
+                        {PROJECT_STATUS_LABELS[project.status]}
+                      </span>
+                      <span className="text-xs text-text-secondary hidden md:block">
+                        {fmtTimestamp(project.updatedAt)}
+                      </span>
+                    </div>
                   </div>
+
+                  {/* Row 2: metadata */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2.5 text-xs text-text-secondary font-mono">
+                    <span>Part: {project.partNumber}</span>
+                    <span className="text-border">·</span>
+                    <span>DWG: {project.drawingNumber}</span>
+                    <span className="text-border">·</span>
+                    <span>Rev: {project.drawingRevision}</span>
+                    {project.customerName && (
+                      <>
+                        <span className="text-border">·</span>
+                        <span className="font-sans">{project.customerName}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Row 3: PDF + due date + actions */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-3">
+                      {hasPdf ? (
+                        <Link to={`/projects/${project.projectId}/pdf`}
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline min-w-0">
+                          <FileText className="w-3 h-3 shrink-0" />
+                          <span className="truncate max-w-[160px]">{project.sourcePdfName}</span>
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-text-secondary">
+                          <UploadCloud className="w-3 h-3 shrink-0" />
+                          No PDF
+                        </span>
+                      )}
+                      <DueBadge project={project} />
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {hasPdf && canAccess('pdfViewer') && (
+                        <Link to={`/projects/${project.projectId}/pdf`}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-colors border border-primary/20">
+                          <Eye className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">View PDF</span>
+                        </Link>
+                      )}
+                      <Link to={`/projects/${project.projectId}/edit`}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                        <Pencil className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Edit</span>
+                      </Link>
+                      <button
+                        onClick={() => setProjectToDelete(project)}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-error hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <Link to={`/projects/${project.projectId}`}
+                        className="inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-primary hover:bg-gray-100 rounded-lg transition-colors">
+                        <ArrowRight className="w-4 h-4" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ── KANBAN VIEW ───────────────────────────────────────────────────── */}
+        {!isLoading && viewMode === 'kanban' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+            {kanbanBuckets.map(col => (
+              <div key={col.key}
+                className={`bg-gray-50 rounded-xl border-t-4 ${col.colorCls} border border-border border-t-[4px] p-3`}>
+                {/* Column header */}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-text-primary">{col.label}</span>
+                  <span className="text-xs font-semibold bg-white border border-border text-text-secondary px-2 py-0.5 rounded-full">
+                    {col.projects.length}
+                  </span>
+                </div>
+
+                {/* Cards */}
+                <div className="flex flex-col gap-2">
+                  {col.projects.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-text-secondary">
+                      No projects
+                    </div>
+                  ) : (
+                    col.projects.map(project => (
+                      <KanbanCard
+                        key={project.projectId}
+                        project={project}
+                        onDelete={setProjectToDelete}
+                      />
+                    ))
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {/* Empty state — no projects at all */}
-        {!isLoading && projects.length === 0 && !error && (
-          <div className="text-center py-20">
-            <div className="w-16 h-16 bg-primary-light rounded-2xl flex items-center justify-center mx-auto mb-5">
-              <FileText className="w-8 h-8 text-primary" />
-            </div>
-            <h2 className="text-xl font-bold text-text-primary mb-2">No projects found</h2>
-            <p className="text-text-secondary mb-8 max-w-sm mx-auto">
-              Create your first FAI project to start working with drawings and inspection reports.
-            </p>
-            {canAccess('createProject') && (
-              <button onClick={() => navigate('/projects/new')} className="btn-primary">
-                <FolderPlus className="w-4 h-4" />
-                Create First Project
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Empty state — search returned nothing */}
-        {!isLoading && projects.length > 0 && filteredProjects.length === 0 && (
-          <div className="text-center py-16">
-            <Search className="w-8 h-8 text-border mx-auto mb-3" />
-            <p className="text-text-secondary">
-              No projects match <span className="font-semibold text-text-primary">"{search}"</span>
-            </p>
-            <button onClick={() => setSearch('')}
-              className="text-sm text-primary hover:underline mt-2 block mx-auto">
-              Clear search
-            </button>
-          </div>
-        )}
-
-        {/* Project list */}
-        {!isLoading && filteredProjects.length > 0 && (
-          <>
-            <div className="flex flex-col gap-3">
-              {filteredProjects.map((project) => {
-                const statusClass = PROJECT_STATUS_COLORS[project.status]
-                return (
-                  <div key={project.projectId}
-                    className="card p-5 hover:shadow-md transition-shadow group">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                      <div className="w-10 h-10 bg-primary-light rounded-xl flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5 text-primary" />
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-text-primary truncate">
-                            {project.projectName}
-                          </h3>
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${statusClass}`}>
-                            {PROJECT_STATUS_LABELS[project.status]}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs text-text-secondary font-mono">
-                          <span>{project.partNumber}</span>
-                          <span className="text-border">·</span>
-                          <span>{project.drawingNumber}</span>
-                          <span className="text-border">·</span>
-                          <span>Rev {project.drawingRevision}</span>
-                          {project.customerName && (
-                            <>
-                              <span className="text-border">·</span>
-                              <span className="font-sans">{project.customerName}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="hidden md:block text-xs text-text-secondary">
-                          {fmtTimestamp(project.updatedAt)}
-                        </span>
-                        <button
-                          onClick={() => navigate(`/projects/${project.projectId}`)}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-primary px-3 py-2 rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-colors">
-                          Open
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                        <Link
-                          to={`/projects/${project.projectId}/edit`}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary px-3 py-2 rounded-lg border border-border hover:bg-gray-50 transition-colors">
-                          <Pencil className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </Link>
-                        <button
-                          onClick={() => setProjectToDelete(project)}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-red-600 px-3 py-2 rounded-lg border border-red-200 hover:bg-red-50 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Delete</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <p className="text-center text-xs text-text-secondary mt-4">
-              Showing {filteredProjects.length} of {projects.length} project{projects.length !== 1 ? 's' : ''}
-            </p>
-          </>
-        )}
       </main>
 
+      {/* Delete modal */}
       {projectToDelete && (
         <DeleteProjectModal
           projectName={projectToDelete.projectName}
