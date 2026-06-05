@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   FolderPlus,
   FileText,
@@ -14,14 +14,12 @@ import {
   LayoutGrid,
   ChevronDown,
   Clock,
-  UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { getUserProjects, deleteProject } from '../projects/project.service'
 import {
   type FAIProject,
-  fmtTimestamp,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
 } from '../projects/project.types'
@@ -127,7 +125,8 @@ function KanbanCard({ project, onDelete }: { project: FAIProject; onDelete: (p: 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function ProjectsPage() {
-  const navigate = useNavigate()
+  const navigate      = useNavigate()
+  const [searchParams] = useSearchParams()
   const { firebaseUser } = useAuth()
   const { productConfig, canAccess } = useProductConfig()
 
@@ -136,11 +135,17 @@ export function ProjectsPage() {
   const [error, setError]         = useState('')
   const [viewMode, setViewMode]   = useState<ViewMode>('list')
 
-  // Filters
+  // Filters — initialised from URL query params when present
   const [search,         setSearch]         = useState('')
-  const [statusFilter,   setStatusFilter]   = useState('all')
-  const [priorityFilter, setPriorityFilter] = useState('all')
-  const [dueDateFilter,  setDueDateFilter]  = useState<DueDateFilter>('all')
+  const [statusFilter,   setStatusFilter]   = useState(() => {
+    const p = searchParams.get('status') ?? 'all'
+    // Map URL underscore form → internal hyphen form
+    return p === 'in_progress' ? 'in-progress' : p
+  })
+  const [priorityFilter, setPriorityFilter] = useState(() => searchParams.get('priority') ?? 'all')
+  const [dueDateFilter,  setDueDateFilter]  = useState<DueDateFilter>(() =>
+    (searchParams.get('due') as DueDateFilter) ?? 'all'
+  )
 
   // Delete modal
   const [projectToDelete, setProjectToDelete] = useState<FAIProject | null>(null)
@@ -343,7 +348,7 @@ export function ProjectsPage() {
           {/* View toggle — push to right */}
           <div className="ml-auto flex items-center border border-border rounded-lg overflow-hidden bg-white">
             <button
-              onClick={() => setViewMode('list')}
+              onClick={() => { setViewMode('list'); console.log('[PROJECTS] View mode changed: list') }}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors ${
                 viewMode === 'list' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-50'
               }`}>
@@ -351,7 +356,7 @@ export function ProjectsPage() {
               List
             </button>
             <button
-              onClick={() => setViewMode('kanban')}
+              onClick={() => { setViewMode('kanban'); console.log('[PROJECTS] View mode changed: kanban') }}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors border-l border-border ${
                 viewMode === 'kanban' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-50'
               }`}>
@@ -396,95 +401,78 @@ export function ProjectsPage() {
 
         {/* ── LIST VIEW ─────────────────────────────────────────────────────── */}
         {!isLoading && filteredProjects.length > 0 && viewMode === 'list' && (
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredProjects.map(project => {
               const statusClass  = PROJECT_STATUS_COLORS[project.status]
               const priorityCls  = getPriorityBadgeClass(project.priority)
               const priorityDot  = getPriorityDotClass(project.priority)
               const hasPdf       = project.pdfStatus === 'uploaded' && !!project.googleDriveFileId
+              const due          = getProjectDueDate(project)
 
               return (
                 <div key={project.projectId}
-                  className="bg-white rounded-xl border border-border p-4 hover:border-primary/30 hover:shadow-sm transition-all">
+                  className="bg-white rounded-xl border border-border p-4 hover:border-primary/30 hover:shadow-sm transition-all flex flex-col">
 
-                  {/* Row 1: priority + name + status */}
-                  <div className="flex items-start justify-between gap-2 mb-2 flex-wrap">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                  {/* Row 1: priority + status, with due date right-aligned on desktop */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 mb-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                       <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${priorityCls}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${priorityDot}`} />
                         {getPriorityLabel(project.priority)}
                       </span>
-                      <Link to={`/projects/${project.projectId}`}
-                        className="text-sm font-bold text-text-primary hover:text-primary truncate transition-colors">
-                        {project.projectName}
-                      </Link>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusClass}`}>
                         {PROJECT_STATUS_LABELS[project.status]}
                       </span>
-                      <span className="text-xs text-text-secondary hidden md:block">
-                        {fmtTimestamp(project.updatedAt)}
-                      </span>
                     </div>
-                  </div>
-
-                  {/* Row 2: metadata */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2.5 text-xs text-text-secondary font-mono">
-                    <span>Part: {project.partNumber}</span>
-                    <span className="text-border">·</span>
-                    <span>DWG: {project.drawingNumber}</span>
-                    <span className="text-border">·</span>
-                    <span>Rev: {project.drawingRevision}</span>
-                    {project.customerName && (
-                      <>
-                        <span className="text-border">·</span>
-                        <span className="font-sans">{project.customerName}</span>
-                      </>
+                    {due && (
+                      <span className="inline-flex items-center gap-1 text-xs text-text-secondary whitespace-nowrap sm:text-right">
+                        Due: <DueBadge project={project} />
+                      </span>
                     )}
                   </div>
 
-                  {/* Row 3: PDF + due date + actions */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div className="flex items-center gap-3">
-                      {hasPdf ? (
-                        <Link to={`/projects/${project.projectId}/pdf`}
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline min-w-0">
-                          <FileText className="w-3 h-3 shrink-0" />
-                          <span className="truncate max-w-[160px]">{project.sourcePdfName}</span>
-                        </Link>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-text-secondary">
-                          <UploadCloud className="w-3 h-3 shrink-0" />
-                          No PDF
-                        </span>
-                      )}
-                      <DueBadge project={project} />
-                    </div>
+                  <Link to={`/projects/${project.projectId}`}
+                    className="block text-sm font-bold text-text-primary hover:text-primary truncate transition-colors mb-2">
+                    {project.projectName}
+                  </Link>
 
-                    <div className="flex items-center gap-1 shrink-0">
-                      {hasPdf && canAccess('pdfViewer') && (
-                        <Link to={`/projects/${project.projectId}/pdf`}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:bg-primary-light px-2.5 py-1.5 rounded-lg transition-colors border border-primary/20">
-                          <Eye className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">View PDF</span>
-                        </Link>
-                      )}
-                      <Link to={`/projects/${project.projectId}/edit`}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors">
-                        <Pencil className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Edit</span>
+                  {/* Details */}
+                  <div className="flex flex-col gap-0.5 mb-2.5 text-xs text-text-secondary font-mono">
+                    <span>Part: {project.partNumber}</span>
+                    <span>DWG: {project.drawingNumber}</span>
+                    <span>Rev: {project.drawingRevision}</span>
+                  </div>
+
+                  {/* PDF */}
+                  <div className="mb-3">
+                    {hasPdf ? (
+                      <Link to={`/projects/${project.projectId}/pdf`}
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline min-w-0 max-w-full">
+                        <FileText className="w-3 h-3 shrink-0" />
+                        <span className="truncate">PDF: {project.sourcePdfName}</span>
                       </Link>
-                      <button
-                        onClick={() => setProjectToDelete(project)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-error hover:bg-red-50 px-2.5 py-1.5 rounded-lg transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                      <Link to={`/projects/${project.projectId}`}
-                        className="inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-primary hover:bg-gray-100 rounded-lg transition-colors">
-                        <ArrowRight className="w-4 h-4" />
-                      </Link>
-                    </div>
+                    ) : (
+                      <span className="text-xs text-text-secondary/50 italic">PDF: Not uploaded</span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-auto pt-3 border-t border-border flex items-center gap-2">
+                    <Link to={`/projects/${project.projectId}`}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-primary hover:bg-primary/90 px-2.5 py-1.5 rounded-lg transition-colors">
+                      Open
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                    <Link to={`/projects/${project.projectId}/edit`}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-primary hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors">
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
+                    </Link>
+                    <button
+                      onClick={() => setProjectToDelete(project)}
+                      className="ml-auto inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               )

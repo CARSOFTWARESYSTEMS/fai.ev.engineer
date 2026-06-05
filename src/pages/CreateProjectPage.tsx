@@ -4,6 +4,8 @@ import { ArrowLeft, FolderPlus, AlertCircle, Key, Building2 } from 'lucide-react
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { createProject } from '../projects/project.service'
+import type { ProjectPriority } from '../projects/projectPriority'
+import { PRIORITY_LABELS, PRIORITY_BADGE_CLASS } from '../projects/projectPriority'
 
 interface FormState {
   projectName: string
@@ -14,7 +16,10 @@ interface FormState {
   drawingRevision: string
   material: string
   description: string
+  priority: ProjectPriority
 }
+
+const PRIORITY_OPTIONS: ProjectPriority[] = ['critical', 'high', 'medium', 'low']
 
 const EMPTY: FormState = {
   projectName: '',
@@ -25,6 +30,7 @@ const EMPTY: FormState = {
   drawingRevision: '',
   material: '',
   description: '',
+  priority: 'medium',
 }
 
 function Field({
@@ -101,6 +107,7 @@ export function CreateProjectPage() {
           drawingRevision: form.drawingRevision,
           material: form.material,
           description: form.description,
+          priority: form.priority,
         },
         {
           uid: firebaseUser!.uid,
@@ -249,6 +256,42 @@ export function CreateProjectPage() {
                   className="input-field resize-none placeholder-slate-300"
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Priority */}
+          <div className="card p-6">
+            <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4">
+              Priority <span className="text-error ml-1">*</span>
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {PRIORITY_OPTIONS.map((p) => {
+                const isSelected = form.priority === p
+                return (
+                  <label key={p}
+                    className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border cursor-pointer transition-all ${
+                      isSelected
+                        ? `${PRIORITY_BADGE_CLASS[p]} border-current/40 shadow-sm`
+                        : 'border-border bg-white hover:border-primary/30 hover:bg-gray-50'
+                    }`}>
+                    <input
+                      type="radio"
+                      name="priority"
+                      value={p}
+                      checked={isSelected}
+                      onChange={() => set('priority')(p)}
+                      className="sr-only"
+                    />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${
+                      p === 'critical' ? 'bg-red-500'
+                      : p === 'high'   ? 'bg-orange-500'
+                      : p === 'medium' ? 'bg-blue-500'
+                      : 'bg-gray-400'
+                    }`} />
+                    <span className="text-sm font-semibold">{PRIORITY_LABELS[p]}</span>
+                  </label>
+                )
+              })}
             </div>
           </div>
 

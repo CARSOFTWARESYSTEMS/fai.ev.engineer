@@ -61,7 +61,7 @@ export async function createProject(
     status: 'draft',
     version: 1,
 
-    priority: 'medium',
+    priority: input.priority ?? 'medium',
     dueDate,
     defaultDueDaysApplied: defaultDueDays,
 

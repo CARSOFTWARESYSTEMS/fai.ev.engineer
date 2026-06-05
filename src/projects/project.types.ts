@@ -74,6 +74,7 @@ export interface CreateProjectInput {
   partName?: string
   material?: string
   description?: string
+  priority?: ProjectPriority
 }
 
 // ─── Input shape for updateProject() ─────────────────────────────────────────
