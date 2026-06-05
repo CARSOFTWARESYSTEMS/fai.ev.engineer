@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PlusCircle, TableProperties, PanelRight, PanelBottom } from 'lucide-react'
+import { PlusCircle, TableProperties, PanelRight, PanelBottom, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
 import type { Feature, FeatureInput, FeatureFormData } from '../types/featureTypes'
 import { FeatureTableRow } from './FeatureTableRow'
@@ -20,6 +20,8 @@ interface FeatureTablePanelProps {
   onSelectBalloon: (balloonId: string) => void
   tableLayout: 'right' | 'bottom'
   onToggleLayout: () => void
+  isCollapsed: boolean
+  onToggleCollapse: () => void
 }
 
 export function FeatureTablePanel({
@@ -34,6 +36,8 @@ export function FeatureTablePanel({
   onSelectBalloon,
   tableLayout,
   onToggleLayout,
+  isCollapsed,
+  onToggleCollapse,
 }: FeatureTablePanelProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -102,7 +106,7 @@ export function FeatureTablePanel({
           )}
         </div>
         <div className="flex items-center gap-1">
-          {canAddFeature && (
+          {!isCollapsed && canAddFeature && (
             <button
               onClick={() => setEditingId(NEW)}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-primary border border-primary rounded-lg hover:bg-primary-light transition-colors"
@@ -111,7 +115,7 @@ export function FeatureTablePanel({
               Add Feature {selectedBalloon && `for ①${selectedBalloon.balloonNumber}`}
             </button>
           )}
-          {selectedBalloon && linkedFeature && editingId !== linkedFeature.id && (
+          {!isCollapsed && selectedBalloon && linkedFeature && editingId !== linkedFeature.id && (
             <button
               onClick={() => setEditingId(linkedFeature.id)}
               className="text-xs text-primary hover:underline px-1"
@@ -119,86 +123,105 @@ export function FeatureTablePanel({
               Edit linked feature
             </button>
           )}
+          {!isCollapsed && (
+            <button
+              onClick={onToggleLayout}
+              title={tableLayout === 'right' ? 'Switch to bottom drawer' : 'Switch to right panel'}
+              className="p-1 rounded hover:bg-gray-100 transition-colors"
+            >
+              {tableLayout === 'right'
+                ? <PanelBottom className="w-4 h-4 text-text-secondary" />
+                : <PanelRight className="w-4 h-4 text-text-secondary" />
+              }
+            </button>
+          )}
           <button
-            onClick={onToggleLayout}
-            title={tableLayout === 'right' ? 'Switch to bottom drawer' : 'Switch to right panel'}
+            onClick={onToggleCollapse}
+            title={isCollapsed ? 'Expand panel' : 'Collapse panel'}
             className="p-1 rounded hover:bg-gray-100 transition-colors"
           >
-            {tableLayout === 'right'
-              ? <PanelBottom className="w-4 h-4 text-text-secondary" />
-              : <PanelRight className="w-4 h-4 text-text-secondary" />
+            {isCollapsed
+              ? (tableLayout === 'right'
+                  ? <ChevronLeft className="w-4 h-4 text-text-secondary" />
+                  : <ChevronUp className="w-4 h-4 text-text-secondary" />)
+              : (tableLayout === 'right'
+                  ? <ChevronRight className="w-4 h-4 text-text-secondary" />
+                  : <ChevronDown className="w-4 h-4 text-text-secondary" />)
             }
           </button>
         </div>
       </div>
 
-      {/* Context hint */}
-      {!selectedBalloon && features.length === 0 && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-text-secondary">
-          <TableProperties className="w-10 h-10 mb-3 text-border" />
-          <p className="text-sm font-medium">Select a balloon to add a feature</p>
-          <p className="text-xs mt-1">Click a balloon number on the PDF, then click <strong>Add Feature</strong></p>
-        </div>
-      )}
+      {!isCollapsed && (
+        <>
+          {/* Context hint */}
+          {!selectedBalloon && features.length === 0 && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-text-secondary">
+              <TableProperties className="w-10 h-10 mb-3 text-border" />
+              <p className="text-sm font-medium">Select a balloon to add a feature</p>
+              <p className="text-xs mt-1">Click a balloon number on the PDF, then click <strong>Add Feature</strong></p>
+            </div>
+          )}
 
-      {selectedBalloon && features.length === 0 && editingId !== NEW && (
-        <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-text-secondary">
-          <p className="text-sm">Balloon <strong className="text-primary">#{selectedBalloon.balloonNumber}</strong> has no linked feature yet.</p>
-          <p className="text-xs mt-1">Click <strong>Add Feature</strong> above to create one.</p>
-        </div>
-      )}
+          {selectedBalloon && features.length === 0 && editingId !== NEW && (
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-text-secondary">
+              <p className="text-sm">Balloon <strong className="text-primary">#{selectedBalloon.balloonNumber}</strong> has no linked feature yet.</p>
+              <p className="text-xs mt-1">Click <strong>Add Feature</strong> above to create one.</p>
+            </div>
+          )}
 
-      {/* Table */}
-      {(features.length > 0 || editingId === NEW) && (
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-xs border-collapse">
-            <thead className="bg-gray-50 sticky top-0 z-10">
-              <tr>
-                {COLS.map((col, i) => (
-                  <th
-                    key={i}
-                    className="px-2 py-1.5 text-left text-[10px] font-semibold text-text-secondary uppercase tracking-wide border-b border-border whitespace-nowrap"
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {features.map(f =>
-                editingId === f.id ? (
-                  <FeatureEditor
-                    key={f.id}
-                    feature={f}
-                    balloonNumber={f.balloonNumber}
-                    defaultFeatureNumber={f.featureNumber}
-                    onSave={(data) => handleSaveEdit(f.id, data)}
-                    onCancel={() => setEditingId(null)}
-                  />
-                ) : (
-                  <FeatureTableRow
-                    key={f.id}
-                    feature={f}
-                    isLinked={selectedBalloon?.id === f.balloonId}
-                    onEdit={setEditingId}
-                    onDelete={handleDelete}
-                    onSelectBalloon={onSelectBalloon}
-                  />
-                )
-              )}
-              {/* New-feature editor appended at end */}
-              {editingId === NEW && selectedBalloon && (
-                <FeatureEditor
-                  feature={null}
-                  balloonNumber={selectedBalloon.balloonNumber}
-                  defaultFeatureNumber={nextFeatureNumber}
-                  onSave={handleSaveNew}
-                  onCancel={() => setEditingId(null)}
-                />
-              )}
-            </tbody>
-          </table>
-        </div>
+          {/* Table */}
+          {(features.length > 0 || editingId === NEW) && (
+            <div className="flex-1 overflow-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    {COLS.map((col, i) => (
+                      <th
+                        key={i}
+                        className="px-2 py-1.5 text-left text-[10px] font-semibold text-text-secondary uppercase tracking-wide border-b border-border whitespace-nowrap"
+                      >
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {features.map(f =>
+                    editingId === f.id ? (
+                      <FeatureEditor
+                        key={f.id}
+                        feature={f}
+                        balloonNumber={f.balloonNumber}
+                        defaultFeatureNumber={f.featureNumber}
+                        onSave={(data) => handleSaveEdit(f.id, data)}
+                        onCancel={() => setEditingId(null)}
+                      />
+                    ) : (
+                      <FeatureTableRow
+                        key={f.id}
+                        feature={f}
+                        isLinked={selectedBalloon?.id === f.balloonId}
+                        onEdit={setEditingId}
+                        onDelete={handleDelete}
+                        onSelectBalloon={onSelectBalloon}
+                      />
+                    )
+                  )}
+                  {editingId === NEW && selectedBalloon && (
+                    <FeatureEditor
+                      feature={null}
+                      balloonNumber={selectedBalloon.balloonNumber}
+                      defaultFeatureNumber={nextFeatureNumber}
+                      onSave={handleSaveNew}
+                      onCancel={() => setEditingId(null)}
+                    />
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

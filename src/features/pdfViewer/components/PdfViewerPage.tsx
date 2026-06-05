@@ -27,7 +27,9 @@ export function PdfViewerPage() {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
-  const [isTableOpen, setIsTableOpen] = useState(false)
+  const [isTableOpen, setIsTableOpen] = useState<boolean>(() =>
+    localStorage.getItem('fai-feature-table-open') === 'true'
+  )
   const [tableLayout, setTableLayout] = useState<'right' | 'bottom'>(() => {
     const saved = localStorage.getItem('fai-feature-table-layout')
     return saved === 'bottom' ? 'bottom' : 'right'
@@ -37,6 +39,17 @@ export function PdfViewerPage() {
     setTableLayout(prev => {
       const next = prev === 'right' ? 'bottom' : 'right'
       localStorage.setItem('fai-feature-table-layout', next)
+      return next
+    })
+  }, [])
+
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() =>
+    localStorage.getItem('fai-feature-table-collapsed') === 'true'
+  )
+  const toggleCollapsed = useCallback(() => {
+    setIsCollapsed(prev => {
+      const next = !prev
+      localStorage.setItem('fai-feature-table-collapsed', String(next))
       return next
     })
   }, [])
@@ -230,7 +243,13 @@ export function PdfViewerPage() {
         onToggleFullscreen={viewer.toggleFullscreen}
         onToggleBalloonMode={balloons.toggleBalloonMode}
         onDeleteSelectedBalloon={balloons.deleteSelected}
-        onToggleTable={() => setIsTableOpen(o => !o)}
+        onToggleTable={() => {
+          setIsTableOpen(o => {
+            const next = !o
+            localStorage.setItem('fai-feature-table-open', String(next))
+            return next
+          })
+        }}
       />
 
       {/* Main content: PDF + (optional) Feature Table panel */}
@@ -266,33 +285,35 @@ export function PdfViewerPage() {
         {isTableOpen && (
           <div
             style={{
-              width: tableLayout === 'right' ? rightWidth : undefined,
-              height: tableLayout === 'bottom' ? bottomHeight : undefined,
+              ...(tableLayout === 'right' && { width: isCollapsed ? 220 : rightWidth }),
+              ...(tableLayout === 'bottom' && !isCollapsed && { height: bottomHeight }),
             }}
             className={[
               'bg-white flex-shrink-0 max-w-full border-border',
               tableLayout === 'right'
-                ? 'flex flex-row h-[33vh] lg:h-auto border-t lg:border-t-0 lg:border-l'
+                ? `flex flex-row ${isCollapsed ? '' : 'h-[33vh]'} lg:h-auto border-t lg:border-t-0 lg:border-l`
                 : 'flex flex-col border-t',
             ].join(' ')}
           >
-            {/* Resize handle */}
-            {tableLayout === 'right' ? (
-              <div
-                onPointerDown={handleResizeRight}
-                title="Drag to resize panel"
-                className="hidden lg:flex w-1.5 cursor-ew-resize shrink-0 items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group touch-none"
-              >
-                <div className="h-8 w-0.5 rounded-full bg-gray-300 group-hover:bg-primary/60" />
-              </div>
-            ) : (
-              <div
-                onPointerDown={handleResizeBottom}
-                title="Drag to resize panel"
-                className="h-3 cursor-ns-resize shrink-0 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors group border-b border-border touch-none"
-              >
-                <div className="w-8 h-1 rounded-full bg-gray-300 group-hover:bg-gray-500" />
-              </div>
+            {/* Resize handle — hidden when collapsed */}
+            {!isCollapsed && (
+              tableLayout === 'right' ? (
+                <div
+                  onPointerDown={handleResizeRight}
+                  title="Drag to resize panel"
+                  className="hidden lg:flex w-1.5 cursor-ew-resize shrink-0 items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group touch-none"
+                >
+                  <div className="h-8 w-0.5 rounded-full bg-gray-300 group-hover:bg-primary/60" />
+                </div>
+              ) : (
+                <div
+                  onPointerDown={handleResizeBottom}
+                  title="Drag to resize panel"
+                  className="h-3 cursor-ns-resize shrink-0 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors group border-b border-border touch-none"
+                >
+                  <div className="w-8 h-1 rounded-full bg-gray-300 group-hover:bg-gray-500" />
+                </div>
+              )
             )}
             {/* Panel content */}
             <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
@@ -308,6 +329,8 @@ export function PdfViewerPage() {
                 onSelectBalloon={balloons.setSelectedId}
                 tableLayout={tableLayout}
                 onToggleLayout={toggleTableLayout}
+                isCollapsed={isCollapsed}
+                onToggleCollapse={toggleCollapsed}
               />
             </div>
           </div>
