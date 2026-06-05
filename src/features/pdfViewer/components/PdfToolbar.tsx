@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -15,6 +16,7 @@ import {
   Target,
   Trash2,
   TableProperties,
+  SidebarOpen,
 } from 'lucide-react'
 
 interface PdfToolbarProps {
@@ -31,6 +33,8 @@ interface PdfToolbarProps {
   isBalloonMode: boolean
   hasSelectedBalloon: boolean
   isTableOpen: boolean
+  isSidebarOpen: boolean
+  onGoToPage: (page: number) => void
   onZoomIn: () => void
   onZoomOut: () => void
   onFitWidth: () => void
@@ -43,6 +47,7 @@ interface PdfToolbarProps {
   onToggleBalloonMode: () => void
   onDeleteSelectedBalloon: () => void
   onToggleTable: () => void
+  onToggleSidebar: () => void
 }
 
 export function PdfToolbar({
@@ -59,6 +64,8 @@ export function PdfToolbar({
   isBalloonMode,
   hasSelectedBalloon,
   isTableOpen,
+  isSidebarOpen,
+  onGoToPage,
   onZoomIn,
   onZoomOut,
   onFitWidth,
@@ -71,9 +78,22 @@ export function PdfToolbar({
   onToggleBalloonMode,
   onDeleteSelectedBalloon,
   onToggleTable,
+  onToggleSidebar,
 }: PdfToolbarProps) {
   const canPrev = currentPage > 1
   const canNext = numPages > 0 && currentPage < numPages
+
+  const [pageInput, setPageInput] = useState(String(currentPage))
+  useEffect(() => { setPageInput(String(currentPage)) }, [currentPage])
+
+  const handlePageCommit = () => {
+    const n = parseInt(pageInput, 10)
+    if (!isNaN(n) && n >= 1 && n <= numPages) {
+      onGoToPage(n)
+    } else {
+      setPageInput(String(currentPage))
+    }
+  }
 
   return (
     <header className="bg-white border-b border-border shrink-0 h-14 z-10">
@@ -114,9 +134,24 @@ export function PdfToolbar({
           >
             <ChevronLeft className="w-4 h-4 text-text-secondary" />
           </button>
-          <span className="text-xs text-text-secondary whitespace-nowrap px-1 min-w-[52px] text-center tabular-nums">
-            {numPages > 0 ? `${currentPage} / ${numPages}` : '—'}
-          </span>
+          {numPages > 0 ? (
+            <div className="flex items-center gap-0.5 text-xs text-text-secondary">
+              <input
+                type="number"
+                value={pageInput}
+                min={1}
+                max={numPages}
+                onChange={e => setPageInput(e.target.value)}
+                onBlur={handlePageCommit}
+                onKeyDown={e => e.key === 'Enter' && handlePageCommit()}
+                title="Go to page"
+                className="w-7 text-center bg-transparent border-b border-transparent hover:border-border focus:border-primary focus:outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="whitespace-nowrap">/ {numPages}</span>
+            </div>
+          ) : (
+            <span className="text-xs text-text-secondary px-1">—</span>
+          )}
           <button
             onClick={onNextPage}
             disabled={!canNext}
@@ -227,6 +262,23 @@ export function PdfToolbar({
           >
             <TableProperties className="w-4 h-4" />
             <span className="hidden sm:inline">Table</span>
+          </button>
+
+          <span className="text-border mx-1 select-none">|</span>
+
+          {/* Navigator sidebar toggle */}
+          <button
+            onClick={onToggleSidebar}
+            title={isSidebarOpen ? 'Close navigator' : 'Open navigator'}
+            className={[
+              'flex items-center gap-1 px-2 py-2 rounded-lg transition-colors text-xs font-semibold',
+              isSidebarOpen
+                ? 'bg-primary text-white hover:bg-primary-dark'
+                : 'text-text-secondary hover:bg-gray-100',
+            ].join(' ')}
+          >
+            <SidebarOpen className="w-4 h-4" />
+            <span className="hidden sm:inline">Nav</span>
           </button>
         </div>
 

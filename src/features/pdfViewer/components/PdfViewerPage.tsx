@@ -13,6 +13,7 @@ import { useBalloons } from '../../ballooning/hooks/useBalloons'
 import { BalloonLayer } from '../../ballooning/components/BalloonLayer'
 import { useFeatures } from '../../featureTable/hooks/useFeatures'
 import { FeatureTablePanel } from '../../featureTable/components/FeatureTablePanel'
+import { SmartSidebar } from '../../navigation/components/SmartSidebar'
 import { PdfToolbar } from './PdfToolbar'
 import { PdfCanvas } from './PdfCanvas'
 import { PdfLoadingState } from './PdfLoadingState'
@@ -42,6 +43,8 @@ export function PdfViewerPage() {
       return next
     })
   }, [])
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() =>
     localStorage.getItem('fai-feature-table-collapsed') === 'true'
@@ -169,6 +172,10 @@ export function PdfViewerPage() {
 
   const { setNumPages, setCurrentPage, setPageNaturalSize } = viewer
 
+  const goToPage = useCallback((page: number) => {
+    setCurrentPage(Math.max(1, Math.min(viewer.numPages, page)))
+  }, [setCurrentPage, viewer.numPages])
+
   const handleDocumentLoad = useCallback((numPages: number) => {
     setNumPages(numPages)
     setCurrentPage(1)
@@ -232,6 +239,8 @@ export function PdfViewerPage() {
         isBalloonMode={balloons.isBalloonMode}
         hasSelectedBalloon={!!balloons.selectedId}
         isTableOpen={isTableOpen}
+        isSidebarOpen={isSidebarOpen}
+        onGoToPage={goToPage}
         onZoomIn={viewer.zoomIn}
         onZoomOut={viewer.zoomOut}
         onFitWidth={viewer.fitWidth}
@@ -243,6 +252,7 @@ export function PdfViewerPage() {
         onToggleFullscreen={viewer.toggleFullscreen}
         onToggleBalloonMode={balloons.toggleBalloonMode}
         onDeleteSelectedBalloon={balloons.deleteSelected}
+        onToggleSidebar={() => setIsSidebarOpen(o => !o)}
         onToggleTable={() => {
           setIsTableOpen(o => {
             const next = !o
@@ -336,6 +346,20 @@ export function PdfViewerPage() {
           </div>
         )}
       </div>
+
+      {/* Smart Navigator Sidebar — fixed overlay, does not affect layout */}
+      <SmartSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        numPages={viewer.numPages}
+        currentPage={viewer.currentPage}
+        onGoToPage={goToPage}
+        balloons={balloons.balloons}
+        selectedBalloonId={balloons.selectedId}
+        onSelectBalloon={balloons.setSelectedId}
+        features={features.features}
+        projectName={project.projectName}
+      />
     </div>
   )
 }
