@@ -48,6 +48,22 @@ import {
   trackFortiusPartnerClick,
   trackFortiusPartnerCTAClick,
   trackFortiusExternalPartnerNavigation,
+  trackFortiusHeroQuoteClick,
+  trackFortiusHeroCapabilitiesClick,
+  trackFortiusContactFormOpen,
+  trackFortiusContactFormSubmit,
+  trackFortiusLeadGenerated,
+  trackFortiusContactFormError,
+  trackFortiusGalleryView,
+  trackFortiusGalleryImageClick,
+  trackFortiusGalleryLightboxOpen,
+  trackFortiusFounderClick,
+  trackFortiusLinkedInClick,
+  trackFortiusFounderPhoneClick,
+  trackFortiusFounderEmailClick,
+  trackFortiusScrollDepth,
+  trackFortiusEngagementTime,
+  trackFortiusExternalLinkClick,
 } from '../services/AnalyticsService'
 
 const FORTIUS_MAPS_URL =
@@ -655,14 +671,26 @@ function ContactForm() {
   const [form, setForm] = useState<FormState>({
     name: '', company: '', email: '', phone: '', requirement: '',
   })
+  const formOpened = useRef(false)
 
   function set(field: keyof FormState) {
-    return (e: { target: { value: string } }) =>
+    return (e: { target: { value: string } }) => {
+      if (!formOpened.current) {
+        formOpened.current = true
+        trackFortiusContactFormOpen()
+      }
       setForm((prev) => ({ ...prev, [field]: e.target.value }))
+    }
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    if (!form.name || !form.company || !form.email || !form.requirement) {
+      trackFortiusContactFormError('Required fields missing')
+      return
+    }
+    trackFortiusContactFormSubmit(form.name, form.company)
+    trackFortiusLeadGenerated(form.name, form.company, form.email)
     const body = [
       `Name: ${form.name}`,
       `Company: ${form.company}`,
@@ -1024,6 +1052,25 @@ function FAIToolkitSection() {
 
 export function FortiusPage() {
   const [lightbox, setLightbox] = useState<LightboxState | null>(null)
+  const galleryRef = useRef<HTMLElement>(null)
+  const galleryTracked = useRef(false)
+
+  // Gallery view — fires once when section enters viewport
+  useEffect(() => {
+    const el = galleryRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !galleryTracked.current) {
+          galleryTracked.current = true
+          trackFortiusGalleryView()
+        }
+      },
+      { threshold: 0.2 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     trackFortiusPageView()
@@ -1096,10 +1143,38 @@ export function FortiusPage() {
     script.textContent = JSON.stringify(schema)
     document.head.appendChild(script)
 
+    // Scroll depth (25 / 50 / 75 / 90 / 100)
+    const firedDepths = new Set<number>()
+    function onScroll() {
+      const scrolled = window.scrollY
+      const total = document.documentElement.scrollHeight - window.innerHeight
+      if (total <= 0) return
+      const pct = Math.round((scrolled / total) * 100)
+      for (const threshold of [25, 50, 75, 90, 100]) {
+        if (pct >= threshold && !firedDepths.has(threshold)) {
+          firedDepths.add(threshold)
+          trackFortiusScrollDepth(threshold)
+        }
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+
+    // Engagement time (30 / 60 / 120 / 300 seconds)
+    let elapsed = 0
+    const engagementTimer = setInterval(() => {
+      elapsed += 1
+      if ([30, 60, 120, 300].includes(elapsed)) {
+        trackFortiusEngagementTime(elapsed)
+      }
+      if (elapsed >= 300) clearInterval(engagementTimer)
+    }, 1000)
+
     return () => {
       document.title = prevTitle
       if (metaDesc) metaDesc.content = prevDesc
       document.getElementById('fortius-main-schema')?.remove()
+      window.removeEventListener('scroll', onScroll)
+      clearInterval(engagementTimer)
     }
   }, [])
 
@@ -1128,11 +1203,16 @@ export function FortiusPage() {
                 electrical industries.
               </p>
               <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-                <a href="#contact" className="btn-primary text-base px-8 py-4 w-full sm:w-auto">
+                <a
+                  href="#contact"
+                  onClick={trackFortiusHeroQuoteClick}
+                  className="btn-primary text-base px-8 py-4 w-full sm:w-auto"
+                >
                   Request Manufacturing Quote
                 </a>
                 <a
                   href="#capabilities"
+                  onClick={trackFortiusHeroCapabilitiesClick}
                   className="btn-secondary text-base px-8 py-4 w-full sm:w-auto text-center"
                 >
                   View Capabilities
@@ -1327,7 +1407,7 @@ export function FortiusPage() {
         <FAIToolkitSection />
 
         {/* ── 6. Gallery ──────────────────────────────────────────────────── */}
-        <section id="gallery" className="py-20 px-4 bg-background">
+        <section ref={galleryRef} id="gallery" className="py-20 px-4 bg-background">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-14">
               <h2 className="section-title">Facility Gallery</h2>
@@ -1342,7 +1422,11 @@ export function FortiusPage() {
                   src={img.src}
                   alt={img.alt}
                   className="w-full h-56 shadow-sm hover:shadow-md transition-shadow"
-                  onClick={() => setLightbox({ images: galleryItems, index: i })}
+                  onClick={() => {
+                    trackFortiusGalleryImageClick(img.alt, i)
+                    trackFortiusGalleryLightboxOpen(img.alt, i)
+                    setLightbox({ images: galleryItems, index: i })
+                  }}
                 />
               ))}
             </div>
@@ -1358,7 +1442,10 @@ export function FortiusPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
 
               {/* Vinayak Hegde */}
-              <div className="card p-8 flex flex-col items-center text-center gap-4">
+              <div
+                className="card p-8 flex flex-col items-center text-center gap-4 cursor-default"
+                onClick={() => trackFortiusFounderClick('Vinayak Hegde')}
+              >
                 <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-primary/20 bg-primary-light flex items-center justify-center shrink-0">
                   <FounderPhoto src="/Fortius/12.jpeg" name="Vinayak Hegde" />
                 </div>
@@ -1369,6 +1456,7 @@ export function FortiusPage() {
                 <div className="flex flex-col gap-2.5 w-full">
                   <a
                     href="tel:+918880423666"
+                    onClick={(e) => { e.stopPropagation(); trackFortiusFounderPhoneClick('Vinayak Hegde') }}
                     className="flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-primary transition-colors"
                   >
                     <Phone className="w-4 h-4 shrink-0" />
@@ -1376,6 +1464,7 @@ export function FortiusPage() {
                   </a>
                   <a
                     href="mailto:vnyk.hgde@gmail.com"
+                    onClick={(e) => { e.stopPropagation(); trackFortiusFounderEmailClick('Vinayak Hegde') }}
                     className="flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-primary transition-colors"
                   >
                     <Mail className="w-4 h-4 shrink-0" />
@@ -1386,6 +1475,11 @@ export function FortiusPage() {
                   href="https://www.linkedin.com/in/vinayak-hegde-62a6a046/"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    trackFortiusLinkedInClick('Vinayak Hegde')
+                    trackFortiusExternalLinkClick('https://www.linkedin.com/in/vinayak-hegde-62a6a046/', 'Vinayak Hegde LinkedIn')
+                  }}
                   className="btn-secondary text-sm px-5 py-2 w-full"
                 >
                   <ExternalLink className="w-4 h-4" />

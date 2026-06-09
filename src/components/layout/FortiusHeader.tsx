@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
+import { trackFortiusMenuClick } from '../../services/AnalyticsService'
 
 const navLinks = [
   { label: 'Capabilities',         href: '#capabilities' },
@@ -41,6 +42,7 @@ export function FortiusHeader() {
               <a
                 key={link.label}
                 href={link.href}
+                onClick={() => trackFortiusMenuClick(link.label)}
                 className="px-3 py-2 text-sm font-medium text-text-secondary hover:text-primary rounded-lg hover:bg-primary-light transition-colors duration-200"
               >
                 {link.label}
@@ -76,7 +78,7 @@ export function FortiusHeader() {
             <a
               key={link.label}
               href={link.href}
-              onClick={() => setMobileOpen(false)}
+              onClick={() => { setMobileOpen(false); trackFortiusMenuClick(link.label) }}
               className="block px-4 py-3 text-sm font-medium text-text-secondary hover:text-primary hover:bg-primary-light rounded-lg transition-colors"
             >
               {link.label}

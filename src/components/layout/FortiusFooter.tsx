@@ -1,12 +1,13 @@
 import { Link } from 'react-router-dom'
 import { Phone, Mail, MapPin, Cog, Plane, Wrench, Users } from 'lucide-react'
 import {
-  trackFortiusFooterLink,
-  trackFortiusFooterCTA,
-  trackFortiusCall,
-  trackFortiusEmail,
-  trackFortiusRequestQuote,
+  trackFortiusFooterPhoneClick,
+  trackFortiusFooterEmailClick,
+  trackFortiusFooterQuoteClick,
+  trackFortiusFooterNavigationClick,
+  trackFortiusFooterPartnerClick,
   trackFortiusDirectionsClick,
+  trackFortiusExternalLinkClick,
 } from '../../services/AnalyticsService'
 
 const FORTIUS_MAPS_URL =
@@ -136,7 +137,7 @@ export function FortiusFooter() {
                 <li key={cap}>
                   <FooterAnchor
                     href="#capabilities"
-                    onClick={() => trackFortiusFooterLink(cap, 'capabilities')}
+                    onClick={() => trackFortiusFooterNavigationClick(cap)}
                   >
                     {cap}
                   </FooterAnchor>
@@ -153,7 +154,7 @@ export function FortiusFooter() {
                 <li key={ind}>
                   <FooterAnchor
                     href="#industries"
-                    onClick={() => trackFortiusFooterLink(ind, 'industries')}
+                    onClick={() => trackFortiusFooterNavigationClick(ind)}
                   >
                     {ind}
                   </FooterAnchor>
@@ -184,7 +185,7 @@ export function FortiusFooter() {
                 <li key={label}>
                   <FooterAnchor
                     href={href}
-                    onClick={() => trackFortiusFooterLink(label, 'leadership-nav')}
+                    onClick={() => trackFortiusFooterNavigationClick(label)}
                   >
                     {label}
                   </FooterAnchor>
@@ -200,7 +201,7 @@ export function FortiusFooter() {
             {/* Phone */}
             <a
               href="tel:+918880423666"
-              onClick={trackFortiusCall}
+              onClick={trackFortiusFooterPhoneClick}
               className="flex items-start gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-3 group"
             >
               <Phone className="w-4 h-4 text-primary mt-0.5 shrink-0 group-hover:text-white transition-colors" />
@@ -210,7 +211,7 @@ export function FortiusFooter() {
             {/* Email */}
             <a
               href="mailto:vnyk.hgde@gmail.com"
-              onClick={trackFortiusEmail}
+              onClick={trackFortiusFooterEmailClick}
               className="flex items-start gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-4 group"
             >
               <Mail className="w-4 h-4 text-primary mt-0.5 shrink-0 group-hover:text-white transition-colors" />
@@ -244,10 +245,7 @@ export function FortiusFooter() {
             <div className="flex flex-col gap-2.5">
               <a
                 href="mailto:vnyk.hgde@gmail.com"
-                onClick={() => {
-                  trackFortiusEmail()
-                  trackFortiusFooterCTA('Email Us')
-                }}
+                onClick={trackFortiusFooterEmailClick}
                 className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 border border-slate-600 text-slate-300 text-sm font-semibold rounded-lg hover:bg-white/10 hover:text-white transition-colors"
               >
                 <Mail className="w-4 h-4" />
@@ -255,10 +253,7 @@ export function FortiusFooter() {
               </a>
               <a
                 href="#contact"
-                onClick={() => {
-                  trackFortiusRequestQuote()
-                  trackFortiusFooterCTA('Request Quote')
-                }}
+                onClick={trackFortiusFooterQuoteClick}
                 className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 border border-slate-600 text-slate-300 text-sm font-semibold rounded-lg hover:bg-white/10 hover:text-white transition-colors"
               >
                 Request Quote
@@ -276,6 +271,10 @@ export function FortiusFooter() {
                 href="https://EV.ENGINEER"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  trackFortiusFooterPartnerClick('EV.ENGINEER', 'https://EV.ENGINEER')
+                  trackFortiusExternalLinkClick('https://EV.ENGINEER', 'EV.ENGINEER')
+                }}
                 className="text-slate-400 hover:text-white transition-colors"
               >
                 EV.ENGINEER
@@ -288,6 +287,10 @@ export function FortiusFooter() {
                 href="https://iTelematics.com"
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  trackFortiusFooterPartnerClick('iTelematics', 'https://iTelematics.com')
+                  trackFortiusExternalLinkClick('https://iTelematics.com', 'iTelematics Software Private Limited')
+                }}
                 className="text-slate-400 hover:text-white transition-colors"
               >
                 iTelematics Software Private Limited
