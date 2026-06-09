@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 
 const navLinks = [
-  { label: 'Capabilities',    href: '#capabilities' },
-  { label: 'Industries',      href: '#industries' },
-  { label: 'Manufacturing',   href: '#manufacturing' },
-  { label: 'Gallery',         href: '#gallery' },
-  { label: 'Leadership',      href: '#leadership' },
-  { label: 'Contact',         href: '#contact' },
+  { label: 'Capabilities',         href: '#capabilities' },
+  { label: 'Industries',           href: '#industries' },
+  { label: 'Manufacturing',        href: '#manufacturing' },
+  { label: 'Gallery',              href: '#gallery' },
+  { label: 'Leadership',           href: '#leadership' },
+  { label: 'Technology Partners',  href: '#technology-partners' },
+  { label: 'Contact',              href: '#contact' },
 ]
 
 export function FortiusHeader() {

@@ -177,3 +177,35 @@ export function trackFortiusFAISupportContactClick() {
     partner_name: FORTIUS_PARTNER,
   })
 }
+
+export function trackFortiusTechnologyPartnersView() {
+  track('fortius_technology_partners_view', {
+    page_path: '/Fortius',
+    section_name: 'Technology Partners',
+    partner_count: 2,
+  })
+}
+
+export function trackFortiusPartnerClick(partnerName: string, destinationUrl: string) {
+  track('fortius_partner_click', {
+    partner_name: partnerName,
+    destination_url: destinationUrl,
+    page_path: '/Fortius',
+  })
+}
+
+export function trackFortiusPartnerCTAClick(partnerName: string, destinationUrl: string) {
+  track('fortius_partner_cta_click', {
+    partner_name: partnerName,
+    destination_url: destinationUrl,
+    page_path: '/Fortius',
+  })
+}
+
+export function trackFortiusExternalPartnerNavigation(destinationUrl: string, partnerName: string) {
+  track('external_partner_navigation', {
+    source_page: '/Fortius',
+    destination_url: destinationUrl,
+    partner_name: partnerName,
+  })
+}

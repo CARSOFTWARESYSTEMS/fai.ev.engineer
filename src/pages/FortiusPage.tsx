@@ -44,6 +44,10 @@ import {
   trackFortiusFloatingWhatsAppClick,
   trackFortiusDirectionsClick,
   trackFortiusRelatedServiceClick,
+  trackFortiusTechnologyPartnersView,
+  trackFortiusPartnerClick,
+  trackFortiusPartnerCTAClick,
+  trackFortiusExternalPartnerNavigation,
 } from '../services/AnalyticsService'
 
 const FORTIUS_MAPS_URL =
@@ -762,6 +766,148 @@ function ContactForm() {
   )
 }
 
+// ─── Technology Partners section ─────────────────────────────────────────────
+
+const technologyPartners = [
+  {
+    name: 'iTelematics',
+    url: 'https://iTelematics.com',
+    tagline: 'Engineering Software & Digital Transformation',
+    description:
+      'iTelematics Software Private Limited provides engineering software solutions, mobile applications, IoT platforms, connected device solutions, digital transformation services, and custom software development for industrial and engineering businesses.',
+    keywords: ['Engineering Software', 'IoT Platforms', 'Mobile Apps', 'Digital Transformation', 'Industrial Solutions'],
+    logo: 'iT',
+    logoColor: '#0F6FFF',
+  },
+  {
+    name: 'EV.ENGINEER',
+    url: 'https://autonomous.ev.engineer',
+    tagline: 'EV Technologies & Industrial Innovation',
+    description:
+      'EV.ENGINEER focuses on engineering innovation, EV technologies, battery intelligence, AI-powered diagnostics, quality engineering, and industrial digitalization initiatives.',
+    keywords: ['EV Technologies', 'Battery Intelligence', 'AI Diagnostics', 'Quality Engineering', 'Industrial Digitalization'],
+    logo: 'EV',
+    logoColor: '#059669',
+  },
+]
+
+function TechnologyPartnersSection() {
+  const ref = useRef<HTMLElement>(null)
+  const tracked = useRef(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !tracked.current) {
+          tracked.current = true
+          trackFortiusTechnologyPartnersView()
+        }
+      },
+      { threshold: 0.3 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  function handlePartnerClick(name: string, url: string) {
+    trackFortiusPartnerClick(name, url)
+    trackFortiusExternalPartnerNavigation(url, name)
+  }
+
+  function handleCTAClick(name: string, url: string) {
+    trackFortiusPartnerCTAClick(name, url)
+    trackFortiusExternalPartnerNavigation(url, name)
+  }
+
+  return (
+    <section ref={ref} id="technology-partners" className="py-20 px-4 bg-background">
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center mb-14">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-semibold px-4 py-1.5 rounded-full mb-5">
+            <Globe className="w-3.5 h-3.5" />
+            Technology &amp; Engineering Partners
+          </div>
+          <h2 className="section-title">Technology Partners</h2>
+          <p className="section-subtitle max-w-2xl mx-auto">
+            Collaborating with technology and engineering partners to deliver modern manufacturing,
+            engineering, quality, and digital transformation solutions.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {technologyPartners.map((partner) => (
+            <div
+              key={partner.name}
+              className="card p-8 flex flex-col gap-5 hover:shadow-md transition-shadow"
+            >
+              {/* Logo + name */}
+              <a
+                href={partner.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => handlePartnerClick(partner.name, partner.url)}
+                className="flex items-center gap-4 group"
+                aria-label={`Visit ${partner.name} website`}
+              >
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm"
+                  style={{ background: partner.logoColor }}
+                >
+                  {partner.logo}
+                </div>
+                <div>
+                  <h3 className="font-bold text-text-primary text-lg group-hover:text-primary transition-colors leading-snug">
+                    {partner.name}
+                  </h3>
+                  <p className="text-xs font-medium text-text-secondary mt-0.5">{partner.tagline}</p>
+                </div>
+              </a>
+
+              {/* Description */}
+              <p className="text-sm text-text-secondary leading-relaxed flex-1">
+                {partner.description}
+              </p>
+
+              {/* Keyword chips */}
+              <div className="flex flex-wrap gap-2">
+                {partner.keywords.map((kw) => (
+                  <span
+                    key={kw}
+                    className="inline-block text-xs font-medium text-primary bg-primary/8 px-2.5 py-1 rounded-full"
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <a
+                href={partner.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => handleCTAClick(partner.name, partner.url)}
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-2.5 border border-primary/30 text-primary text-sm font-semibold rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-all w-full"
+              >
+                <ExternalLink className="w-4 h-4 shrink-0" />
+                Visit {partner.name}
+              </a>
+            </div>
+          ))}
+        </div>
+
+        {/* SEO paragraph — visible but understated */}
+        <p className="text-center text-sm text-text-secondary mt-10 max-w-3xl mx-auto leading-relaxed">
+          Fortius collaborates with technology partners specialising in engineering software solutions,
+          industrial IoT, EV engineering, manufacturing quality systems, and industrial digitalization —
+          supporting end-to-end manufacturing and engineering transformation for our customers.
+        </p>
+      </div>
+    </section>
+  )
+}
+
 // ─── FAI Toolkit highlight ────────────────────────────────────────────────────
 
 function FAIToolkitSection() {
@@ -1285,7 +1431,10 @@ export function FortiusPage() {
           </div>
         </section>
 
-        {/* ── 9. FAQ ──────────────────────────────────────────────────────── */}
+        {/* ── 9. Technology Partners ───────────────────────────────────────── */}
+        <TechnologyPartnersSection />
+
+        {/* ── 10. FAQ ─────────────────────────────────────────────────────── */}
         <section id="faq" className="py-20 px-4 bg-white">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-14">
