@@ -71,11 +71,11 @@ export function FortiusServicePage({ service }: { service: FortiusService }) {
     const descEl   = setMeta('description', service.description)
     const kwEl     = setMeta('keywords', service.keywords.join(', '))
     const canEl    = setLink('canonical', canonical)
-    const ogTitle  = setProp('og:title', service.title)
-    const ogDesc   = setProp('og:description', service.description)
-    const ogUrl    = setProp('og:url', canonical)
-    const twTitle  = setMeta('twitter:title', service.title)
-    const twDesc   = setMeta('twitter:description', service.description)
+    const ogTitleEl = setProp('og:title', service.title)
+    const ogDescEl  = setProp('og:description', service.description)
+    const ogUrlEl   = setProp('og:url', canonical)
+    const twTitleEl = setMeta('twitter:title', service.title)
+    const twDescEl  = setMeta('twitter:description', service.description)
 
     // JSON-LD
     const schema = {
@@ -135,6 +135,11 @@ export function FortiusServicePage({ service }: { service: FortiusService }) {
       descEl.content = ''
       kwEl.content = ''
       canEl.href = 'https://fai.ev.engineer/'
+      ogTitleEl.content = ''
+      ogDescEl.content = ''
+      ogUrlEl.content = ''
+      twTitleEl.content = ''
+      twDescEl.content = ''
       ldScript?.remove()
     }
   }, [service, canonical])

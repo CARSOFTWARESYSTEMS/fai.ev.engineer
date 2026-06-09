@@ -13,6 +13,13 @@ import { ProjectPdfViewerPage } from '../pages/ProjectPdfViewerPage'
 import { RoadmapPage } from '../pages/RoadmapPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
+import { CNCMachiningPage } from '../pages/fortius/CNCMachiningPage'
+import { CNCMillingPage } from '../pages/fortius/CNCMillingPage'
+import { CNCTurningPage } from '../pages/fortius/CNCTurningPage'
+import { AerospaceComponentsPage } from '../pages/fortius/AerospaceComponentsPage'
+import { AutomotiveComponentsPage } from '../pages/fortius/AutomotiveComponentsPage'
+import { JigsFixturesPage } from '../pages/fortius/JigsFixturesPage'
+import { PressToolsPage } from '../pages/fortius/PressToolsPage'
 
 export const router = createBrowserRouter([
   // ─── Public ───────────────────────────────────────────────────────────────
@@ -21,6 +28,15 @@ export const router = createBrowserRouter([
   { path: '/register',  element: <LoginPage /> },
   { path: '/roadmap',   element: <RoadmapPage /> },
   { path: '/Fortius',   element: <FortiusPage /> },
+
+  // ─── Fortius service pages ────────────────────────────────────────────────
+  { path: '/fortius/cnc-machining',        element: <CNCMachiningPage /> },
+  { path: '/fortius/cnc-milling',          element: <CNCMillingPage /> },
+  { path: '/fortius/cnc-turning',          element: <CNCTurningPage /> },
+  { path: '/fortius/aerospace-components', element: <AerospaceComponentsPage /> },
+  { path: '/fortius/automotive-components',element: <AutomotiveComponentsPage /> },
+  { path: '/fortius/jigs-and-fixtures',    element: <JigsFixturesPage /> },
+  { path: '/fortius/press-tools',          element: <PressToolsPage /> },
 
   // ─── Auth flow ────────────────────────────────────────────────────────────
   { path: '/complete-profile', element: <CompleteProfilePage /> },

@@ -27,9 +27,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Navigation,
+  ArrowRight,
+  Users,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { FortiusHeader } from '../components/layout/FortiusHeader'
 import { FortiusFooter } from '../components/layout/FortiusFooter'
+import { FortiusFAQ } from '../components/fortius/FortiusFAQ'
+import type { FAQItem } from '../components/fortius/FortiusFAQ'
 import {
   trackFortiusPageView,
   trackFortiusFAIToolkitSectionView,
@@ -38,6 +43,7 @@ import {
   trackFortiusFloatingCallClick,
   trackFortiusFloatingWhatsAppClick,
   trackFortiusDirectionsClick,
+  trackFortiusRelatedServiceClick,
 } from '../services/AnalyticsService'
 
 const FORTIUS_MAPS_URL =
@@ -214,6 +220,195 @@ const strengthImages: GalleryItem[] = [
   { src: '/Fortius/5.webp', alt: 'Sheet metal and fabrication production floor' },
   { src: '/Fortius/11.webp', alt: 'Fabricated components on powder coating rack' },
   { src: '/Fortius/8.webp', alt: 'Exterior of Fortius Machining Solutions manufacturing facility' },
+]
+
+interface WhyReason {
+  Icon: LucideIcon
+  title: string
+  desc: string
+}
+
+const whyChooseReasons: WhyReason[] = [
+  {
+    Icon: Cog,
+    title: 'Precision CNC Machining Expertise',
+    desc: 'Multi-axis CNC milling and turning capability delivering tight-tolerance components for demanding engineering applications.',
+  },
+  {
+    Icon: Plane,
+    title: 'Aerospace Manufacturing Support',
+    desc: 'Structural and mechanical component manufacturing meeting the dimensional accuracy and engineering discipline aerospace programs require.',
+  },
+  {
+    Icon: Car,
+    title: 'Automotive Manufacturing Support',
+    desc: 'Proven supply to automotive OEMs and Tier 1/2 suppliers — from prototype validation through batch production for ICE and EV programs.',
+  },
+  {
+    Icon: Zap,
+    title: 'Power Electronics Components',
+    desc: 'Machined enclosures, structural parts, and assemblies for inverters, motor drives, battery systems, and power conversion equipment.',
+  },
+  {
+    Icon: CheckCircle,
+    title: 'Engineering-First Approach',
+    desc: 'Every component is manufactured strictly to drawing specification — engineering intent is respected from drawing to finished part.',
+  },
+  {
+    Icon: RotateCcw,
+    title: 'Prototype to Production',
+    desc: 'Single prototype pieces or production batch quantities — Fortius supports the full journey from design validation to volume supply.',
+  },
+  {
+    Icon: Wrench,
+    title: 'In-House Tooling & Fixtures',
+    desc: 'Complete jig, fixture, press tool, and mold manufacturing capability supporting both in-house production and customer requirements.',
+  },
+  {
+    Icon: Globe,
+    title: 'Export Manufacturing Capability',
+    desc: 'Supplying precision machined components to domestic Indian customers and international export markets since 2017.',
+  },
+  {
+    Icon: Users,
+    title: 'Direct Engagement',
+    desc: 'Direct access to the Fortius team — quick response on drawings, quotations, and technical queries without layers of intermediary.',
+  },
+]
+
+interface ServiceCard {
+  Icon: LucideIcon
+  title: string
+  desc: string
+  href: string
+}
+
+const manufacturingServices: ServiceCard[] = [
+  {
+    Icon: Cog,
+    title: 'CNC Machining',
+    desc: 'Complete CNC machining services — milling, turning, and precision component manufacture for all engineering applications.',
+    href: '/fortius/cnc-machining',
+  },
+  {
+    Icon: Layers,
+    title: 'CNC Milling',
+    desc: 'Multi-axis CNC milling for flat surfaces, pockets, slots, complex profiles, and contoured geometries.',
+    href: '/fortius/cnc-milling',
+  },
+  {
+    Icon: RotateCcw,
+    title: 'CNC Turning',
+    desc: 'High-accuracy turning for shafts, bushings, flanges, threaded components, and all rotational parts.',
+    href: '/fortius/cnc-turning',
+  },
+  {
+    Icon: Plane,
+    title: 'Aerospace Components',
+    desc: 'Precision machined structural parts, brackets, jigs, and fixtures for aerospace manufacturing programs.',
+    href: '/fortius/aerospace-components',
+  },
+  {
+    Icon: Car,
+    title: 'Automotive Components',
+    desc: 'Precision machined components for automotive OEMs, EV programs, and Tier 1/2 suppliers.',
+    href: '/fortius/automotive-components',
+  },
+  {
+    Icon: Wrench,
+    title: 'Jigs & Fixtures',
+    desc: 'Custom drill jigs, assembly fixtures, inspection fixtures, and welding fixtures for production and quality operations.',
+    href: '/fortius/jigs-and-fixtures',
+  },
+  {
+    Icon: Hammer,
+    title: 'Press Tools',
+    desc: 'Precision blanking dies, forming tools, compound dies, and progressive die tooling for sheet metal operations.',
+    href: '/fortius/press-tools',
+  },
+]
+
+const mainFAQs: FAQItem[] = [
+  {
+    q: 'What CNC machining services does Fortius provide?',
+    a: 'Fortius provides precision CNC milling, CNC turning, jig and fixture manufacturing, press tool manufacturing, mold making, and metal sub-assembly production. The facility handles components for automotive, aerospace, power electronics, electricals, and industrial applications.',
+  },
+  {
+    q: 'Where is Fortius Machining Solutions located?',
+    a: 'Fortius is located at Doddanna Industrial Estate, Peenya, Bengaluru — 560058, Karnataka, India. Peenya is one of the largest industrial areas in Asia, with excellent logistics connectivity across India.',
+  },
+  {
+    q: 'Does Fortius manufacture aerospace components?',
+    a: 'Yes. Fortius manufactures precision CNC machined components for aerospace structural and mechanical applications — including structural brackets, housings, jig bodies, assembly fixtures, and inspection tooling. Components are manufactured to drawing specification with systematic quality verification.',
+  },
+  {
+    q: 'Does Fortius support automotive manufacturing?',
+    a: 'Yes. Fortius supplies precision machined components to automotive OEMs, EV programs, and Tier 1/2 suppliers. Components include transmission parts, engine brackets, housings, shafts, and assembly sub-components for both internal combustion and electric vehicle programs.',
+  },
+  {
+    q: 'Can Fortius manufacture components for electric vehicles (EVs)?',
+    a: 'Yes. Fortius manufactures EV-specific machined components — motor mounts, battery enclosure parts, power electronics brackets, drive system components, and EV structural parts. The team is experienced with the specific requirements of EV programs.',
+  },
+  {
+    q: 'What materials can Fortius machine?',
+    a: 'Fortius machines a wide range of engineering materials including mild steel, EN8, EN24, EN31 alloy steels, stainless steel, aluminium alloys, copper, brass, and other non-ferrous metals. Material suitability for specific applications can be confirmed on enquiry.',
+  },
+  {
+    q: 'Can Fortius support prototype manufacturing?',
+    a: 'Yes. Fortius supports prototype quantities — single pieces or small batches — allowing customers to validate designs before committing to production volumes. Prototype parts are machined to the same standard as production components.',
+  },
+  {
+    q: 'Can Fortius handle production volume manufacturing?',
+    a: 'Yes. Fortius supports batch and production quantity manufacturing with structured process setups, dedicated fixturing, and systematic inspection to ensure dimensional consistency across production runs.',
+  },
+  {
+    q: 'Does Fortius manufacture jigs and fixtures?',
+    a: 'Yes. Fortius manufactures custom drill jigs, assembly fixtures, inspection fixtures, welding fixtures, checking gauges, and CMM fixtures for automotive, aerospace, and industrial manufacturing operations.',
+  },
+  {
+    q: 'Does Fortius manufacture press tools?',
+    a: 'Yes. Fortius manufactures precision press tools including blanking dies, piercing tools, forming dies, compound dies, and progressive die tooling for sheet metal stamping and forming operations.',
+  },
+  {
+    q: 'Does Fortius support export customers?',
+    a: 'Yes. Fortius manufactures for both domestic Indian customers and international export markets, supplying precision machined components to customers abroad.',
+  },
+  {
+    q: 'What industries does Fortius serve?',
+    a: 'Fortius serves automotive (including EV), aerospace, power electronics, electricals, industrial equipment, and defence sectors. The facility has experience supplying precision machined components and tooling across all these industries.',
+  },
+  {
+    q: 'What dimensional tolerances can Fortius achieve?',
+    a: 'Fortius achieves CNC machining tolerances generally in the range of ±0.02 mm to ±0.05 mm for standard work, with tighter tolerances achievable for specific critical features. Tolerance requirements must be clearly specified on engineering drawings.',
+  },
+  {
+    q: 'Can Fortius support AS9102 First Article Inspection (FAI) requirements?',
+    a: 'Fortius manufactures components to drawing specification and can support customers\' First Article Inspection programs. For digital FAI report preparation — including AS9102 balloon drawings and structured FAI report documentation — Fortius recommends the FAI.EV.ENGINEER toolkit.',
+  },
+  {
+    q: 'How do I get a manufacturing quote from Fortius?',
+    a: 'Send your engineering drawing (PDF or DXF), material specification, quantity, and any special requirements to vnyk.hgde@gmail.com or call +91 88804 23666. The Fortius team will review and respond with a quotation.',
+  },
+  {
+    q: 'When was Fortius Machining Solutions founded?',
+    a: 'Fortius Machining Solutions Private Limited was founded in 2017. The company has been operating from its manufacturing facility at Peenya, Bengaluru since establishment.',
+  },
+  {
+    q: 'Does Fortius manufacture molds?',
+    a: 'Yes. Fortius has mold manufacturing capability alongside press tools, jigs, and fixtures, providing customers with complete tooling solutions alongside component manufacturing.',
+  },
+  {
+    q: 'Can Fortius supply machined metal assemblies?',
+    a: 'Yes. Fortius manufactures multi-part machined metal assemblies — coordinating milling, turning, and auxiliary operations to deliver complete sub-assemblies for automotive and other manufacturing programs.',
+  },
+  {
+    q: 'What is the lead time for CNC machined components from Fortius?',
+    a: 'Lead time depends on component complexity, quantity, and current production schedule. Prototype parts can often be delivered in 1–2 weeks; production batches depend on quantity and setup. Lead times should be discussed directly with the Fortius team on enquiry.',
+  },
+  {
+    q: 'What is Fortius\'s GSTIN and CIN?',
+    a: 'Fortius Machining Solutions Private Limited — GSTIN: 29AADCF1785B1ZQ, CIN: U29309KA2017PTC105628. The registered office is at Doddanna Industrial Estate, Peenya, Bengaluru — 560058.',
+  },
 ]
 
 // ─── Hero illustration ────────────────────────────────────────────────────────
@@ -695,9 +890,70 @@ export function FortiusPage() {
       metaDesc.content =
         'Precision CNC machining, CNC milling, turning, metal components, assemblies, jigs, fixtures, press tools, and molds for automotive, aerospace, power electronics, and electrical industries. Peenya, Bengaluru.'
     }
+
+    const schema = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': ['Organization', 'LocalBusiness', 'ManufacturingBusiness'],
+          name: 'Fortius Machining Solutions Private Limited',
+          alternateName: 'Fortius',
+          url: 'https://fai.ev.engineer/Fortius',
+          telephone: '+918880423666',
+          email: 'vnyk.hgde@gmail.com',
+          foundingDate: '2017',
+          identifier: [
+            { '@type': 'PropertyValue', name: 'CIN', value: 'U29309KA2017PTC105628' },
+            { '@type': 'PropertyValue', name: 'GSTIN', value: '29AADCF1785B1ZQ' },
+          ],
+          address: {
+            '@type': 'PostalAddress',
+            streetAddress: 'Doddanna Industrial Estate, Peenya',
+            addressLocality: 'Bengaluru',
+            addressRegion: 'Karnataka',
+            postalCode: '560058',
+            addressCountry: 'IN',
+          },
+          geo: {
+            '@type': 'GeoCoordinates',
+            latitude: 13.1029875,
+            longitude: 77.5018281,
+          },
+          description:
+            'Precision CNC machining, CNC milling, CNC turning, jigs, fixtures, press tools, and manufacturing solutions for automotive, aerospace, power electronics, and electrical industries. Peenya, Bengaluru.',
+          employee: [
+            { '@type': 'Person', name: 'Vinayak Hegde', jobTitle: 'Founder / Director' },
+            { '@type': 'Person', name: 'Valiya Parambath Kiranlal', jobTitle: 'Founder / Director' },
+          ],
+          hasMap: FORTIUS_MAPS_URL,
+          areaServed: ['India', 'International'],
+          knowsAbout: [
+            'CNC Machining', 'CNC Milling', 'CNC Turning',
+            'Aerospace Components', 'Automotive Components',
+            'Jigs and Fixtures', 'Press Tools', 'Metal Fabrication',
+          ],
+          sameAs: ['https://www.linkedin.com/in/vinayak-hegde-62a6a046/'],
+        },
+        {
+          '@type': 'FAQPage',
+          mainEntity: mainFAQs.map(({ q, a }) => ({
+            '@type': 'Question',
+            name: q,
+            acceptedAnswer: { '@type': 'Answer', text: a },
+          })),
+        },
+      ],
+    }
+    const script = document.createElement('script')
+    script.id = 'fortius-main-schema'
+    script.type = 'application/ld+json'
+    script.textContent = JSON.stringify(schema)
+    document.head.appendChild(script)
+
     return () => {
       document.title = prevTitle
       if (metaDesc) metaDesc.content = prevDesc
+      document.getElementById('fortius-main-schema')?.remove()
     }
   }, [])
 
@@ -848,7 +1104,80 @@ export function FortiusPage() {
           </div>
         </section>
 
-        {/* ── 5. FAI Toolkit Highlight ────────────────────────────────────── */}
+        {/* ── 5. Why Companies Choose Fortius ─────────────────────────────── */}
+        <section className="py-20 px-4 bg-white">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-14">
+              <h2 className="section-title">Why Companies Choose Fortius</h2>
+              <p className="section-subtitle max-w-2xl mx-auto">
+                Engineering discipline, precision capability, and a manufacturing partner approach
+                that treats your component as if it were our own.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {whyChooseReasons.map(({ Icon, title, desc }) => (
+                <div key={title} className="flex gap-4 p-6 card hover:shadow-md transition-shadow">
+                  <div className="w-11 h-11 bg-primary-light rounded-xl flex items-center justify-center shrink-0">
+                    <Icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-text-primary mb-1.5 text-sm sm:text-base">{title}</h3>
+                    <p className="text-sm text-text-secondary leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-10 text-center">
+              <a href="#contact" className="btn-primary text-base px-8 py-4 inline-flex items-center gap-2">
+                Request Manufacturing Quote
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 6. Manufacturing Services ────────────────────────────────────── */}
+        <section id="services" className="py-20 px-4 bg-background">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-14">
+              <h2 className="section-title">Manufacturing Services</h2>
+              <p className="section-subtitle max-w-2xl mx-auto">
+                Dedicated service pages with detailed capability information, applications, and
+                frequently asked questions for every manufacturing service Fortius provides.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+              {manufacturingServices.map(({ Icon, title, desc, href }) => (
+                <div key={title} className="card p-6 flex flex-col gap-4 hover:shadow-md transition-shadow">
+                  <div className="w-12 h-12 bg-primary-light rounded-xl flex items-center justify-center shrink-0">
+                    <Icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-text-primary mb-2">{title}</h3>
+                    <p className="text-sm text-text-secondary leading-relaxed">{desc}</p>
+                  </div>
+                  <div className="flex flex-col gap-2 pt-2 border-t border-border">
+                    <Link
+                      to={href}
+                      onClick={() => trackFortiusRelatedServiceClick(title)}
+                      className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                    >
+                      Learn More <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                    <a
+                      href="#contact"
+                      className="inline-flex items-center gap-1.5 text-sm text-text-secondary hover:text-primary transition-colors"
+                    >
+                      Request Quote
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── 7. FAI Toolkit Highlight ────────────────────────────────────── */}
         <FAIToolkitSection />
 
         {/* ── 6. Gallery ──────────────────────────────────────────────────── */}
@@ -956,7 +1285,28 @@ export function FortiusPage() {
           </div>
         </section>
 
-        {/* ── 9. Contact / Quote ───────────────────────────────────────────── */}
+        {/* ── 9. FAQ ──────────────────────────────────────────────────────── */}
+        <section id="faq" className="py-20 px-4 bg-white">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-14">
+              <h2 className="section-title">Frequently Asked Questions</h2>
+              <p className="section-subtitle max-w-2xl mx-auto">
+                Common questions about Fortius Machining Solutions, our manufacturing services,
+                capabilities, and how to work with us.
+              </p>
+            </div>
+            <FortiusFAQ faqs={mainFAQs} />
+            <div className="mt-10 text-center">
+              <p className="text-sm text-text-secondary mb-4">Have a specific question not answered above?</p>
+              <a href="#contact" className="btn-primary px-8 py-3.5 inline-flex items-center gap-2">
+                Contact Fortius
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 10. Contact / Quote ──────────────────────────────────────────── */}
         <section id="contact" className="py-20 px-4 bg-background">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
