@@ -12,9 +12,31 @@ const numbers = [
 // WhatsApp brand green
 const WA_GREEN = '#25D366'
 
+// Pages where the WhatsApp widget must not appear
+const HIDDEN_PATHS = new Set(['/Fortius'])
+
 export function WhatsAppCTA() {
   const [open, setOpen] = useState(false)
+  const [pathname, setPathname] = useState(window.location.pathname)
   const ref = useRef<HTMLDivElement>(null)
+
+  // Track client-side navigation (React Router uses History API push/replace)
+  useEffect(() => {
+    const sync = () => setPathname(window.location.pathname)
+
+    const origPush    = window.history.pushState.bind(window.history)
+    const origReplace = window.history.replaceState.bind(window.history)
+
+    window.history.pushState = (...args) => { origPush(...args);    sync() }
+    window.history.replaceState = (...args) => { origReplace(...args); sync() }
+
+    window.addEventListener('popstate', sync)
+    return () => {
+      window.history.pushState    = origPush
+      window.history.replaceState = origReplace
+      window.removeEventListener('popstate', sync)
+    }
+  }, [])
 
   // Close panel when clicking outside
   useEffect(() => {
@@ -26,6 +48,8 @@ export function WhatsAppCTA() {
     if (open) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
+
+  if (HIDDEN_PATHS.has(pathname)) return null
 
   return (
     <div

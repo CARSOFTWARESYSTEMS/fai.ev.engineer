@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { LandingPage } from '../pages/LandingPage'
+import { FortiusPage } from '../pages/FortiusPage'
 import { LoginPage } from '../pages/LoginPage'
 import { CompleteProfilePage } from '../pages/CompleteProfilePage'
 import { DashboardPage } from '../pages/DashboardPage'
@@ -15,10 +16,11 @@ import { ProtectedRoute } from '../auth/ProtectedRoute'
 
 export const router = createBrowserRouter([
   // ─── Public ───────────────────────────────────────────────────────────────
-  { path: '/',         element: <LandingPage /> },
-  { path: '/login',    element: <LoginPage /> },
-  { path: '/register', element: <LoginPage /> },
-  { path: '/roadmap',  element: <RoadmapPage /> },
+  { path: '/',          element: <LandingPage /> },
+  { path: '/login',     element: <LoginPage /> },
+  { path: '/register',  element: <LoginPage /> },
+  { path: '/roadmap',   element: <RoadmapPage /> },
+  { path: '/Fortius',   element: <FortiusPage /> },
 
   // ─── Auth flow ────────────────────────────────────────────────────────────
   { path: '/complete-profile', element: <CompleteProfilePage /> },

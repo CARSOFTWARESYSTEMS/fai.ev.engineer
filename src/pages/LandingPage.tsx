@@ -261,7 +261,7 @@ const partners = [
     description:
       'Precision machining and manufacturing expertise supporting real-world FAI workflow validation and AS9102 process requirements.',
     icon: <Factory className="w-6 h-6 text-primary" />,
-    href: 'https://www.google.com/maps/place/Fortius+Machining+Solutions+Pvt.+Ltd./@13.1029312,77.5020785,3a,75y,90t/data=!3m8!1e2!3m6!1sCIABIhBEXN1FaYmMhbVLgPOXdHxO!2e10!3e12!6shttps:%2F%2Flh3.googleusercontent.com%2Fgps-cs-s%2FAPNQkAEx1qTevfegZOaQOm4WqMjDi4Xfue6H3-Cowadn8nuNVfdkh3N8pg7V6pPlCbd6ZRWuf_BKB1_9Ua1ysk-RWRBP7Kro_qgSLysPsOObKWJH0rcGLYo2shNSQJjmrF_bOLnMGS-QvdcxP1A%3Dw203-h152-k-no!7i4032!8i3024!4m7!3m6!1s0x3bae2300551346fd:0x884f69eefd04da5f!8m2!3d13.1029875!4d77.5018281!10e5!16s%2Fg%2F11yfjw4rl_!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDYwMS4wIKXMDSoASAFQAw%3D%3D',
+    href: '/Fortius',
   },
   {
     name: 'iFab Innovations Private Limited',
