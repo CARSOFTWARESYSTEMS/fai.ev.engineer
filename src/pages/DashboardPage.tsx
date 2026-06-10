@@ -15,6 +15,7 @@ import {
   CalendarClock,
   ChevronDown,
   X,
+  UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
@@ -176,7 +177,7 @@ export function DashboardPage() {
 
   // ── Filtered recent projects (max 5) ───────────────────────────────────────
   const recentProjects = useMemo(() =>
-    filterProjects(projects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter }).slice(0, 6),
+    filterProjects(projects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter }).slice(0, 4),
     [projects, statusFilter, priorityFilter, dueDateFilter]
   )
 
@@ -423,7 +424,7 @@ export function DashboardPage() {
 
           {/* Project card grid */}
           {!projectsLoading && recentProjects.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {recentProjects.map((project) => {
                 const statusClass = PROJECT_STATUS_COLORS[project.status]
                 const priorityCls = getPriorityBadgeClass(project.priority)
@@ -480,7 +481,11 @@ export function DashboardPage() {
                           <span className="truncate">PDF: {project.sourcePdfName}</span>
                         </Link>
                       ) : (
-                        <span className="text-xs text-text-secondary/50 italic">PDF: Not uploaded</span>
+                        <Link to={`/projects/${project.projectId}`}
+                          className="inline-flex items-center gap-1 text-xs text-text-secondary/60 hover:text-primary transition-colors">
+                          <UploadCloud className="w-3.5 h-3.5 shrink-0" />
+                          <span>Upload PDF</span>
+                        </Link>
                       )}
                     </div>
 

@@ -32,7 +32,7 @@ export function PdfCanvas({
   overlay,
 }: PdfCanvasProps) {
   return (
-    <div className="flex justify-center py-6 px-4 min-h-full">
+    <div className="flex justify-center py-6 px-4 min-h-full min-w-max">
       <Document
         file={pdfBlobUrl}
         onLoadSuccess={(doc) => onDocumentLoad(doc.numPages)}

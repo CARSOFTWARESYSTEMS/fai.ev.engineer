@@ -49,7 +49,7 @@ export function WhatsAppCTA() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  if (HIDDEN_PATHS.has(pathname)) return null
+  if (HIDDEN_PATHS.has(pathname) || /^\/projects\/[^/]+\/pdf/.test(pathname)) return null
 
   return (
     <div

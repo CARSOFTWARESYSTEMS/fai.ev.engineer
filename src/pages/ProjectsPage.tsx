@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   FolderPlus,
@@ -14,6 +14,9 @@ import {
   LayoutGrid,
   ChevronDown,
   Clock,
+  Flag,
+  CalendarDays,
+  UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
@@ -27,16 +30,62 @@ import {
   getPriorityLabel,
   getPriorityBadgeClass,
   getPriorityDotClass,
+  normalisePriority,
+  type ProjectPriority,
 } from '../projects/projectPriority'
 import {
   getProjectDueDate,
   filterProjects,
   type DueDateFilter,
 } from '../projects/projectFilters'
-import { fmtDueDate, dueDateStatus } from '../projects/projectDueDate'
+import {
+  fmtDueDate,
+  dueDateStatus,
+  isOverdue,
+  isDueToday,
+  isDueThisWeek,
+  isDueThisMonth,
+} from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 
-type ViewMode = 'list' | 'kanban'
+type ViewMode = 'priority' | 'date' | 'list' | 'kanban'
+
+// ─── Priority column config ───────────────────────────────────────────────────
+
+const PRIORITY_GROUPS: { key: ProjectPriority; label: string; colorCls: string }[] = [
+  { key: 'critical', label: 'Critical', colorCls: 'border-t-red-500' },
+  { key: 'high',     label: 'High',     colorCls: 'border-t-orange-500' },
+  { key: 'medium',   label: 'Medium',   colorCls: 'border-t-blue-500' },
+  { key: 'low',      label: 'Low',      colorCls: 'border-t-gray-400' },
+]
+
+// ─── Date bucket config ───────────────────────────────────────────────────────
+
+type DateBucket = 'overdue' | 'today' | 'this_week' | 'this_month' | 'later' | 'none'
+
+const DATE_GROUPS: {
+  key: DateBucket
+  label: string
+  headerCls: string
+  accentCls: string
+}[] = [
+  { key: 'overdue',    label: 'Overdue',     headerCls: 'text-red-600',         accentCls: 'border-l-red-500' },
+  { key: 'today',      label: 'Today',       headerCls: 'text-orange-600',      accentCls: 'border-l-orange-500' },
+  { key: 'this_week',  label: 'This Week',   headerCls: 'text-yellow-700',      accentCls: 'border-l-yellow-500' },
+  { key: 'this_month', label: 'This Month',  headerCls: 'text-blue-600',        accentCls: 'border-l-blue-500' },
+  { key: 'later',      label: 'Later',       headerCls: 'text-text-secondary',  accentCls: 'border-l-gray-400' },
+  { key: 'none',       label: 'No Due Date', headerCls: 'text-text-secondary',  accentCls: 'border-l-gray-200' },
+]
+
+function getDateBucket(project: FAIProject): DateBucket {
+  const due = getProjectDueDate(project)
+  if (!due) return 'none'
+  if (isOverdue(due)) return 'overdue'
+  if (isDueToday(due)) return 'today'
+  if (isDueThisWeek(due)) return 'this_week'
+  if (isDueThisMonth(due)) return 'this_month'
+  return 'later'
+}
 
 // ─── Kanban column config ─────────────────────────────────────────────────────
 
@@ -46,6 +95,15 @@ const KANBAN_COLUMNS = [
   { key: 'review',      label: 'Review',      colorCls: 'border-t-purple-500' },
   { key: 'completed',   label: 'Completed',   colorCls: 'border-t-success' },
 ] as const
+
+// ─── View toggle config ───────────────────────────────────────────────────────
+
+const VIEW_MODES: { mode: ViewMode; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
+  { mode: 'priority', icon: Flag,          label: 'Priority' },
+  { mode: 'date',     icon: CalendarDays,  label: 'By Date' },
+  { mode: 'list',     icon: LayoutList,    label: 'List' },
+  { mode: 'kanban',   icon: LayoutGrid,    label: 'Kanban' },
+]
 
 // ─── Due date badge ───────────────────────────────────────────────────────────
 
@@ -68,7 +126,7 @@ function DueBadge({ project }: { project: FAIProject }) {
   )
 }
 
-// ─── Shared project mini-card (Kanban) ────────────────────────────────────────
+// ─── Shared project card (Kanban / Priority / Date views) ─────────────────────
 
 function KanbanCard({ project, canDelete, onDelete }: {
   project: FAIProject
@@ -81,7 +139,6 @@ function KanbanCard({ project, canDelete, onDelete }: {
 
   return (
     <div className="bg-white rounded-xl border border-border p-3.5 hover:border-primary/30 hover:shadow-sm transition-all flex flex-col gap-2">
-      {/* Priority + name */}
       <div className="flex items-start justify-between gap-1.5">
         <span className={`inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${priorityCls}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${priorityDot}`} />
@@ -104,7 +161,21 @@ function KanbanCard({ project, canDelete, onDelete }: {
 
       <DueBadge project={project} />
 
-      {/* Actions */}
+      {/* PDF row */}
+      {hasPdf ? (
+        <Link to={`/projects/${project.projectId}/pdf`}
+          className="inline-flex items-center gap-1 text-xs text-primary hover:underline truncate max-w-full">
+          <FileText className="w-3 h-3 shrink-0" />
+          <span className="truncate">{project.sourcePdfName}</span>
+        </Link>
+      ) : (
+        <Link to={`/projects/${project.projectId}`}
+          className="inline-flex items-center gap-1 text-xs text-text-secondary/60 hover:text-primary transition-colors">
+          <UploadCloud className="w-3 h-3 shrink-0" />
+          <span>Upload PDF</span>
+        </Link>
+      )}
+
       <div className="flex items-center gap-1 mt-1 pt-2 border-t border-border">
         <Link to={`/projects/${project.projectId}`}
           className="flex-1 inline-flex items-center justify-center gap-1 text-xs font-semibold text-primary hover:bg-primary-light py-1.5 rounded-lg transition-colors">
@@ -140,13 +211,21 @@ export function ProjectsPage() {
   const [projects, setProjects]   = useState<FAIProject[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError]         = useState('')
-  const [viewMode, setViewMode]   = useState<ViewMode>('list')
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('fai-projects-view') as ViewMode | null
+    const valid: ViewMode[] = ['priority', 'date', 'list', 'kanban']
+    return (saved && valid.includes(saved)) ? saved : 'kanban'
+  })
+
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeState(mode)
+    localStorage.setItem('fai-projects-view', mode)
+  }, [])
 
   // Filters — initialised from URL query params when present
   const [search,         setSearch]         = useState('')
   const [statusFilter,   setStatusFilter]   = useState(() => {
     const p = searchParams.get('status') ?? 'all'
-    // Map URL underscore form → internal hyphen form
     return p === 'in_progress' ? 'in-progress' : p
   })
   const [priorityFilter, setPriorityFilter] = useState(() => searchParams.get('priority') ?? 'all')
@@ -220,14 +299,72 @@ export function ProjectsPage() {
   }
 
   // ── Kanban buckets ──────────────────────────────────────────────────────────
-  const kanbanBuckets = useMemo(() => {
-    return KANBAN_COLUMNS.map(col => ({
+  const kanbanBuckets = useMemo(() =>
+    KANBAN_COLUMNS.map(col => ({
       ...col,
       projects: filteredProjects.filter(p =>
         p.status === col.key || (col.key === 'completed' && p.status === 'complete')
       ),
+    })),
+    [filteredProjects]
+  )
+
+  // ── Priority buckets ────────────────────────────────────────────────────────
+  const priorityBuckets = useMemo(() =>
+    PRIORITY_GROUPS.map(g => ({
+      ...g,
+      projects: filteredProjects.filter(p => normalisePriority(p.priority) === g.key),
+    })),
+    [filteredProjects]
+  )
+
+  // ── Date buckets ────────────────────────────────────────────────────────────
+  const dateBuckets = useMemo(() => {
+    const sorted = [...filteredProjects].sort((a, b) => {
+      const da = getProjectDueDate(a)?.getTime() ?? Infinity
+      const db = getProjectDueDate(b)?.getTime() ?? Infinity
+      return da - db
+    })
+    return DATE_GROUPS.map(g => ({
+      ...g,
+      projects: sorted.filter(p => getDateBucket(p) === g.key),
     }))
   }, [filteredProjects])
+
+  // ── Reusable grouped column layout ─────────────────────────────────────────
+  function GroupedColumns<T extends { key: string; label: string; colorCls: string; projects: FAIProject[] }>({
+    groups,
+  }: { groups: T[] }) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+        {groups.map(col => (
+          <div key={col.key}
+            className={`bg-gray-50 rounded-xl border-t-4 ${col.colorCls} border border-border border-t-[4px] p-3`}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-bold text-text-primary">{col.label}</span>
+              <span className="text-xs font-semibold bg-white border border-border text-text-secondary px-2 py-0.5 rounded-full">
+                {col.projects.length}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {col.projects.length === 0 ? (
+                <div className="text-center py-6 text-xs text-text-secondary">No projects</div>
+              ) : (
+                col.projects.map(project => (
+                  <KanbanCard
+                    key={project.projectId}
+                    project={project}
+                    canDelete={isAdmin}
+                    onDelete={setProjectToDelete}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   // ── Header / loading / error states ────────────────────────────────────────
   return (
@@ -354,22 +491,20 @@ export function ProjectsPage() {
 
           {/* View toggle — push to right */}
           <div className="ml-auto flex items-center border border-border rounded-lg overflow-hidden bg-white">
-            <button
-              onClick={() => { setViewMode('list'); console.log('[PROJECTS] View mode changed: list') }}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors ${
-                viewMode === 'list' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-50'
-              }`}>
-              <LayoutList className="w-3.5 h-3.5" />
-              List
-            </button>
-            <button
-              onClick={() => { setViewMode('kanban'); console.log('[PROJECTS] View mode changed: kanban') }}
-              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors border-l border-border ${
-                viewMode === 'kanban' ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-50'
-              }`}>
-              <LayoutGrid className="w-3.5 h-3.5" />
-              Kanban
-            </button>
+            {VIEW_MODES.map(({ mode, icon: Icon, label }, i) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={[
+                  'flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors',
+                  i > 0 ? 'border-l border-border' : '',
+                  viewMode === mode ? 'bg-primary text-white' : 'text-text-secondary hover:bg-gray-50',
+                ].join(' ')}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -406,21 +541,51 @@ export function ProjectsPage() {
           </div>
         )}
 
+        {/* ── PRIORITY VIEW ─────────────────────────────────────────────────── */}
+        {!isLoading && filteredProjects.length > 0 && viewMode === 'priority' && (
+          <GroupedColumns groups={priorityBuckets} />
+        )}
+
+        {/* ── BY DATE VIEW ──────────────────────────────────────────────────── */}
+        {!isLoading && filteredProjects.length > 0 && viewMode === 'date' && (
+          <div className="flex flex-col gap-8">
+            {dateBuckets.filter(g => g.projects.length > 0).map(group => (
+              <div key={group.key}>
+                <div className={`flex items-center gap-2.5 mb-3 pl-3 border-l-4 ${group.accentCls}`}>
+                  <span className={`text-sm font-bold ${group.headerCls}`}>{group.label}</span>
+                  <span className="text-xs font-semibold bg-white border border-border text-text-secondary px-2 py-0.5 rounded-full">
+                    {group.projects.length}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {group.projects.map(project => (
+                    <KanbanCard
+                      key={project.projectId}
+                      project={project}
+                      canDelete={isAdmin}
+                      onDelete={setProjectToDelete}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ── LIST VIEW ─────────────────────────────────────────────────────── */}
         {!isLoading && filteredProjects.length > 0 && viewMode === 'list' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredProjects.map(project => {
-              const statusClass  = PROJECT_STATUS_COLORS[project.status]
-              const priorityCls  = getPriorityBadgeClass(project.priority)
-              const priorityDot  = getPriorityDotClass(project.priority)
-              const hasPdf       = project.pdfStatus === 'uploaded' && !!project.googleDriveFileId
-              const due          = getProjectDueDate(project)
+              const statusClass = PROJECT_STATUS_COLORS[project.status]
+              const priorityCls = getPriorityBadgeClass(project.priority)
+              const priorityDot = getPriorityDotClass(project.priority)
+              const hasPdf      = project.pdfStatus === 'uploaded' && !!project.googleDriveFileId
+              const due         = getProjectDueDate(project)
 
               return (
                 <div key={project.projectId}
                   className="bg-white rounded-xl border border-border p-4 hover:border-primary/30 hover:shadow-sm transition-all flex flex-col">
 
-                  {/* Row 1: priority + status, with due date right-aligned on desktop */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 mb-2.5">
                     <div className="flex flex-wrap items-center gap-1.5 min-w-0">
                       <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${priorityCls}`}>
@@ -443,14 +608,12 @@ export function ProjectsPage() {
                     {project.projectName}
                   </Link>
 
-                  {/* Details */}
                   <div className="flex flex-col gap-0.5 mb-2.5 text-xs text-text-secondary font-mono">
                     <span>Part: {project.partNumber}</span>
                     <span>DWG: {project.drawingNumber}</span>
                     <span>Rev: {project.drawingRevision}</span>
                   </div>
 
-                  {/* PDF */}
                   <div className="mb-3">
                     {hasPdf ? (
                       <Link to={`/projects/${project.projectId}/pdf`}
@@ -459,11 +622,14 @@ export function ProjectsPage() {
                         <span className="truncate">PDF: {project.sourcePdfName}</span>
                       </Link>
                     ) : (
-                      <span className="text-xs text-text-secondary/50 italic">PDF: Not uploaded</span>
+                      <Link to={`/projects/${project.projectId}`}
+                        className="inline-flex items-center gap-1 text-xs text-text-secondary/60 hover:text-primary transition-colors">
+                        <UploadCloud className="w-3 h-3 shrink-0" />
+                        <span>Upload PDF</span>
+                      </Link>
                     )}
                   </div>
 
-                  {/* Actions */}
                   <div className="mt-auto pt-3 border-t border-border flex items-center gap-2">
                     <Link to={`/projects/${project.projectId}`}
                       className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-primary hover:bg-primary/90 px-2.5 py-1.5 rounded-lg transition-colors">
@@ -490,39 +656,8 @@ export function ProjectsPage() {
         )}
 
         {/* ── KANBAN VIEW ───────────────────────────────────────────────────── */}
-        {!isLoading && viewMode === 'kanban' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-            {kanbanBuckets.map(col => (
-              <div key={col.key}
-                className={`bg-gray-50 rounded-xl border-t-4 ${col.colorCls} border border-border border-t-[4px] p-3`}>
-                {/* Column header */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-bold text-text-primary">{col.label}</span>
-                  <span className="text-xs font-semibold bg-white border border-border text-text-secondary px-2 py-0.5 rounded-full">
-                    {col.projects.length}
-                  </span>
-                </div>
-
-                {/* Cards */}
-                <div className="flex flex-col gap-2">
-                  {col.projects.length === 0 ? (
-                    <div className="text-center py-6 text-xs text-text-secondary">
-                      No projects
-                    </div>
-                  ) : (
-                    col.projects.map(project => (
-                      <KanbanCard
-                        key={project.projectId}
-                        project={project}
-                        canDelete={isAdmin}
-                        onDelete={setProjectToDelete}
-                      />
-                    ))
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+        {!isLoading && filteredProjects.length > 0 && viewMode === 'kanban' && (
+          <GroupedColumns groups={kanbanBuckets} />
         )}
 
       </main>

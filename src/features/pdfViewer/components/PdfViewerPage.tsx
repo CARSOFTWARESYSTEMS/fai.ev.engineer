@@ -13,7 +13,8 @@ import { useBalloons } from '../../ballooning/hooks/useBalloons'
 import { BalloonLayer } from '../../ballooning/components/BalloonLayer'
 import { useFeatures } from '../../featureTable/hooks/useFeatures'
 import { FeatureTablePanel } from '../../featureTable/components/FeatureTablePanel'
-import { SmartSidebar } from '../../navigation/components/SmartSidebar'
+import { Form3Panel } from '../../as9102/components/Form3Panel'
+import { WorkspaceSidebar } from '../../workspace/components/WorkspaceSidebar'
 import { PdfToolbar } from './PdfToolbar'
 import { PdfCanvas } from './PdfCanvas'
 import { PdfLoadingState } from './PdfLoadingState'
@@ -28,12 +29,27 @@ export function PdfViewerPage() {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+
   const [isTableOpen, setIsTableOpen] = useState<boolean>(() =>
     localStorage.getItem('fai-feature-table-open') === 'true'
   )
   const [tableLayout, setTableLayout] = useState<'right' | 'bottom'>(() => {
     const saved = localStorage.getItem('fai-feature-table-layout')
     return saved === 'bottom' ? 'bottom' : 'right'
+  })
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() =>
+    localStorage.getItem('fai-feature-table-collapsed') === 'true'
+  )
+  const [isForm3Open, setIsForm3Open] = useState(false)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
+
+  const [bottomHeight, setBottomHeight] = useState<number>(() => {
+    const saved = localStorage.getItem('fai-panel-bottom-height')
+    return saved ? parseInt(saved) : Math.round(window.innerHeight / 3)
+  })
+  const [rightWidth, setRightWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('fai-panel-right-width')
+    return saved ? parseInt(saved) : 600
   })
 
   const toggleTableLayout = useCallback(() => {
@@ -44,11 +60,6 @@ export function PdfViewerPage() {
     })
   }, [])
 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() =>
-    localStorage.getItem('fai-feature-table-collapsed') === 'true'
-  )
   const toggleCollapsed = useCallback(() => {
     setIsCollapsed(prev => {
       const next = !prev
@@ -56,15 +67,6 @@ export function PdfViewerPage() {
       return next
     })
   }, [])
-
-  const [bottomHeight, setBottomHeight] = useState<number>(() => {
-    const saved = localStorage.getItem('fai-panel-bottom-height')
-    return saved ? parseInt(saved) : Math.round(window.innerHeight / 3)
-  })
-  const [rightWidth, setRightWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('fai-panel-right-width')
-    return saved ? parseInt(saved) : 600
-  })
 
   const handleResizeBottom = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
@@ -106,7 +108,6 @@ export function PdfViewerPage() {
   const balloons = useBalloons({ projectId: projectId ?? '', userId: user?.uid ?? '' })
   const features = useFeatures({ projectId: projectId ?? '', userId: user?.uid ?? '' })
 
-  // Revoke blob URL on unmount
   useEffect(() => {
     return () => {
       setPdfBlobUrl(prev => {
@@ -120,35 +121,25 @@ export function PdfViewerPage() {
     if (!projectId || !user) return
     setIsLoading(true)
     setError('')
-
     setPdfBlobUrl(prev => {
       if (prev) URL.revokeObjectURL(prev)
       return null
     })
-
     try {
       const p = await getProjectById(projectId)
-      if (!p) {
-        setError('Project not found or you do not have access.')
-        return
-      }
-      if (p.uid !== user.uid) {
-        setError('You do not have access to this project.')
-        return
-      }
+      if (!p) { setError('Project not found or you do not have access.'); return }
+      if (p.uid !== user.uid) { setError('You do not have access to this project.'); return }
       if (p.pdfStatus !== 'uploaded' || !p.googleDriveFileId) {
         setError('No PDF has been uploaded for this project. Upload a PDF from the project page first.')
         return
       }
       setProject(p)
-
       const token = await requestDriveToken(user.email ?? '')
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${p.googleDriveFileId}?alt=media`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       if (!res.ok) throw new Error(`Drive download failed (${res.status})`)
-
       const blob = await res.blob()
       setPdfBlobUrl(URL.createObjectURL(blob))
     } catch (err) {
@@ -187,6 +178,13 @@ export function PdfViewerPage() {
 
   const handleDocumentError = useCallback((_err: Error) => {
     setError('PDF could not be rendered. The file may be corrupted or an unsupported format.')
+  }, [])
+
+  const handleEnsureTableOpenForAdd = useCallback(() => {
+    setIsTableOpen(prev => {
+      if (!prev) localStorage.setItem('fai-feature-table-open', 'true')
+      return true
+    })
   }, [])
 
   // ── Loading ─────────────────────────────────────────────────────────────────
@@ -230,136 +228,162 @@ export function PdfViewerPage() {
         projectName={project.projectName}
         drawingNumber={project.drawingNumber}
         drawingRevision={project.drawingRevision}
-        fileName={project.sourcePdfName ?? ''}
         productName={productConfig.productName}
-        scale={viewer.scale}
         currentPage={viewer.currentPage}
         numPages={viewer.numPages}
-        isFullscreen={viewer.isFullscreen}
-        isBalloonMode={balloons.isBalloonMode}
-        hasSelectedBalloon={!!balloons.selectedId}
-        isTableOpen={isTableOpen}
-        isSidebarOpen={isSidebarOpen}
-        onGoToPage={goToPage}
-        onZoomIn={viewer.zoomIn}
-        onZoomOut={viewer.zoomOut}
-        onFitWidth={viewer.fitWidth}
-        onFitPage={viewer.fitPage}
+        isMobileSidebarOpen={isMobileSidebarOpen}
         onPrevPage={viewer.prevPage}
         onNextPage={viewer.nextPage}
-        onRotate={viewer.rotateClockwise}
-        onDownload={handleDownload}
-        onToggleFullscreen={viewer.toggleFullscreen}
-        onToggleBalloonMode={balloons.toggleBalloonMode}
-        onDeleteSelectedBalloon={balloons.deleteSelected}
-        onToggleSidebar={() => setIsSidebarOpen(o => !o)}
-        onToggleTable={() => {
-          setIsTableOpen(o => {
-            const next = !o
-            localStorage.setItem('fai-feature-table-open', String(next))
-            return next
-          })
-        }}
+        onGoToPage={goToPage}
+        onToggleSidebar={() => setIsMobileSidebarOpen(o => !o)}
       />
 
-      {/* Main content: PDF + (optional) Feature Table panel */}
-      <div className={`flex-1 overflow-hidden flex flex-col${tableLayout === 'right' ? ' lg:flex-row' : ''}`}>
+      {/* Main area: sidebar + content */}
+      <div className="flex-1 overflow-hidden flex flex-row">
 
-        {/* PDF area */}
-        <div className="flex-1 overflow-auto min-h-0">
-          <PdfCanvas
-            pdfBlobUrl={pdfBlobUrl}
-            currentPage={viewer.currentPage}
-            scale={viewer.scale}
-            rotation={viewer.rotation}
-            onDocumentLoad={handleDocumentLoad}
-            onPageLoad={handlePageLoad}
-            onDocumentError={handleDocumentError}
-            overlay={
-              <BalloonLayer
-                balloons={balloons.balloons}
-                currentPage={viewer.currentPage}
-                isBalloonMode={balloons.isBalloonMode}
-                selectedId={balloons.selectedId}
-                onSelect={balloons.setSelectedId}
-                onAddBalloon={(xPercent, yPercent) =>
-                  balloons.addBalloon(viewer.currentPage, xPercent, yPercent)
-                }
-                onMoveBalloon={balloons.moveBalloon}
-              />
-            }
-          />
-        </div>
+        {/* Left sidebar */}
+        <WorkspaceSidebar
+          isMobileOpen={isMobileSidebarOpen}
+          onMobileClose={() => setIsMobileSidebarOpen(false)}
+          scale={viewer.scale}
+          currentPage={viewer.currentPage}
+          numPages={viewer.numPages}
+          isFullscreen={viewer.isFullscreen}
+          onPrevPage={viewer.prevPage}
+          onNextPage={viewer.nextPage}
+          onGoToPage={goToPage}
+          onZoomIn={viewer.zoomIn}
+          onZoomOut={viewer.zoomOut}
+          onFitWidth={viewer.fitWidth}
+          onFitPage={viewer.fitPage}
+          onRotate={viewer.rotateClockwise}
+          onDownload={handleDownload}
+          onToggleFullscreen={viewer.toggleFullscreen}
+          isBalloonMode={balloons.isBalloonMode}
+          hasSelectedBalloon={!!balloons.selectedId}
+          balloonCount={balloons.balloons.length}
+          onToggleBalloonMode={balloons.toggleBalloonMode}
+          onDeleteSelectedBalloon={balloons.deleteSelected}
+          isTableOpen={isTableOpen}
+          tableLayout={tableLayout}
+          isTableCollapsed={isCollapsed}
+          featureCount={features.features.length}
+          onToggleTable={() => {
+            setIsTableOpen(o => {
+              const next = !o
+              localStorage.setItem('fai-feature-table-open', String(next))
+              return next
+            })
+          }}
+          onToggleTableLayout={toggleTableLayout}
+          onToggleTableCollapse={toggleCollapsed}
+          onEnsureTableOpenForAdd={handleEnsureTableOpenForAdd}
+          isForm3Open={isForm3Open}
+          onToggleForm3={() => setIsForm3Open(o => !o)}
+          balloons={balloons.balloons}
+          features={features.features}
+          selectedBalloonId={balloons.selectedId}
+          onSelectBalloon={balloons.setSelectedId}
+          projectName={project.projectName}
+        />
 
-        {/* Feature Table panel — right side or bottom based on layout preference */}
-        {isTableOpen && (
-          <div
-            style={{
-              ...(tableLayout === 'right' && { width: isCollapsed ? 220 : rightWidth }),
-              ...(tableLayout === 'bottom' && !isCollapsed && { height: bottomHeight }),
-            }}
-            className={[
-              'bg-white flex-shrink-0 max-w-full border-border',
-              tableLayout === 'right'
-                ? `flex flex-row ${isCollapsed ? '' : 'h-[33vh]'} lg:h-auto border-t lg:border-t-0 lg:border-l`
-                : 'flex flex-col border-t',
-            ].join(' ')}
-          >
-            {/* Resize handle — hidden when collapsed */}
-            {!isCollapsed && (
-              tableLayout === 'right' ? (
-                <div
-                  onPointerDown={handleResizeRight}
-                  title="Drag to resize panel"
-                  className="hidden lg:flex w-1.5 cursor-ew-resize shrink-0 items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group touch-none"
-                >
-                  <div className="h-8 w-0.5 rounded-full bg-gray-300 group-hover:bg-primary/60" />
-                </div>
-              ) : (
-                <div
-                  onPointerDown={handleResizeBottom}
-                  title="Drag to resize panel"
-                  className="h-3 cursor-ns-resize shrink-0 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors group border-b border-border touch-none"
-                >
-                  <div className="w-8 h-1 rounded-full bg-gray-300 group-hover:bg-gray-500" />
-                </div>
-              )
-            )}
-            {/* Panel content */}
-            <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
-              <FeatureTablePanel
-                features={features.features}
-                balloons={balloons.balloons}
-                selectedBalloonId={balloons.selectedId}
-                projectId={project.projectId}
-                userId={user?.uid ?? ''}
-                onAddFeature={features.addFeature}
-                onUpdateFeature={features.updateFeature}
-                onDeleteFeature={features.deleteFeature}
-                onSelectBalloon={balloons.setSelectedId}
-                tableLayout={tableLayout}
-                onToggleLayout={toggleTableLayout}
-                isCollapsed={isCollapsed}
-                onToggleCollapse={toggleCollapsed}
-              />
-            </div>
+        {/* PDF + feature table */}
+        <div className={`flex-1 overflow-hidden flex flex-col${tableLayout === 'right' ? ' lg:flex-row' : ''}`}>
+
+          {/* PDF area */}
+          <div className="flex-1 overflow-auto min-h-0">
+            <PdfCanvas
+              pdfBlobUrl={pdfBlobUrl}
+              currentPage={viewer.currentPage}
+              scale={viewer.scale}
+              rotation={viewer.rotation}
+              onDocumentLoad={handleDocumentLoad}
+              onPageLoad={handlePageLoad}
+              onDocumentError={handleDocumentError}
+              overlay={
+                <BalloonLayer
+                  balloons={balloons.balloons}
+                  currentPage={viewer.currentPage}
+                  isBalloonMode={balloons.isBalloonMode}
+                  selectedId={balloons.selectedId}
+                  onSelect={balloons.setSelectedId}
+                  onAddBalloon={(xPercent, yPercent) =>
+                    balloons.addBalloon(viewer.currentPage, xPercent, yPercent)
+                  }
+                  onMoveBalloon={balloons.moveBalloon}
+                />
+              }
+            />
           </div>
-        )}
+
+          {/* Feature Table panel */}
+          {isTableOpen && (
+            <div
+              style={{
+                ...(tableLayout === 'right' && { width: isCollapsed ? 220 : rightWidth }),
+                ...(tableLayout === 'bottom' && !isCollapsed && { height: bottomHeight }),
+              }}
+              className={[
+                'bg-white flex-shrink-0 max-w-full border-border',
+                tableLayout === 'right'
+                  ? `flex flex-row ${isCollapsed ? '' : 'h-[33vh]'} lg:h-auto border-t lg:border-t-0 lg:border-l`
+                  : 'flex flex-col border-t',
+              ].join(' ')}
+            >
+              {!isCollapsed && (
+                tableLayout === 'right' ? (
+                  <div
+                    onPointerDown={handleResizeRight}
+                    title="Drag to resize panel"
+                    className="hidden lg:flex w-1.5 cursor-ew-resize shrink-0 items-center justify-center hover:bg-primary/10 active:bg-primary/20 transition-colors group touch-none"
+                  >
+                    <div className="h-8 w-0.5 rounded-full bg-gray-300 group-hover:bg-primary/60" />
+                  </div>
+                ) : (
+                  <div
+                    onPointerDown={handleResizeBottom}
+                    title="Drag to resize panel"
+                    className="h-3 cursor-ns-resize shrink-0 flex items-center justify-center hover:bg-gray-100 active:bg-gray-200 transition-colors group border-b border-border touch-none"
+                  >
+                    <div className="w-8 h-1 rounded-full bg-gray-300 group-hover:bg-gray-500" />
+                  </div>
+                )
+              )}
+              <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
+                <FeatureTablePanel
+                  features={features.features}
+                  balloons={balloons.balloons}
+                  selectedBalloonId={balloons.selectedId}
+                  projectId={project.projectId}
+                  userId={user?.uid ?? ''}
+                  onAddFeature={features.addFeature}
+                  onUpdateFeature={features.updateFeature}
+                  onDeleteFeature={features.deleteFeature}
+                  onSelectBalloon={balloons.setSelectedId}
+                  tableLayout={tableLayout}
+                  onToggleLayout={toggleTableLayout}
+                  isCollapsed={isCollapsed}
+                  onToggleCollapse={toggleCollapsed}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Smart Navigator Sidebar — fixed overlay, does not affect layout */}
-      <SmartSidebar
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        numPages={viewer.numPages}
-        currentPage={viewer.currentPage}
-        onGoToPage={goToPage}
-        balloons={balloons.balloons}
-        selectedBalloonId={balloons.selectedId}
-        onSelectBalloon={balloons.setSelectedId}
-        features={features.features}
-        projectName={project.projectName}
-      />
+      {/* AS9102 Form 3 — full-screen overlay */}
+      {isForm3Open && (
+        <Form3Panel
+          projectId={project.projectId}
+          projectName={project.projectName}
+          drawingNumber={project.drawingNumber}
+          drawingRevision={project.drawingRevision}
+          userId={user?.uid ?? ''}
+          features={features.features}
+          balloons={balloons.balloons}
+          onClose={() => setIsForm3Open(false)}
+        />
+      )}
     </div>
   )
 }

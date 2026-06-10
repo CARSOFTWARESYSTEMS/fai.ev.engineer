@@ -1,52 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  ArrowLeft,
-  LayoutDashboard,
-  ChevronLeft,
-  ChevronRight,
-  ZoomOut,
-  ZoomIn,
-  AlignJustify,
-  Maximize2,
-  RotateCw,
-  Download,
-  Maximize,
-  Minimize,
-  Target,
-  Trash2,
-  TableProperties,
-  SidebarOpen,
-} from 'lucide-react'
+import { ArrowLeft, LayoutDashboard, ChevronLeft, ChevronRight, PanelLeft } from 'lucide-react'
 
 interface PdfToolbarProps {
   projectId: string
   projectName: string
   drawingNumber: string
   drawingRevision: string
-  fileName: string
   productName: string
-  scale: number
   currentPage: number
   numPages: number
-  isFullscreen: boolean
-  isBalloonMode: boolean
-  hasSelectedBalloon: boolean
-  isTableOpen: boolean
-  isSidebarOpen: boolean
-  onGoToPage: (page: number) => void
-  onZoomIn: () => void
-  onZoomOut: () => void
-  onFitWidth: () => void
-  onFitPage: () => void
+  isMobileSidebarOpen: boolean
   onPrevPage: () => void
   onNextPage: () => void
-  onRotate: () => void
-  onDownload: () => void
-  onToggleFullscreen: () => void
-  onToggleBalloonMode: () => void
-  onDeleteSelectedBalloon: () => void
-  onToggleTable: () => void
+  onGoToPage: (page: number) => void
   onToggleSidebar: () => void
 }
 
@@ -55,29 +22,13 @@ export function PdfToolbar({
   projectName,
   drawingNumber,
   drawingRevision,
-  fileName,
   productName,
-  scale,
   currentPage,
   numPages,
-  isFullscreen,
-  isBalloonMode,
-  hasSelectedBalloon,
-  isTableOpen,
-  isSidebarOpen,
-  onGoToPage,
-  onZoomIn,
-  onZoomOut,
-  onFitWidth,
-  onFitPage,
+  isMobileSidebarOpen,
   onPrevPage,
   onNextPage,
-  onRotate,
-  onDownload,
-  onToggleFullscreen,
-  onToggleBalloonMode,
-  onDeleteSelectedBalloon,
-  onToggleTable,
+  onGoToPage,
   onToggleSidebar,
 }: PdfToolbarProps) {
   const canPrev = currentPage > 1
@@ -99,8 +50,8 @@ export function PdfToolbar({
     <header className="bg-white border-b border-border shrink-0 h-14 z-10">
       <div className="h-full flex items-center justify-between gap-2 px-3 sm:px-4">
 
-        {/* Left: navigation + project info */}
-        <div className="flex items-center gap-1.5 min-w-0 shrink-0">
+        {/* Left: back, dashboard, project info */}
+        <div className="flex items-center gap-1.5 min-w-0">
           <Link
             to={`/projects/${projectId}`}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary bg-white border border-primary rounded-lg hover:bg-primary-light transition-colors shrink-0"
@@ -122,10 +73,8 @@ export function PdfToolbar({
           </div>
         </div>
 
-        {/* Center: PDF controls — scrollable on small screens */}
-        <div className="flex items-center gap-0.5 overflow-x-auto">
-
-          {/* Page navigation */}
+        {/* Center: page navigation */}
+        <div className="flex items-center gap-0.5">
           <button
             onClick={onPrevPage}
             disabled={!canPrev}
@@ -160,133 +109,22 @@ export function PdfToolbar({
           >
             <ChevronRight className="w-4 h-4 text-text-secondary" />
           </button>
-
-          <span className="text-border mx-1 select-none">|</span>
-
-          {/* Zoom */}
-          <button onClick={onZoomOut} title="Zoom out" className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <ZoomOut className="w-4 h-4 text-text-secondary" />
-          </button>
-          <span className="text-xs text-text-secondary whitespace-nowrap w-12 text-center tabular-nums">
-            {Math.round(scale * 100)}%
-          </span>
-          <button onClick={onZoomIn} title="Zoom in" className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <ZoomIn className="w-4 h-4 text-text-secondary" />
-          </button>
-
-          <span className="text-border mx-1 select-none hidden sm:block">|</span>
-
-          {/* Fit controls */}
-          <button
-            onClick={onFitWidth}
-            title="Fit width"
-            className="hidden sm:flex items-center gap-1 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <AlignJustify className="w-4 h-4 text-text-secondary" />
-            <span className="hidden xl:inline text-xs text-text-secondary">Width</span>
-          </button>
-          <button
-            onClick={onFitPage}
-            title="Fit page"
-            className="hidden sm:flex items-center gap-1 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <Maximize2 className="w-4 h-4 text-text-secondary" />
-            <span className="hidden xl:inline text-xs text-text-secondary">Page</span>
-          </button>
-
-          <span className="text-border mx-1 select-none hidden sm:block">|</span>
-
-          {/* Rotate */}
-          <button onClick={onRotate} title="Rotate clockwise" className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <RotateCw className="w-4 h-4 text-text-secondary" />
-          </button>
-
-          {/* Download */}
-          <button onClick={onDownload} title="Download PDF" className="p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            <Download className="w-4 h-4 text-text-secondary" />
-          </button>
-
-          {/* Fullscreen */}
-          <button
-            onClick={onToggleFullscreen}
-            title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            {isFullscreen
-              ? <Minimize className="w-4 h-4 text-text-secondary" />
-              : <Maximize className="w-4 h-4 text-text-secondary" />
-            }
-          </button>
-
-          <span className="text-border mx-1 select-none">|</span>
-
-          {/* Balloon mode toggle */}
-          <button
-            onClick={onToggleBalloonMode}
-            title={isBalloonMode ? 'Exit balloon mode' : 'Add balloons'}
-            className={[
-              'flex items-center gap-1 px-2 py-2 rounded-lg transition-colors text-xs font-semibold',
-              isBalloonMode
-                ? 'bg-primary text-white hover:bg-primary-dark'
-                : 'text-text-secondary hover:bg-gray-100',
-            ].join(' ')}
-          >
-            <Target className="w-4 h-4" />
-            <span className="hidden sm:inline">Balloon</span>
-          </button>
-
-          {/* Delete selected balloon — only shown when a balloon is selected */}
-          {hasSelectedBalloon && (
-            <button
-              onClick={onDeleteSelectedBalloon}
-              title="Delete selected balloon"
-              className="flex items-center gap-1 px-2 py-2 rounded-lg text-error hover:bg-red-50 transition-colors text-xs font-semibold"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete</span>
-            </button>
-          )}
-
-          <span className="text-border mx-1 select-none">|</span>
-
-          {/* Feature table toggle */}
-          <button
-            onClick={onToggleTable}
-            title={isTableOpen ? 'Hide feature table' : 'Show feature table'}
-            className={[
-              'flex items-center gap-1 px-2 py-2 rounded-lg transition-colors text-xs font-semibold',
-              isTableOpen
-                ? 'bg-primary text-white hover:bg-primary-dark'
-                : 'text-text-secondary hover:bg-gray-100',
-            ].join(' ')}
-          >
-            <TableProperties className="w-4 h-4" />
-            <span className="hidden sm:inline">Table</span>
-          </button>
-
-          <span className="text-border mx-1 select-none">|</span>
-
-          {/* Navigator sidebar toggle */}
-          <button
-            onClick={onToggleSidebar}
-            title={isSidebarOpen ? 'Close navigator' : 'Open navigator'}
-            className={[
-              'flex items-center gap-1 px-2 py-2 rounded-lg transition-colors text-xs font-semibold',
-              isSidebarOpen
-                ? 'bg-primary text-white hover:bg-primary-dark'
-                : 'text-text-secondary hover:bg-gray-100',
-            ].join(' ')}
-          >
-            <SidebarOpen className="w-4 h-4" />
-            <span className="hidden sm:inline">Nav</span>
-          </button>
         </div>
 
-        {/* Right: file name + product logo */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="hidden lg:block text-right">
-            <p className="text-[11px] font-medium text-text-primary truncate max-w-[160px]">{fileName}</p>
-          </div>
+        {/* Right: sidebar toggle + brand */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onToggleSidebar}
+            title={isMobileSidebarOpen ? 'Close tools sidebar' : 'Open tools sidebar'}
+            className={[
+              'lg:hidden p-2 rounded-lg transition-colors',
+              isMobileSidebarOpen
+                ? 'bg-gray-100 text-primary'
+                : 'hover:bg-gray-100 text-text-secondary',
+            ].join(' ')}
+          >
+            <PanelLeft className="w-4 h-4" />
+          </button>
           <div className="flex items-center gap-1.5">
             <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-xs">F</span>

@@ -47,3 +47,42 @@ export function exportFeaturesToExcel(
   const safeName = projectName.replace(/[^\w-]/g, '_')
   XLSX.writeFile(wb, `FAI_${safeName}_${date}.xlsx`)
 }
+
+export function exportFeaturesToCSV(
+  features: Feature[],
+  balloons: Balloon[],
+  projectName: string,
+): void {
+  const balloonMap = new Map(balloons.map(b => [b.id, b]))
+  const sorted = [...features].sort((a, b) => a.featureNumber - b.featureNumber)
+
+  const header = ['Feature No', 'Balloon No', 'Page No', 'Type', 'Nominal', 'Tolerance', 'Min', 'Max', 'Units', 'Comments']
+  const csvRows = sorted.map(f => {
+    const balloon = balloonMap.get(f.balloonId)
+    return [
+      f.featureNumber,
+      f.balloonNumber,
+      balloon?.pageNumber ?? '',
+      f.type,
+      f.nominal || '',
+      f.tolerance || '',
+      f.min || '',
+      f.max || '',
+      f.units || '',
+      `"${(f.comments || '').replace(/"/g, '""')}"`,
+    ].join(',')
+  })
+
+  const csv = [header.join(','), ...csvRows].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  const date = new Date().toISOString().slice(0, 10)
+  const safeName = projectName.replace(/[^\w-]/g, '_')
+  a.href = url
+  a.download = `FAI_${safeName}_${date}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

@@ -7,11 +7,13 @@
     "dev": "vite",
     "build": "tsc && vite build && node scripts/generate-fortius-seo.mjs",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "generate:test-drawings": "node scripts/generate-test-drawings.mjs"
   },
   "dependencies": {
     "firebase": "^10.14.0",
     "lucide-react": "^0.441.0",
+    "pdf-lib": "^1.17.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-pdf": "^10.4.1",
@@ -28,6 +30,7 @@
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
+    "pdfkit": "^0.19.0",
     "postcss": "^8.4.45",
     "tailwindcss": "^3.4.10",
     "typescript": "^5.5.3",
