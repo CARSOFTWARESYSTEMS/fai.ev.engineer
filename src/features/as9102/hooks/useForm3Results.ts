@@ -27,6 +27,12 @@ function buildDesignRequirement(f: {
   return [f.type, f.nominal, f.tolerance, f.units].filter(Boolean).join(' · ')
 }
 
+interface PendingWriteEntry {
+  balloonId: string
+  characteristicNumber: number
+  fields: Form3ResultFields
+}
+
 export function useForm3Results({
   projectId,
   userId,
@@ -38,6 +44,8 @@ export function useForm3Results({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const debounces = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Stores the latest uncommitted write data per featureId so we can flush on tab hide
+  const pendingWriteData = useRef<Map<string, PendingWriteEntry>>(new Map())
 
   useEffect(() => {
     if (!projectId) return
@@ -115,6 +123,9 @@ export function useForm3Results({
       return m
     })
 
+    // Track latest pending data so visibilitychange can flush it
+    pendingWriteData.current.set(featureId, { balloonId, characteristicNumber, fields: { ...fields } })
+
     // Debounced Firestore write
     const pending = debounces.current.get(featureId)
     if (pending) clearTimeout(pending)
@@ -123,6 +134,7 @@ export function useForm3Results({
     debounces.current.set(
       featureId,
       setTimeout(async () => {
+        pendingWriteData.current.delete(featureId)
         const input: Form3ResultInput = {
           projectId,
           featureId,
@@ -145,6 +157,42 @@ export function useForm3Results({
         }
       }, 800),
     )
+  }, [projectId, userId])
+
+  // Flush pending writes immediately when the tab becomes hidden (browser close, tab switch)
+  // to minimise data loss from the 800ms debounce window.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'hidden') return
+      const pending = Array.from(pendingWriteData.current.entries())
+      if (pending.length === 0) return
+
+      // Cancel timers and write immediately
+      pending.forEach(([fId]) => {
+        const timer = debounces.current.get(fId)
+        if (timer) {
+          clearTimeout(timer)
+          debounces.current.delete(fId)
+        }
+      })
+      pendingWriteData.current.clear()
+
+      Promise.allSettled(
+        pending.map(([featureId, entry]) =>
+          upsertForm3ResultDoc(projectId, featureId, {
+            projectId,
+            featureId,
+            balloonId: entry.balloonId,
+            characteristicNumber: entry.characteristicNumber,
+            createdBy: userId,
+            ...entry.fields,
+          }),
+        ),
+      ).catch(() => {/* best-effort; errors are non-actionable on tab hide */})
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [projectId, userId])
 
   useEffect(() => {

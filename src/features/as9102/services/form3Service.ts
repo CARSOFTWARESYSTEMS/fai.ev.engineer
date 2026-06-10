@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  updateDoc,
   serverTimestamp,
   type FieldValue,
 } from 'firebase/firestore'
@@ -35,11 +36,20 @@ export async function upsertForm3ResultDoc(
   input: Form3ResultInput,
 ): Promise<void> {
   const ref = doc(firestore, 'projects', projectId, 'form3Results', featureId)
-  const writeDoc: Form3WriteDoc = {
-    ...input,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  // Attempt an update first (preserves createdAt on existing docs).
+  // On 'not-found', fall through to setDoc with createdAt on first write.
+  try {
+    await updateDoc(ref, { ...input, updatedAt: serverTimestamp() })
+  } catch (err) {
+    if ((err as { code?: string })?.code === 'not-found') {
+      const writeDoc: Form3WriteDoc = {
+        ...input,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+      await setDoc(ref, writeDoc)
+    } else {
+      throw err
+    }
   }
-  // merge: true so we never accidentally delete fields added in future schema versions
-  await setDoc(ref, writeDoc, { merge: true })
 }

@@ -57,19 +57,20 @@ export function exportFeaturesToCSV(
   const sorted = [...features].sort((a, b) => a.featureNumber - b.featureNumber)
 
   const header = ['Feature No', 'Balloon No', 'Page No', 'Type', 'Nominal', 'Tolerance', 'Min', 'Max', 'Units', 'Comments']
+  const q = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
   const csvRows = sorted.map(f => {
     const balloon = balloonMap.get(f.balloonId)
     return [
       f.featureNumber,
       f.balloonNumber,
       balloon?.pageNumber ?? '',
-      f.type,
-      f.nominal || '',
-      f.tolerance || '',
-      f.min || '',
-      f.max || '',
-      f.units || '',
-      `"${(f.comments || '').replace(/"/g, '""')}"`,
+      q(f.type),
+      q(f.nominal || ''),
+      q(f.tolerance || ''),
+      q(f.min || ''),
+      q(f.max || ''),
+      q(f.units || ''),
+      q(f.comments || ''),
     ].join(',')
   })
 
