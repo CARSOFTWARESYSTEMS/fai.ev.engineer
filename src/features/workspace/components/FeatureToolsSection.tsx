@@ -1,4 +1,5 @@
 import { PlusCircle, Info } from 'lucide-react'
+import { SidebarActionButton } from './SidebarActionCard'
 
 interface ToggleSwitchProps {
   checked: boolean
@@ -104,6 +105,11 @@ export function FeatureToolsSection({
 
   return (
     <div className="space-y-0">
+      <div className="mx-3 mb-2 rounded-lg border border-primary/20 bg-primary/[0.07] px-3 py-2">
+        <p className="text-[10px] font-semibold text-blue-200">Select a balloon from drawing</p>
+        <p className="mt-0.5 text-[9px] text-blue-200/60">then click Add Feature</p>
+      </div>
+
       {/* Feature Table Settings heading */}
       <div className="px-3 pt-1 pb-1">
         <p className="text-[9px] font-semibold tracking-[0.1em] text-gray-500 uppercase">
@@ -144,24 +150,14 @@ export function FeatureToolsSection({
       <div className="mx-3 border-t border-white/[0.06] my-1" />
 
       {/* Add Feature action */}
-      <button
+      <SidebarActionButton
+        icon={PlusCircle}
         onClick={onEnsureTableOpenForAdd}
         disabled={!hasSelectedBalloon}
+        label="Add Feature"
+        description={!hasSelectedBalloon ? 'Select balloon first' : undefined}
         title={hasSelectedBalloon ? 'Open table to add feature for selected balloon' : 'Select a balloon on the drawing first'}
-        className={[
-          'flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors mx-0',
-          'disabled:opacity-35 disabled:cursor-not-allowed',
-          hasSelectedBalloon
-            ? 'text-gray-300 hover:bg-white/[0.06] hover:text-white'
-            : 'text-gray-500',
-        ].join(' ')}
-      >
-        <PlusCircle className="w-3.5 h-3.5 shrink-0" />
-        <span>Add Feature</span>
-        {!hasSelectedBalloon && (
-          <span className="ml-auto text-[9px] text-gray-600">select balloon first</span>
-        )}
-      </button>
+      />
 
       {!hasSelectedBalloon && (
         <div className="flex items-start gap-1.5 px-3 pb-1">

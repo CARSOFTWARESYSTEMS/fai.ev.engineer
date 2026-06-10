@@ -49,12 +49,13 @@ export function WorkspaceModeSelector({
               aria-current={isActive ? 'step' : undefined}
               title={m.description}
               className={[
-                'flex h-9 items-center gap-1.5 rounded-lg border px-2 transition-all',
+                'flex h-9 items-center gap-1.5 rounded-lg border border-transparent px-2.5 transition-all duration-200',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f172a]',
                 isActive
                   ? isBallooningActive
-                    ? 'border-emerald-500/60 bg-primary text-white shadow-[0_0_10px_rgb(34_197_94_/_0.14)]'
-                    : 'border-primary bg-primary text-white shadow-sm'
-                  : 'border-white/[0.08] bg-white/[0.04] text-gray-400 hover:border-white/[0.16] hover:bg-white/[0.08] hover:text-gray-200',
+                    ? 'border-emerald-400/60 bg-primary text-white shadow-[0_0_14px_rgb(34_197_94_/_0.16)]'
+                    : 'border-blue-400/70 bg-primary text-white shadow-[0_0_14px_rgb(15_111_255_/_0.2)]'
+                  : 'border-white/[0.08] bg-white/[0.04] text-gray-400 shadow-none hover:border-white/[0.16] hover:bg-white/[0.08] hover:text-gray-200',
               ].join(' ')}
             >
               <span className={[
@@ -82,7 +83,7 @@ export function WorkspaceModeSelector({
         <select
           value={mode}
           onChange={event => onChange(event.target.value as WorkspaceMode)}
-          className="h-9 w-full min-w-[138px] appearance-none rounded-lg border border-primary/50 bg-primary/20 py-1 pl-8 pr-7 text-[10px] font-semibold text-blue-100 outline-none"
+          className="h-9 w-full min-w-[138px] appearance-none rounded-lg border border-primary/50 bg-primary/20 py-1 pl-8 pr-7 text-[10px] font-semibold text-blue-100 outline-none focus:ring-2 focus:ring-primary/70 focus:ring-offset-2 focus:ring-offset-[#0f172a]"
           title="Current workflow step"
         >
           {MODES.map((item, index) => (

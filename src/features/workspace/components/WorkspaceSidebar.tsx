@@ -116,6 +116,10 @@ export function WorkspaceSidebar({
 }: WorkspaceSidebarProps) {
   const visibleSections = MODE_VISIBLE_SECTIONS[workspaceMode]
   const isSectionVisible = (section: SidebarSectionId) => visibleSections.includes(section)
+  const activateCollapsedSection = (section: SidebarSectionId) => {
+    if (!isSectionOpen(section)) onToggleSection(section)
+    onToggleExpanded()
+  }
 
   const sidebarContent = (
     <div className={[
@@ -146,6 +150,7 @@ export function WorkspaceSidebar({
           isExpanded={isExpanded}
           isOpen={isSectionOpen('pdf')}
           onToggle={() => onToggleSection('pdf')}
+          onCollapsedActivate={() => activateCollapsedSection('pdf')}
         >
           <PdfToolsSection
             isExpanded={isExpanded}
@@ -173,6 +178,7 @@ export function WorkspaceSidebar({
           isExpanded={isExpanded}
           isOpen={isSectionOpen('balloons')}
           onToggle={() => onToggleSection('balloons')}
+          onCollapsedActivate={() => activateCollapsedSection('balloons')}
         >
           <BalloonToolsSection
             isExpanded={isExpanded}
@@ -195,6 +201,7 @@ export function WorkspaceSidebar({
           isExpanded={isExpanded}
           isOpen={isSectionOpen('features')}
           onToggle={() => onToggleSection('features')}
+          onCollapsedActivate={() => activateCollapsedSection('features')}
         >
           <FeatureToolsSection
             isExpanded={isExpanded}
@@ -216,6 +223,7 @@ export function WorkspaceSidebar({
           isExpanded={isExpanded}
           isOpen={isSectionOpen('form3')}
           onToggle={() => onToggleSection('form3')}
+          onCollapsedActivate={() => activateCollapsedSection('form3')}
         >
           <As9102Section
             isExpanded={isExpanded}
@@ -232,6 +240,7 @@ export function WorkspaceSidebar({
           isExpanded={isExpanded}
           isOpen={isSectionOpen('navigator')}
           onToggle={() => onToggleSection('navigator')}
+          onCollapsedActivate={() => activateCollapsedSection('navigator')}
         >
           <NavigationSection
             isExpanded={isExpanded}
@@ -255,6 +264,7 @@ export function WorkspaceSidebar({
             isExpanded={isExpanded}
             isOpen={isSectionOpen('export')}
             onToggle={() => onToggleSection('export')}
+            onCollapsedActivate={() => activateCollapsedSection('export')}
           >
             <ExportSection
               isExpanded={isExpanded}

@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes as9102-entry-attention {
+  0%, 100% {
+    box-shadow: 0 4px 10px rgb(15 111 255 / 0.14);
+  }
+  18%, 52% {
+    box-shadow: 0 0 0 2px rgb(15 111 255 / 0.22), 0 0 24px rgb(15 111 255 / 0.32);
+  }
+  35%, 70% {
+    box-shadow: 0 0 0 1px rgb(15 111 255 / 0.12), 0 0 14px rgb(15 111 255 / 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .as9102-entry-cta {
+    animation: as9102-entry-attention 3s ease-in-out 1;
+  }
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

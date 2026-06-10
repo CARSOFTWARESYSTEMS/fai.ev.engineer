@@ -3,6 +3,7 @@ import {
   ChevronLeft, ChevronRight, ZoomOut, ZoomIn,
   AlignJustify, Maximize2, RotateCw, Maximize, Minimize,
 } from 'lucide-react'
+import { SidebarActionButton } from './SidebarActionCard'
 
 interface PdfToolsSectionProps {
   isExpanded: boolean
@@ -19,33 +20,6 @@ interface PdfToolsSectionProps {
   onFitPage: () => void
   onRotate: () => void
   onToggleFullscreen: () => void
-}
-
-function Btn({
-  onClick, title, disabled, active, children,
-}: {
-  onClick: () => void
-  title: string
-  disabled?: boolean
-  active?: boolean
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      disabled={disabled}
-      className={[
-        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs w-full transition-colors',
-        'disabled:opacity-30 disabled:cursor-not-allowed',
-        active
-          ? 'bg-primary/20 text-primary-light'
-          : 'text-gray-300 hover:bg-white/10 hover:text-white',
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  )
 }
 
 export function PdfToolsSection({
@@ -131,28 +105,20 @@ export function PdfToolsSection({
       </div>
 
       {/* Fit */}
-      <div className="grid grid-cols-2 gap-0.5">
-        <Btn onClick={onFitWidth} title="Fit width">
-          <AlignJustify className="w-3.5 h-3.5 shrink-0" />
-          <span>Fit Width</span>
-        </Btn>
-        <Btn onClick={onFitPage} title="Fit page">
-          <Maximize2 className="w-3.5 h-3.5 shrink-0" />
-          <span>Fit Page</span>
-        </Btn>
+      <div className="grid grid-cols-2 gap-1.5">
+        <SidebarActionButton icon={AlignJustify} onClick={onFitWidth} title="Fit width" label="Fit Width" />
+        <SidebarActionButton icon={Maximize2} onClick={onFitPage} title="Fit page" label="Fit Page" />
       </div>
 
       {/* Other actions */}
-      <Btn onClick={onRotate} title="Rotate clockwise">
-        <RotateCw className="w-3.5 h-3.5 shrink-0" />
-        <span>Rotate</span>
-      </Btn>
-      <Btn onClick={onToggleFullscreen} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} active={isFullscreen}>
-        {isFullscreen
-          ? <><Minimize className="w-3.5 h-3.5 shrink-0" /><span>Exit Fullscreen</span></>
-          : <><Maximize className="w-3.5 h-3.5 shrink-0" /><span>Fullscreen</span></>
-        }
-      </Btn>
+      <SidebarActionButton icon={RotateCw} onClick={onRotate} title="Rotate clockwise" label="Rotate" />
+      <SidebarActionButton
+        icon={isFullscreen ? Minimize : Maximize}
+        onClick={onToggleFullscreen}
+        title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+        label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+        active={isFullscreen}
+      />
     </div>
   )
 }

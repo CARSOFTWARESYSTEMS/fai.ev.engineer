@@ -109,11 +109,18 @@ export function Form3Panel({
           <div className="flex items-center gap-3 shrink-0">
             <SaveIndicator status={saveStatus} />
             <button
+              type="button"
               onClick={onClose}
               title="Close Form 3"
-              className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+              aria-label="Close Form 3"
+              className={[
+                'inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-2.5',
+                'text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+              ].join(' ')}
             >
               <X className="w-4 h-4" />
+              <span className="hidden sm:inline">Close Form 3</span>
             </button>
           </div>
         </div>

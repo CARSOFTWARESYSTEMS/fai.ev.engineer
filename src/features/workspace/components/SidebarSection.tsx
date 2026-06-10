@@ -8,6 +8,7 @@ interface SidebarSectionProps {
   isExpanded: boolean
   isOpen: boolean
   onToggle: () => void
+  onCollapsedActivate?: () => void
   children: React.ReactNode
 }
 
@@ -18,6 +19,7 @@ export function SidebarSection({
   isExpanded,
   isOpen,
   onToggle,
+  onCollapsedActivate,
   children,
 }: SidebarSectionProps) {
   // Icon-only collapsed sidebar: show just the icon button
@@ -25,9 +27,15 @@ export function SidebarSection({
     return (
       <div className="py-0.5 px-1.5">
         <button
-          onClick={onToggle}
-          title={title}
-          className="w-full flex items-center justify-center p-2.5 rounded-lg hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
+          onClick={onCollapsedActivate ?? onToggle}
+          title={`Open ${title}`}
+          aria-label={`Open ${title}`}
+          className={[
+            'w-full flex cursor-pointer items-center justify-center rounded-lg p-2.5 transition-all',
+            isOpen
+              ? 'bg-primary/20 text-blue-300 ring-1 ring-primary/35'
+              : 'text-gray-500 hover:bg-white/10 hover:text-gray-300',
+          ].join(' ')}
         >
           <Icon className="w-4 h-4" />
         </button>

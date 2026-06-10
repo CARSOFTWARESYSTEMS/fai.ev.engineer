@@ -1,5 +1,6 @@
 import { ClipboardList, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import type { Feature } from '../../featureTable/types/featureTypes'
+import { SidebarActionCard } from './SidebarActionCard'
 
 interface As9102SectionProps {
   isExpanded: boolean
@@ -35,34 +36,26 @@ export function As9102Section({
       </div>
 
       {/* Open/Close Form 3 button */}
-      <button
+      <SidebarActionCard
+        icon={ClipboardList}
         onClick={onToggleForm3}
-        title={isForm3Open ? 'Close AS9102 Form 3 inspection panel' : 'Open AS9102 Form 3 — full-screen inspection report'}
-        className={[
-          'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-xs font-semibold transition-all',
-          isForm3Open
-            ? 'bg-primary/20 text-primary-light ring-1 ring-primary/40'
-            : 'bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] hover:text-white border border-white/[0.06]',
-        ].join(' ')}
-      >
-        <div className={[
-          'w-6 h-6 rounded-full flex items-center justify-center shrink-0',
-          isForm3Open ? 'bg-primary/30' : 'bg-white/10',
-        ].join(' ')}>
-          <ClipboardList className="w-3.5 h-3.5" />
-        </div>
-        <div className="flex-1 text-left">
-          <div>{isForm3Open ? 'Form 3 — Open' : 'Open Form 3'}</div>
-          {isForm3Open && (
-            <div className="text-[9px] font-normal text-primary-light/70 mt-0.5">
-              Full-screen inspection panel active
-            </div>
-          )}
-        </div>
-        {isForm3Open && (
+        title={isForm3Open ? 'AS9102 Form 3 — Open' : 'Open AS9102 Form 3'}
+        description={isForm3Open ? 'Full-screen inspection panel active' : 'Record inspection results'}
+        titleText={isForm3Open ? 'Close AS9102 Form 3 inspection panel' : 'Open AS9102 Form 3 — full-screen inspection report'}
+        tone="blue"
+        active
+        className="as9102-entry-cta"
+        trailing={isForm3Open ? (
           <span className="w-1.5 h-1.5 rounded-full bg-primary-light animate-pulse shrink-0" />
-        )}
-      </button>
+        ) : undefined}
+      />
+
+      {!isForm3Open && (
+        <div className="rounded-lg border border-primary/20 bg-primary/[0.06] px-3 py-2">
+          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-blue-300">Next Step</p>
+          <p className="mt-1 text-[10px] text-blue-100/70">Open Form 3 to begin inspection</p>
+        </div>
+      )}
 
       {/* Status legend — shown as guide when form3 not open */}
       {!isForm3Open && (

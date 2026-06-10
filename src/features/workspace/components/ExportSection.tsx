@@ -4,6 +4,7 @@ import type { Balloon } from '../../ballooning/types/balloonTypes'
 import { exportFeaturesToExcel, exportFeaturesToCSV } from '../../export/services/excelExportService'
 import { exportForm3CSV, exportForm3Excel } from '../../as9102/services/form3ExportService'
 import type { Form3Row } from '../../as9102/types/form3Types'
+import { SidebarActionButton, SidebarActionCard } from './SidebarActionCard'
 
 interface ExportSectionProps {
   isExpanded: boolean
@@ -17,30 +18,21 @@ interface ExportSectionProps {
 function ExportBtn({
   onClick, disabled, icon: Icon, label, sublabel,
 }: {
-  onClick?: () => void
+  onClick: () => void
   disabled?: boolean
   icon: React.ComponentType<{ className?: string }>
   label: string
   sublabel?: string
 }) {
   return (
-    <button
+    <SidebarActionButton
+      icon={Icon}
       onClick={onClick}
       disabled={disabled}
+      label={label}
+      description={sublabel}
       title={disabled ? 'No data to export' : label}
-      className={[
-        'flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-left text-xs transition-colors',
-        disabled
-          ? 'opacity-35 cursor-not-allowed text-gray-500'
-          : 'text-gray-300 hover:bg-white/[0.06] hover:text-white',
-      ].join(' ')}
-    >
-      <Icon className={`w-3.5 h-3.5 shrink-0 ${disabled ? 'text-gray-600' : 'text-gray-400'}`} />
-      <div className="flex-1 min-w-0">
-        <div className="font-medium leading-none">{label}</div>
-        {sublabel && <div className="text-[9px] text-gray-600 mt-0.5">{sublabel}</div>}
-      </div>
-    </button>
+    />
   )
 }
 
@@ -56,22 +48,22 @@ export function ExportSection({
 
   const hasFeatures = features.length > 0
   const hasForm3Rows = form3Rows.length > 0
+  const availableDeliverables =
+    (hasFeatures ? 2 : 0) +
+    (hasForm3Rows ? 2 : 0) +
+    (balloons.length > 0 ? 1 : 0)
 
   return (
     <div className="px-3">
-      <div className="rounded-xl border border-primary/60 bg-primary/[0.12] p-3 shadow-[0_0_18px_rgb(37_99_235_/_0.14)]">
-        <div className="mb-3 flex items-start gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/50 bg-primary/20 text-blue-200">
-            <Download className="h-4 w-4" />
-          </span>
-          <div>
-            <h3 className="text-xs font-semibold text-white">Export Deliverables</h3>
-            <p className="mt-0.5 text-[9px] leading-relaxed text-blue-100/70">
-              Download reports and final project outputs.
-            </p>
-          </div>
-        </div>
-        <div className="space-y-1 rounded-lg border border-white/[0.08] bg-[#111827]/70 p-1">
+      <SidebarActionCard
+        icon={Download}
+        eyebrow="Ready for Export"
+        title="Export Deliverables"
+        description={`${availableDeliverables} deliverable${availableDeliverables !== 1 ? 's' : ''} available`}
+        tone="blue"
+        active
+      >
+        <div className="mt-3 space-y-1.5 border-t border-white/[0.08] pt-3">
           <ExportBtn
             onClick={() => exportFeaturesToExcel(features, balloons, projectName)}
             disabled={!hasFeatures}
@@ -112,7 +104,7 @@ export function ExportSection({
               : 'No balloons yet'}
           />
         </div>
-      </div>
+      </SidebarActionCard>
     </div>
   )
 }
