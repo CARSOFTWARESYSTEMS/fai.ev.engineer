@@ -1,8 +1,16 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
+import type { Form3Status } from '../../as9102/types/form3Types'
+import { BALLOON_VISUALS, getBalloonStatusColor } from '../../ballooning/utils/balloonVisuals.ts'
 
-const BALLOON_RADIUS = 10
-const BALLOON_FONT_SIZE = 8
+function pdfColor(hex: string) {
+  const value = hex.replace('#', '')
+  return rgb(
+    parseInt(value.slice(0, 2), 16) / 255,
+    parseInt(value.slice(2, 4), 16) / 255,
+    parseInt(value.slice(4, 6), 16) / 255,
+  )
+}
 
 function balloonedFileName(sourceName: string): string {
   const baseName = sourceName.replace(/\.pdf$/i, '') || 'drawing'
@@ -13,11 +21,16 @@ export async function exportBalloonedPdf(
   sourcePdfUrl: string,
   sourceName: string,
   balloons: Balloon[],
+  statusByBalloonId: ReadonlyMap<string, Form3Status>,
 ): Promise<void> {
   const response = await fetch(sourcePdfUrl)
   if (!response.ok) throw new Error(`PDF download failed (${response.status})`)
 
-  const pdfBytes = await createBalloonedPdf(await response.arrayBuffer(), balloons)
+  const pdfBytes = await createBalloonedPdf(
+    await response.arrayBuffer(),
+    balloons,
+    statusByBalloonId,
+  )
   const pdfBuffer = pdfBytes.buffer.slice(
     pdfBytes.byteOffset,
     pdfBytes.byteOffset + pdfBytes.byteLength,
@@ -36,6 +49,7 @@ export async function exportBalloonedPdf(
 export async function createBalloonedPdf(
   sourcePdf: ArrayBuffer | Uint8Array,
   balloons: Balloon[],
+  statusByBalloonId: ReadonlyMap<string, Form3Status> = new Map(),
 ): Promise<Uint8Array> {
   const pdfDocument = await PDFDocument.load(sourcePdf)
   const font = await pdfDocument.embedFont(StandardFonts.HelveticaBold)
@@ -49,22 +63,33 @@ export async function createBalloonedPdf(
     const x = balloon.xPercent * width
     const y = (1 - balloon.yPercent) * height
     const label = String(balloon.balloonNumber)
-    const textWidth = font.widthOfTextAtSize(label, BALLOON_FONT_SIZE)
+    const status = statusByBalloonId.get(balloon.id) ?? 'pending'
+    const textWidth = font.widthOfTextAtSize(label, BALLOON_VISUALS.pdf.fontSize)
 
     page.drawCircle({
       x,
       y,
-      size: BALLOON_RADIUS,
-      color: rgb(1, 0.78, 0.08),
-      borderColor: rgb(0.72, 0.45, 0),
-      borderWidth: 1.25,
+      size: BALLOON_VISUALS.pdf.outerRadius,
+      color: pdfColor(getBalloonStatusColor(status)),
+    })
+    page.drawCircle({
+      x,
+      y,
+      size: BALLOON_VISUALS.pdf.gapRadius,
+      color: pdfColor(BALLOON_VISUALS.gap),
+    })
+    page.drawCircle({
+      x,
+      y,
+      size: BALLOON_VISUALS.pdf.innerRadius,
+      color: pdfColor(BALLOON_VISUALS.fill),
     })
     page.drawText(label, {
       x: x - textWidth / 2,
-      y: y - BALLOON_FONT_SIZE * 0.34,
-      size: BALLOON_FONT_SIZE,
+      y: y - BALLOON_VISUALS.pdf.fontSize * 0.34,
+      size: BALLOON_VISUALS.pdf.fontSize,
       font,
-      color: rgb(0.2, 0.12, 0),
+      color: pdfColor(BALLOON_VISUALS.text),
     })
   })
 

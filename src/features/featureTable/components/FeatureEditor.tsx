@@ -56,6 +56,12 @@ export function FeatureEditor({
       </td>
       {/* Type */}
       <td className={cell}>
+        <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-semibold text-amber-700">
+          Pending
+        </span>
+      </td>
+      {/* Type */}
+      <td className={cell}>
         <select
           value={form.type}
           onChange={e => set('type', e.target.value)}

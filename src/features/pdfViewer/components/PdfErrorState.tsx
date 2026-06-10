@@ -4,10 +4,16 @@ import { AlertCircle } from 'lucide-react'
 interface Props {
   projectId: string
   message: string
-  onRetry?: () => void
+  actionLabel?: string
+  onAction?: () => void
 }
 
-export function PdfErrorState({ projectId, message, onRetry }: Props) {
+export function PdfErrorState({
+  projectId,
+  message,
+  actionLabel = 'Retry loading PDF',
+  onAction,
+}: Props) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-5 px-4 text-center">
       <div className="w-14 h-14 bg-error/10 rounded-2xl flex items-center justify-center">
@@ -18,9 +24,9 @@ export function PdfErrorState({ projectId, message, onRetry }: Props) {
         <p className="text-sm text-text-secondary max-w-sm leading-relaxed">{message}</p>
       </div>
       <div className="flex flex-col sm:flex-row gap-3">
-        {onRetry && (
-          <button onClick={onRetry} className="btn-primary">
-            Retry
+        {onAction && (
+          <button onClick={onAction} className="btn-primary">
+            {actionLabel}
           </button>
         )}
         <Link to={`/projects/${projectId}`} className="btn-secondary">

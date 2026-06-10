@@ -33,7 +33,7 @@ function readSections(): Partial<Record<SidebarSectionId, boolean>> {
 
 function readMode(): WorkspaceMode {
   const v = localStorage.getItem(KEYS.mode) as WorkspaceMode | null
-  const valid: WorkspaceMode[] = ['review', 'ballooning', 'features', 'as9102']
+  const valid: WorkspaceMode[] = ['review', 'ballooning', 'features', 'as9102', 'export']
   return (v && valid.includes(v)) ? v : 'ballooning'
 }
 

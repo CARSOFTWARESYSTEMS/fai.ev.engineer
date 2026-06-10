@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Balloon } from '../types/balloonTypes'
 import type { PdfRotation } from '../../pdfViewer/types/pdfViewerTypes'
+import type { Form3Status } from '../../as9102/types/form3Types'
 import { BalloonMarker } from './BalloonMarker'
 import { BlankPlacementWarningDialog } from './BlankPlacementWarningDialog'
 import { unrotateBalloonPoint, type NormalizedPoint } from '../utils/balloonCoordinates'
@@ -11,6 +12,8 @@ interface BalloonLayerProps {
   currentPage: number
   rotation: PdfRotation
   pdfCanvas: HTMLCanvasElement | null
+  statusByBalloonId: Map<string, Form3Status>
+  focusRequest: number
   isBalloonMode: boolean
   selectedId: string | null
   onSelect: (id: string) => void
@@ -23,6 +26,8 @@ export function BalloonLayer({
   currentPage,
   rotation,
   pdfCanvas,
+  statusByBalloonId,
+  focusRequest,
   isBalloonMode,
   selectedId,
   onSelect,
@@ -75,6 +80,8 @@ export function BalloonLayer({
           key={balloon.id}
           balloon={balloon}
           rotation={rotation}
+          status={statusByBalloonId.get(balloon.id) ?? 'pending'}
+          focusRequest={focusRequest}
           isSelected={selectedId === balloon.id}
           layerRef={layerRef}
           onSelect={onSelect}

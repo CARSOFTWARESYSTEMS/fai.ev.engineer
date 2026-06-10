@@ -1,7 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Balloon } from '../types/balloonTypes'
 import type { PdfRotation } from '../../pdfViewer/types/pdfViewerTypes'
+import type { Form3Status } from '../../as9102/types/form3Types'
 import { rotateBalloonPoint, unrotateBalloonPoint } from '../utils/balloonCoordinates'
+import { BALLOON_VISUALS, getBalloonStatusColor } from '../utils/balloonVisuals'
 
 interface DragState {
   startClientX: number
@@ -13,6 +15,8 @@ interface DragState {
 interface BalloonMarkerProps {
   balloon: Balloon
   rotation: PdfRotation
+  status: Form3Status
+  focusRequest: number
   isSelected: boolean
   layerRef: React.RefObject<HTMLDivElement>
   onSelect: (id: string) => void
@@ -28,12 +32,15 @@ const DRAG_THRESHOLD_PX = 4
 export function BalloonMarker({
   balloon,
   rotation,
+  status,
+  focusRequest,
   isSelected,
   layerRef,
   onSelect,
   onDragEnd,
 }: BalloonMarkerProps) {
   const dragRef = useRef<DragState | null>(null)
+  const markerRef = useRef<HTMLDivElement>(null)
   const [livePos, setLivePos] = useState<{ x: number; y: number } | null>(null)
   const hasDragged = useRef(false)
 
@@ -43,6 +50,12 @@ export function BalloonMarker({
   )
   const xPercent = livePos?.x ?? storedPosition.x
   const yPercent = livePos?.y ?? storedPosition.y
+
+  useEffect(() => {
+    if (isSelected && focusRequest > 0) {
+      markerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    }
+  }, [focusRequest, isSelected])
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -92,6 +105,7 @@ export function BalloonMarker({
 
   return (
     <div
+      ref={markerRef}
       style={{
         position: 'absolute',
         left: `${xPercent * 100}%`,
@@ -107,14 +121,22 @@ export function BalloonMarker({
       onClick={(e) => e.stopPropagation()}
     >
       <div
+        style={{
+          width: BALLOON_VISUALS.viewer.diameterPx,
+          height: BALLOON_VISUALS.viewer.diameterPx,
+          backgroundColor: BALLOON_VISUALS.fill,
+          color: BALLOON_VISUALS.text,
+          boxShadow: [
+            `0 0 0 ${BALLOON_VISUALS.viewer.gapPx}px ${BALLOON_VISUALS.gap}`,
+            `0 0 0 ${BALLOON_VISUALS.viewer.gapPx + BALLOON_VISUALS.viewer.ringPx}px ${getBalloonStatusColor(status)}`,
+          ].join(', '),
+        }}
         className={[
-          'w-7 h-7 rounded-full flex items-center justify-center',
+          'rounded-full flex items-center justify-center',
           'text-xs font-bold select-none',
-          'shadow-md transition-transform duration-100',
+          'transition-transform duration-100',
           livePos ? 'cursor-grabbing' : 'cursor-grab',
-          isSelected
-            ? 'bg-yellow-400 text-yellow-900 ring-2 ring-yellow-500 ring-offset-1 scale-110'
-            : 'bg-primary text-white hover:scale-105',
+          isSelected ? 'scale-125' : 'hover:scale-105',
         ].join(' ')}
       >
         {balloon.balloonNumber}

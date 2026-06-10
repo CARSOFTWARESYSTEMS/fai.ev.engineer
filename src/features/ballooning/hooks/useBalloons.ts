@@ -12,6 +12,8 @@ interface UseBalloonProps {
   userId: string
 }
 
+const BALLOON_MODE_KEY = 'fai-balloon-placement-enabled'
+
 export function useBalloons({ projectId, userId }: UseBalloonProps) {
   const [balloons, setBalloons] = useState<Balloon[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -28,10 +30,17 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
       .catch(err => console.error('[useBalloons] load failed:', err))
   }, [projectId])
 
+  const setBalloonMode = useCallback((enabled: boolean) => {
+    setIsBalloonMode(enabled)
+    localStorage.setItem(BALLOON_MODE_KEY, String(enabled))
+    setSelectedId(null)
+  }, [])
+
   const toggleBalloonMode = useCallback(() => {
-    setIsBalloonMode(m => {
-      console.log('[useBalloons] toggleBalloonMode:', !m)
-      return !m
+    setIsBalloonMode(current => {
+      const next = !current
+      localStorage.setItem(BALLOON_MODE_KEY, String(next))
+      return next
     })
     setSelectedId(null)
   }, [])
@@ -114,6 +123,7 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
     selectedId,
     isBalloonMode,
     setSelectedId,
+    setBalloonMode,
     toggleBalloonMode,
     addBalloon,
     moveBalloon,

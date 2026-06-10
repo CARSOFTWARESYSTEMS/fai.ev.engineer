@@ -18,8 +18,13 @@ interface UseForm3ResultsProps {
   balloons: Balloon[]
 }
 
-function buildDrawingRequirement(f: { nominal: string; tolerance: string; units: string }): string {
-  return [f.nominal, f.tolerance, f.units].filter(Boolean).join(' ')
+function buildDesignRequirement(f: {
+  type: string
+  nominal: string
+  tolerance: string
+  units: string
+}): string {
+  return [f.type, f.nominal, f.tolerance, f.units].filter(Boolean).join(' · ')
 }
 
 export function useForm3Results({
@@ -54,23 +59,33 @@ export function useForm3Results({
       .map(f => {
         const balloon = balloons.find(b => b.id === f.balloonId)
         const saved = results.get(f.id)
+        const isLinked = !!balloon &&
+          balloon.balloonNumber === f.balloonNumber &&
+          (f.pageNumber === undefined || f.pageNumber === balloon.pageNumber)
+        const result = saved?.result ?? ''
+        const status = saved?.status === 'pass' && !result.trim()
+          ? 'pending'
+          : saved?.status ?? 'pending'
         return {
           featureId: f.id,
           balloonId: f.balloonId,
           characteristicNumber: f.featureNumber,
           balloonNumber: f.balloonNumber,
-          pageNumber: balloon?.pageNumber ?? 0,
+          pageNumber: f.pageNumber ?? balloon?.pageNumber ?? 0,
+          isLinked,
           characteristicType: f.type,
-          drawingRequirement: buildDrawingRequirement(f),
+          characteristicDesignRequirement: buildDesignRequirement(f),
           nominal: f.nominal,
           tolerance: f.tolerance,
           min: f.min,
           max: f.max,
           units: f.units,
           featureComments: f.comments,
-          result: saved?.result ?? '',
-          status: saved?.status ?? 'pending',
-          inspectorNotes: saved?.inspectorNotes ?? '',
+          result,
+          status,
+          designedTooling: saved?.designedTooling ?? '',
+          nonConformanceNumber: saved?.nonConformanceNumber ?? '',
+          inspectorNotes: saved?.inspectorNotes ?? f.comments,
           isSaved: !!saved,
         }
       })
@@ -131,6 +146,14 @@ export function useForm3Results({
       }, 800),
     )
   }, [projectId, userId])
+
+  useEffect(() => {
+    const pendingDebounces = debounces.current
+    return () => {
+      pendingDebounces.forEach(clearTimeout)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+    }
+  }, [])
 
   return { rows, isLoaded, saveStatus, updateRow }
 }

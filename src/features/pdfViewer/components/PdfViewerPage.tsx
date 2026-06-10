@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '../../../auth/hooks/useAuth'
@@ -14,12 +14,48 @@ import { BalloonLayer } from '../../ballooning/components/BalloonLayer'
 import { useFeatures } from '../../featureTable/hooks/useFeatures'
 import { FeatureTablePanel } from '../../featureTable/components/FeatureTablePanel'
 import { Form3Panel } from '../../as9102/components/Form3Panel'
+import { useForm3Results } from '../../as9102/hooks/useForm3Results'
 import { WorkspaceSidebar } from '../../workspace/components/WorkspaceSidebar'
+import { useWorkspaceSidebarPreferences } from '../../workspace/hooks/useWorkspaceSidebarPreferences'
+import type { WorkspaceMode } from '../../workspace/types/workspaceTypes'
 import { PdfToolbar } from './PdfToolbar'
 import { PdfCanvas } from './PdfCanvas'
 import { PdfLoadingState } from './PdfLoadingState'
 import { PdfErrorState } from './PdfErrorState'
 import { exportBalloonedPdf } from '../../export/services/balloonedPdfExportService'
+
+type PdfLoadPhase = 'project' | 'drive' | 'download'
+type PdfLoadErrorAction = 'retry' | 'reconnect-drive'
+
+const PROJECT_LOAD_TIMEOUT_MS = 15_000
+const DRIVE_TOKEN_TIMEOUT_MS = 12_000
+const PDF_DOWNLOAD_TIMEOUT_MS = 30_000
+const BALLOON_MODE_KEY = 'fai-balloon-placement-enabled'
+
+function devLog(message: string, details?: unknown) {
+  if (!import.meta.env.DEV) return
+  if (details === undefined) {
+    console.info(`[PDF Viewer] ${message}`)
+  } else {
+    console.info(`[PDF Viewer] ${message}`, details)
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+    promise.then(
+      value => {
+        window.clearTimeout(timeoutId)
+        resolve(value)
+      },
+      error => {
+        window.clearTimeout(timeoutId)
+        reject(error)
+      },
+    )
+  })
+}
 
 export function PdfViewerPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -29,8 +65,13 @@ export function PdfViewerPage() {
   const [project, setProject] = useState<FAIProject | null>(null)
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [loadPhase, setLoadPhase] = useState<PdfLoadPhase>('project')
   const [error, setError] = useState('')
+  const [errorAction, setErrorAction] = useState<PdfLoadErrorAction>('retry')
   const [pdfCanvas, setPdfCanvas] = useState<HTMLCanvasElement | null>(null)
+  const [balloonFocusRequest, setBalloonFocusRequest] = useState(0)
+  const loadRequestRef = useRef(0)
+  const downloadAbortRef = useRef<AbortController | null>(null)
 
   const [isTableOpen, setIsTableOpen] = useState<boolean>(() =>
     localStorage.getItem('fai-feature-table-open') === 'true'
@@ -109,9 +150,46 @@ export function PdfViewerPage() {
   const viewer = usePdfViewer()
   const balloons = useBalloons({ projectId: projectId ?? '', userId: user?.uid ?? '' })
   const features = useFeatures({ projectId: projectId ?? '', userId: user?.uid ?? '' })
+  const workspace = useWorkspaceSidebarPreferences()
+  const didRestoreBalloonMode = useRef(false)
+  const form3 = useForm3Results({
+    projectId: projectId ?? '',
+    userId: user?.uid ?? '',
+    features: features.features,
+    balloons: balloons.balloons,
+  })
+  const statusByFeatureId = useMemo(
+    () => new Map(form3.rows.map(row => [row.featureId, row.status])),
+    [form3.rows],
+  )
+  const statusByBalloonId = useMemo(
+    () => new Map(form3.rows.filter(row => row.isLinked).map(row => [row.balloonId, row.status])),
+    [form3.rows],
+  )
+
+  useEffect(() => {
+    if (didRestoreBalloonMode.current) return
+    didRestoreBalloonMode.current = true
+    const shouldRestore =
+      workspace.workspaceMode === 'ballooning' &&
+      localStorage.getItem(BALLOON_MODE_KEY) === 'true'
+    balloons.setBalloonMode(shouldRestore)
+  }, [balloons.setBalloonMode, workspace.workspaceMode])
+
+  useEffect(() => {
+    if (workspace.workspaceMode !== 'ballooning' && balloons.isBalloonMode) {
+      balloons.setBalloonMode(false)
+    }
+  }, [balloons.isBalloonMode, balloons.setBalloonMode, workspace.workspaceMode])
+
+  const handleWorkspaceModeChange = useCallback((mode: WorkspaceMode) => {
+    workspace.setWorkspaceMode(mode)
+    balloons.setBalloonMode(mode === 'ballooning')
+  }, [balloons.setBalloonMode, workspace.setWorkspaceMode])
 
   useEffect(() => {
     return () => {
+      downloadAbortRef.current?.abort()
       setPdfBlobUrl(prev => {
         if (prev) URL.revokeObjectURL(prev)
         return null
@@ -119,16 +197,42 @@ export function PdfViewerPage() {
     }
   }, [])
 
-  const loadPdf = useCallback(async () => {
-    if (!projectId || !user) return
+  const loadPdf = useCallback(async (reconnectDrive = false) => {
+    const requestId = loadRequestRef.current + 1
+    let currentPhase: PdfLoadPhase = 'project'
+    let downloadTimeoutId: number | null = null
+    loadRequestRef.current = requestId
+    downloadAbortRef.current?.abort()
+
     setIsLoading(true)
+    setLoadPhase('project')
     setError('')
+    setErrorAction('retry')
+    setProject(null)
     setPdfBlobUrl(prev => {
       if (prev) URL.revokeObjectURL(prev)
       return null
     })
+
+    if (!projectId) {
+      setError('The project URL is invalid.')
+      setIsLoading(false)
+      return
+    }
+    if (!user) {
+      setError('Your account session is not ready. Please sign in again and retry.')
+      setIsLoading(false)
+      return
+    }
+
     try {
-      const p = await getProjectById(projectId)
+      devLog('Loading project', projectId)
+      const p = await withTimeout(
+        getProjectById(projectId),
+        PROJECT_LOAD_TIMEOUT_MS,
+        'Project loading timed out.',
+      )
+      if (loadRequestRef.current !== requestId) return
       if (!p) { setError('Project not found or you do not have access.'); return }
       if (p.uid !== user.uid) { setError('You do not have access to this project.'); return }
       if (p.pdfStatus !== 'uploaded' || !p.googleDriveFileId) {
@@ -136,22 +240,80 @@ export function PdfViewerPage() {
         return
       }
       setProject(p)
-      const token = await requestDriveToken(user.email ?? '')
+      currentPhase = 'drive'
+      setLoadPhase('drive')
+      devLog('Requesting Google Drive access', { reconnectDrive })
+      const token = await requestDriveToken(user.email ?? '', {
+        prompt: reconnectDrive ? 'consent' : '',
+        timeoutMs: DRIVE_TOKEN_TIMEOUT_MS,
+      })
+      if (loadRequestRef.current !== requestId) return
+
+      currentPhase = 'download'
+      setLoadPhase('download')
+      const abortController = new AbortController()
+      downloadAbortRef.current = abortController
+      downloadTimeoutId = window.setTimeout(
+        () => abortController.abort(),
+        PDF_DOWNLOAD_TIMEOUT_MS,
+      )
+      devLog('Downloading PDF from Google Drive', p.googleDriveFileId)
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${p.googleDriveFileId}?alt=media`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: abortController.signal,
+        },
       )
+      window.clearTimeout(downloadTimeoutId)
+      downloadTimeoutId = null
+      if (loadRequestRef.current !== requestId) return
       if (!res.ok) throw new Error(`Drive download failed (${res.status})`)
       const blob = await res.blob()
+      if (loadRequestRef.current !== requestId) return
       setPdfBlobUrl(URL.createObjectURL(blob))
+      devLog('PDF ready', { bytes: blob.size })
     } catch (err) {
-      setError(getPdfErrorMessage(err))
-    } finally {
-      setIsLoading(false)
-    }
-  }, [projectId, user?.uid, user?.email])
+      if (loadRequestRef.current !== requestId) return
+      const message = ((err as { message?: string })?.message ?? '').toLowerCase()
+      const requiresDriveReconnect =
+        currentPhase === 'drive' ||
+        message.includes('authorization') ||
+        message.includes('popup') ||
+        message.includes('access_denied') ||
+        message.includes('interaction') ||
+        message.includes('drive download failed (401)') ||
+        message.includes('drive download failed (403)')
 
-  useEffect(() => { loadPdf() }, [loadPdf])
+      setErrorAction(requiresDriveReconnect ? 'reconnect-drive' : 'retry')
+      setError(
+        requiresDriveReconnect
+          ? 'Google Drive access is required to open this PDF. Reconnect Google Drive and try again.'
+          : message.includes('aborted')
+            ? 'PDF download timed out. Check your connection and retry loading the PDF.'
+            : message.includes('project loading timed out')
+              ? 'Project loading timed out. Check your connection and retry loading the PDF.'
+              : message.includes('drive download failed (404)')
+                ? 'The PDF file is no longer available in Google Drive. Return to the project and upload it again.'
+                : message.includes('drive download failed')
+                  ? 'Google Drive could not download the PDF. Retry loading the PDF.'
+                  : getPdfErrorMessage(err),
+      )
+      devLog('PDF load failed', err)
+    } finally {
+      if (loadRequestRef.current === requestId) {
+        if (downloadTimeoutId !== null) window.clearTimeout(downloadTimeoutId)
+        downloadAbortRef.current = null
+        setIsLoading(false)
+      }
+    }
+  }, [projectId, user])
+
+  useEffect(() => {
+    void loadPdf()
+  // loadPdf intentionally owns the complete route-load transaction.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, user?.uid, user?.email])
 
   const handleDownload = useCallback(async () => {
     if (!pdfBlobUrl || !project) return
@@ -160,17 +322,26 @@ export function PdfViewerPage() {
         pdfBlobUrl,
         project.sourcePdfName || 'drawing.pdf',
         balloons.balloons,
+        statusByBalloonId,
       )
     } catch (err) {
       window.alert(`Unable to export ballooned PDF. ${getPdfErrorMessage(err)}`)
     }
-  }, [pdfBlobUrl, project, balloons.balloons])
+  }, [pdfBlobUrl, project, balloons.balloons, statusByBalloonId])
 
   const { setNumPages, setCurrentPage, setPageNaturalSize } = viewer
 
   const goToPage = useCallback((page: number) => {
     setCurrentPage(Math.max(1, Math.min(viewer.numPages, page)))
   }, [setCurrentPage, viewer.numPages])
+
+  const handleSelectLinkedBalloon = useCallback((balloonId: string) => {
+    const balloon = balloons.balloons.find(item => item.id === balloonId)
+    if (!balloon) return
+    setCurrentPage(balloon.pageNumber)
+    balloons.setSelectedId(balloon.id)
+    setBalloonFocusRequest(request => request + 1)
+  }, [balloons.balloons, balloons.setSelectedId, setCurrentPage])
 
   const handleDocumentLoad = useCallback((numPages: number) => {
     setNumPages(numPages)
@@ -194,9 +365,14 @@ export function PdfViewerPage() {
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (isLoading) {
+    const loadingMessage = loadPhase === 'project'
+      ? 'Loading project…'
+      : loadPhase === 'drive'
+        ? 'Connecting to Google Drive…'
+        : 'Downloading PDF…'
     return (
       <div className="h-screen flex flex-col bg-gray-900">
-        <PdfLoadingState />
+        <PdfLoadingState message={loadingMessage} />
       </div>
     )
   }
@@ -218,7 +394,10 @@ export function PdfViewerPage() {
           <PdfErrorState
             projectId={projectId ?? ''}
             message={error || 'Unable to load PDF.'}
-            onRetry={loadPdf}
+            actionLabel={errorAction === 'reconnect-drive'
+              ? 'Reconnect Google Drive'
+              : 'Retry loading PDF'}
+            onAction={() => void loadPdf(errorAction === 'reconnect-drive')}
           />
         </div>
       </div>
@@ -237,10 +416,13 @@ export function PdfViewerPage() {
         currentPage={viewer.currentPage}
         numPages={viewer.numPages}
         isMobileSidebarOpen={isMobileSidebarOpen}
+        workspaceMode={workspace.workspaceMode}
+        isBalloonMode={balloons.isBalloonMode}
         onPrevPage={viewer.prevPage}
         onNextPage={viewer.nextPage}
         onGoToPage={goToPage}
         onToggleSidebar={() => setIsMobileSidebarOpen(o => !o)}
+        onWorkspaceModeChange={handleWorkspaceModeChange}
       />
 
       {/* Main area: sidebar + content */}
@@ -288,8 +470,14 @@ export function PdfViewerPage() {
           balloons={balloons.balloons}
           features={features.features}
           selectedBalloonId={balloons.selectedId}
-          onSelectBalloon={balloons.setSelectedId}
+          onSelectBalloon={handleSelectLinkedBalloon}
           projectName={project.projectName}
+          form3Rows={form3.rows}
+          isExpanded={workspace.isExpanded}
+          onToggleExpanded={workspace.toggleExpanded}
+          isSectionOpen={workspace.isSectionOpen}
+          onToggleSection={workspace.toggleSection}
+          workspaceMode={workspace.workspaceMode}
         />
 
         {/* PDF + feature table */}
@@ -312,6 +500,8 @@ export function PdfViewerPage() {
                   currentPage={viewer.currentPage}
                   rotation={viewer.rotation}
                   pdfCanvas={pdfCanvas}
+                  statusByBalloonId={statusByBalloonId}
+                  focusRequest={balloonFocusRequest}
                   isBalloonMode={balloons.isBalloonMode}
                   selectedId={balloons.selectedId}
                   onSelect={balloons.setSelectedId}
@@ -367,7 +557,8 @@ export function PdfViewerPage() {
                   onAddFeature={features.addFeature}
                   onUpdateFeature={features.updateFeature}
                   onDeleteFeature={features.deleteFeature}
-                  onSelectBalloon={balloons.setSelectedId}
+                  onSelectBalloon={handleSelectLinkedBalloon}
+                  statusByFeatureId={statusByFeatureId}
                   tableLayout={tableLayout}
                   onToggleLayout={toggleTableLayout}
                   isCollapsed={isCollapsed}
@@ -382,13 +573,15 @@ export function PdfViewerPage() {
       {/* AS9102 Form 3 — full-screen overlay */}
       {isForm3Open && (
         <Form3Panel
-          projectId={project.projectId}
           projectName={project.projectName}
           drawingNumber={project.drawingNumber}
           drawingRevision={project.drawingRevision}
-          userId={user?.uid ?? ''}
-          features={features.features}
-          balloons={balloons.balloons}
+          rows={form3.rows}
+          isLoaded={form3.isLoaded}
+          saveStatus={form3.saveStatus}
+          selectedBalloonId={balloons.selectedId}
+          onSelectBalloon={handleSelectLinkedBalloon}
+          onUpdate={form3.updateRow}
           onClose={() => setIsForm3Open(false)}
         />
       )}

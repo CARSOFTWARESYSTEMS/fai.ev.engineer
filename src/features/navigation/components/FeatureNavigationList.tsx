@@ -1,5 +1,6 @@
 import type { Feature } from '../../featureTable/types/featureTypes'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
+import { AlertTriangle } from 'lucide-react'
 
 interface FeatureNavigationListProps {
   features: Feature[]
@@ -25,12 +26,15 @@ export function FeatureNavigationList({
     <ul>
       {sorted.map(feature => {
         const balloon = balloonMap.get(feature.balloonId)
-        const isLinked = balloon?.id === selectedBalloonId
+        const hasValidLink = !!balloon &&
+          balloon.balloonNumber === feature.balloonNumber &&
+          (feature.pageNumber === undefined || feature.pageNumber === balloon.pageNumber)
+        const isLinked = hasValidLink && balloon.id === selectedBalloonId
 
         return (
           <li key={feature.id}>
             <button
-              onClick={() => onSelectFeature(feature)}
+              onClick={() => hasValidLink && onSelectFeature(feature)}
               className={[
                 'w-full flex items-center gap-3 px-4 py-1.5 text-xs transition-colors text-left',
                 isLinked
@@ -43,10 +47,17 @@ export function FeatureNavigationList({
               </span>
               <span className="truncate">{feature.type}</span>
               <div className="ml-auto flex items-center gap-1 shrink-0">
-                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold">
-                  {feature.balloonNumber}
-                </span>
-                {balloon && (
+                {hasValidLink ? (
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold">
+                    {feature.balloonNumber}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-600">
+                    <AlertTriangle className="h-3 w-3" />
+                    Unlinked
+                  </span>
+                )}
+                {hasValidLink && (
                   <span className="text-[10px] text-text-secondary tabular-nums">
                     p.{balloon.pageNumber}
                   </span>

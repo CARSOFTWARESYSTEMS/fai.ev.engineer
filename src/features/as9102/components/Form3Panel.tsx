@@ -1,18 +1,23 @@
 import { X, ClipboardList, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
-import type { Feature } from '../../featureTable/types/featureTypes'
-import type { Balloon } from '../../ballooning/types/balloonTypes'
-import { useForm3Results } from '../hooks/useForm3Results'
+import type { SaveStatus } from '../hooks/useForm3Results'
+import type { Form3ResultFields, Form3Row } from '../types/form3Types'
 import { Form3Table } from './Form3Table'
-import { Form3ExportActions } from './Form3ExportActions'
 
 interface Form3PanelProps {
-  projectId: string
   projectName: string
   drawingNumber: string
   drawingRevision: string
-  userId: string
-  features: Feature[]
-  balloons: Balloon[]
+  rows: Form3Row[]
+  isLoaded: boolean
+  saveStatus: SaveStatus
+  selectedBalloonId: string | null
+  onSelectBalloon: (balloonId: string) => void
+  onUpdate: (
+    featureId: string,
+    balloonId: string,
+    charNo: number,
+    fields: Form3ResultFields,
+  ) => void
   onClose: () => void
 }
 
@@ -30,57 +35,48 @@ function SaveIndicator({ status }: { status: 'idle' | 'saving' | 'saved' | 'erro
       {status === 'saving' && <Loader2 className="w-3 h-3 animate-spin" />}
       {status === 'saved'  && <CheckCircle2 className="w-3 h-3" />}
       {status === 'error'  && <AlertCircle className="w-3 h-3" />}
-      {status === 'saving' ? 'Saving…' : status === 'saved' ? 'All changes saved' : 'Save failed — retry'}
+      {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Save failed — retry'}
     </span>
   )
 }
 
-function StatusSummary({ rows }: { rows: ReturnType<typeof useForm3Results>['rows'] }) {
+function StatusSummary({ rows }: { rows: Form3Row[] }) {
   const pass    = rows.filter(r => r.status === 'pass').length
   const fail    = rows.filter(r => r.status === 'fail').length
   const pending = rows.filter(r => r.status === 'pending').length
+  const completion = rows.length === 0 ? 0 : Math.round(((pass + fail) / rows.length) * 100)
   return (
-    <div className="flex items-center gap-4 text-xs">
-      <span className="text-text-secondary">{rows.length} characteristics</span>
-      {pass > 0 && (
-        <span className="flex items-center gap-1 text-green-700 font-medium">
-          <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-          {pass} pass
-        </span>
-      )}
-      {fail > 0 && (
-        <span className="flex items-center gap-1 text-red-600 font-medium">
-          <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-          {fail} fail
-        </span>
-      )}
-      {pending > 0 && (
-        <span className="flex items-center gap-1 text-amber-600">
-          <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
-          {pending} pending
-        </span>
-      )}
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
+      <span className="text-text-secondary"><strong>{rows.length}</strong> total characteristics</span>
+      <span className="flex items-center gap-1 text-green-700 font-medium">
+        <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+        {pass} pass
+      </span>
+      <span className="flex items-center gap-1 text-red-600 font-medium">
+        <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+        {fail} fail
+      </span>
+      <span className="flex items-center gap-1 text-amber-600">
+        <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+        {pending} pending
+      </span>
+      <span className="ml-auto font-semibold text-gray-700">{completion}% complete</span>
     </div>
   )
 }
 
 export function Form3Panel({
-  projectId,
   projectName,
   drawingNumber,
   drawingRevision,
-  userId,
-  features,
-  balloons,
+  rows,
+  isLoaded,
+  saveStatus,
+  selectedBalloonId,
+  onSelectBalloon,
+  onUpdate,
   onClose,
 }: Form3PanelProps) {
-  const { rows, isLoaded, saveStatus, updateRow } = useForm3Results({
-    projectId,
-    userId,
-    features,
-    balloons,
-  })
-
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
 
@@ -112,7 +108,6 @@ export function Form3Panel({
           {/* Right actions */}
           <div className="flex items-center gap-3 shrink-0">
             <SaveIndicator status={saveStatus} />
-            <Form3ExportActions rows={rows} projectName={projectName} />
             <button
               onClick={onClose}
               title="Close Form 3"
@@ -147,7 +142,12 @@ export function Form3Panel({
           </p>
         </div>
       ) : (
-        <Form3Table rows={rows} onUpdate={updateRow} />
+        <Form3Table
+          rows={rows}
+          selectedBalloonId={selectedBalloonId}
+          onSelectBalloon={onSelectBalloon}
+          onUpdate={onUpdate}
+        />
       )}
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}

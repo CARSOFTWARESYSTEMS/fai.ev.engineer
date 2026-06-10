@@ -7,7 +7,14 @@ interface TokenResponse {
 }
 
 interface TokenClient {
-  requestAccessToken(opts?: { prompt?: string; login_hint?: string }): void
+  requestAccessToken(opts?: { prompt?: DriveTokenPrompt; login_hint?: string }): void
+}
+
+type DriveTokenPrompt = '' | 'none' | 'consent' | 'select_account'
+
+interface DriveTokenRequestOptions {
+  prompt?: DriveTokenPrompt
+  timeoutMs?: number
 }
 
 declare global {
@@ -84,11 +91,23 @@ export function loadGisScript(): Promise<void> {
   _gisPromise = new Promise((resolve, reject) => {
     if (window.google?.accounts?.oauth2) { resolve(); return }
     const script = document.createElement('script')
+    const timeoutId = window.setTimeout(() => {
+      script.remove()
+      _gisPromise = null
+      reject(new Error('Google Identity Services loading timed out.'))
+    }, 10_000)
     script.src   = 'https://accounts.google.com/gsi/client'
     script.async = true
     script.defer = true
-    script.onload  = () => resolve()
-    script.onerror = () => reject(new Error('Failed to load Google Identity Services.'))
+    script.onload = () => {
+      window.clearTimeout(timeoutId)
+      resolve()
+    }
+    script.onerror = () => {
+      window.clearTimeout(timeoutId)
+      _gisPromise = null
+      reject(new Error('Failed to load Google Identity Services.'))
+    }
     document.head.appendChild(script)
   })
   return _gisPromise
@@ -101,32 +120,60 @@ export function loadGisScript(): Promise<void> {
 // Token is cached in memory (55 min) so the popup appears at most ONCE per session,
 // not once per upload.
 
-export async function requestDriveToken(loginHint?: string): Promise<string> {
+export async function requestDriveToken(
+  loginHint?: string,
+  options: DriveTokenRequestOptions = {},
+): Promise<string> {
   if (!CLIENT_ID || CLIENT_ID === 'your_google_oauth_client_id') {
     throw new Error('VITE_GOOGLE_DRIVE_CLIENT_ID is not configured. Set it in .env.local.')
   }
 
-  const cached = getValidCachedToken(loginHint)
+  const cached = options.prompt ? null : getValidCachedToken(loginHint)
   if (cached) return cached
 
   await loadGisScript()
 
   return new Promise<string>((resolve, reject) => {
+    let settled = false
+    const timeoutMs = options.timeoutMs ?? 15_000
+    const finish = (callback: () => void) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timeoutId)
+      callback()
+    }
+    const timeoutId = window.setTimeout(() => {
+      finish(() => reject(new Error('Google Drive authorization timed out. Reconnect Google Drive.')))
+    }, timeoutMs)
+
     const tokenClient = window.google!.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope:     DRIVE_SCOPE,
       callback:  (response) => {
         if (response.error) {
-          reject(new Error(response.error_description ?? response.error))
+          finish(() => reject(new Error(response.error_description ?? response.error)))
+        } else if (!response.access_token) {
+          finish(() => reject(new Error('Google Drive authorization returned no access token.')))
         } else {
-          _tokenCache = { token: response.access_token, expiresAt: Date.now() + 55 * 60 * 1000, email: loginHint ?? '' }
-          resolve(response.access_token)
+          finish(() => {
+            _tokenCache = { token: response.access_token, expiresAt: Date.now() + 55 * 60 * 1000, email: loginHint ?? '' }
+            resolve(response.access_token)
+          })
         }
+      },
+      error_callback: (error) => {
+        const message = (error as { message?: string; type?: string })?.message
+          ?? (error as { type?: string })?.type
+          ?? 'Google Drive authorization failed.'
+        finish(() => reject(new Error(message)))
       },
     })
     // login_hint: force same Google account as Firebase login (skips account picker)
-    // prompt: '' → silent if already granted; shows consent only when truly needed
-    tokenClient.requestAccessToken({ prompt: '', login_hint: loginHint })
+    // prompt: '' attempts the previously granted account without forcing consent.
+    tokenClient.requestAccessToken({
+      prompt: options.prompt ?? '',
+      login_hint: loginHint,
+    })
   })
 }
 

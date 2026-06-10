@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, ZoomOut, ZoomIn,
-  AlignJustify, Maximize2, RotateCw, Download, Maximize, Minimize,
+  AlignJustify, Maximize2, RotateCw, Maximize, Minimize,
 } from 'lucide-react'
 
 interface PdfToolsSectionProps {
@@ -18,7 +18,6 @@ interface PdfToolsSectionProps {
   onFitWidth: () => void
   onFitPage: () => void
   onRotate: () => void
-  onDownload: () => void
   onToggleFullscreen: () => void
 }
 
@@ -63,7 +62,6 @@ export function PdfToolsSection({
   onFitWidth,
   onFitPage,
   onRotate,
-  onDownload,
   onToggleFullscreen,
 }: PdfToolsSectionProps) {
   const [pageInput, setPageInput] = useState(String(currentPage))
@@ -148,10 +146,6 @@ export function PdfToolsSection({
       <Btn onClick={onRotate} title="Rotate clockwise">
         <RotateCw className="w-3.5 h-3.5 shrink-0" />
         <span>Rotate</span>
-      </Btn>
-      <Btn onClick={onDownload} title="Download ballooned PDF">
-        <Download className="w-3.5 h-3.5 shrink-0" />
-        <span>Download Ballooned</span>
       </Btn>
       <Btn onClick={onToggleFullscreen} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} active={isFullscreen}>
         {isFullscreen

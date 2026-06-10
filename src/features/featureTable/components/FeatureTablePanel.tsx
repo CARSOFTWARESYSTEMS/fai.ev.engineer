@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { PlusCircle, TableProperties, PanelRight, PanelBottom, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
+import type { Form3Status } from '../../as9102/types/form3Types'
 import type { Feature, FeatureInput, FeatureFormData } from '../types/featureTypes'
 import { FeatureTableRow } from './FeatureTableRow'
 import { FeatureEditor } from './FeatureEditor'
@@ -18,6 +19,7 @@ interface FeatureTablePanelProps {
   onUpdateFeature: (featureId: string, data: FeatureFormData) => void
   onDeleteFeature: (featureId: string) => void
   onSelectBalloon: (balloonId: string) => void
+  statusByFeatureId: Map<string, Form3Status>
   tableLayout: 'right' | 'bottom'
   onToggleLayout: () => void
   isCollapsed: boolean
@@ -34,6 +36,7 @@ export function FeatureTablePanel({
   onUpdateFeature,
   onDeleteFeature,
   onSelectBalloon,
+  statusByFeatureId,
   tableLayout,
   onToggleLayout,
   isCollapsed,
@@ -71,6 +74,7 @@ export function FeatureTablePanel({
       projectId,
       balloonId: selectedBalloon.id,
       balloonNumber: selectedBalloon.balloonNumber,
+      pageNumber: selectedBalloon.pageNumber,
       createdBy: userId,
       ...data,
     }
@@ -90,7 +94,7 @@ export function FeatureTablePanel({
 
   // ── render ─────────────────────────────────────────────────────────────────
 
-  const COLS = ['#', 'B', 'Type', 'Nominal', 'Tol', 'Min', 'Max', 'Units', 'Comments', '']
+  const COLS = ['#', 'B', 'Status', 'Type', 'Nominal', 'Tol', 'Min', 'Max', 'Units', 'Comments', '']
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -201,7 +205,9 @@ export function FeatureTablePanel({
                       <FeatureTableRow
                         key={f.id}
                         feature={f}
-                        isLinked={selectedBalloon?.id === f.balloonId}
+                        isSelected={selectedBalloon?.id === f.balloonId}
+                        linkedBalloon={balloons.find(b => b.id === f.balloonId) ?? null}
+                        status={statusByFeatureId.get(f.id) ?? 'pending'}
                         onEdit={setEditingId}
                         onDelete={handleDelete}
                         onSelectBalloon={onSelectBalloon}

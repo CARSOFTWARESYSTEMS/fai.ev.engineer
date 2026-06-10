@@ -19,6 +19,7 @@ export interface Feature {
   projectId: string
   balloonId: string
   balloonNumber: number
+  pageNumber?: number
   featureNumber: number
   type: FeatureType
   nominal: string

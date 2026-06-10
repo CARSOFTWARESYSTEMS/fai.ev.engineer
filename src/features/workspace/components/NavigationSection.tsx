@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react'
-import { Search, X, FileText, Target, Ruler, ChevronDown, ChevronRight } from 'lucide-react'
+import { useEffect, useState, useMemo } from 'react'
+import { AlertTriangle, Search, X, FileText, Target, Ruler, ChevronDown, ChevronRight } from 'lucide-react'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
 import type { Feature } from '../../featureTable/types/featureTypes'
+import type { WorkspaceMode } from '../types/workspaceTypes'
 
 interface NavigationSectionProps {
   isExpanded: boolean
@@ -13,6 +14,7 @@ interface NavigationSectionProps {
   onSelectBalloon: (id: string) => void
   features: Feature[]
   projectName: string
+  workspaceMode: WorkspaceMode
 }
 
 function NavSubHeader({
@@ -55,10 +57,20 @@ export function NavigationSection({
   selectedBalloonId,
   onSelectBalloon,
   features,
+  workspaceMode,
 }: NavigationSectionProps) {
   const [open, setOpen] = useState({ pages: true, balloons: true, features: false })
   const [search, setSearch] = useState('')
   const toggle = (k: keyof typeof open) => setOpen(p => ({ ...p, [k]: !p[k] }))
+
+  useEffect(() => {
+    setOpen({
+      pages: workspaceMode === 'review' || workspaceMode === 'ballooning',
+      balloons: workspaceMode === 'ballooning' || workspaceMode === 'features',
+      features: workspaceMode === 'features',
+    })
+    setSearch('')
+  }, [workspaceMode])
 
   if (!isExpanded) return null
 
@@ -95,6 +107,9 @@ export function NavigationSection({
   const balloonMap = useMemo(() => new Map(balloons.map(b => [b.id, b])), [balloons])
 
   const totalResults = filteredPages.length + filteredBalloons.length + filteredFeatures.length
+  const showPages = workspaceMode === 'review' || workspaceMode === 'ballooning'
+  const showBalloons = workspaceMode === 'ballooning' || workspaceMode === 'features'
+  const showFeatures = workspaceMode === 'features'
 
   return (
     <div>
@@ -129,11 +144,11 @@ export function NavigationSection({
       </div>
 
       {/* Pages */}
-      <NavSubHeader
+      {showPages && <NavSubHeader
         icon={FileText} label="Pages" count={numPages}
         open={open.pages} onToggle={() => toggle('pages')}
-      />
-      {open.pages && (
+      />}
+      {showPages && open.pages && (
         <ul className="pb-1">
           {filteredPages.length === 0 && (
             <li className="px-3 py-1.5 text-[10px] text-gray-600 italic">No pages match</li>
@@ -163,11 +178,11 @@ export function NavigationSection({
       )}
 
       {/* Balloons */}
-      <NavSubHeader
+      {showBalloons && <NavSubHeader
         icon={Target} label="Balloons" count={balloons.length}
         open={open.balloons} onToggle={() => toggle('balloons')}
-      />
-      {open.balloons && (
+      />}
+      {showBalloons && open.balloons && (
         <ul className="pb-1">
           {balloons.length === 0 && (
             <li className="px-3 py-1.5 text-[10px] text-gray-600 italic">No balloons placed yet</li>
@@ -208,11 +223,11 @@ export function NavigationSection({
       )}
 
       {/* Features */}
-      <NavSubHeader
+      {showFeatures && <NavSubHeader
         icon={Ruler} label="Features" count={features.length}
         open={open.features} onToggle={() => toggle('features')}
-      />
-      {open.features && (
+      />}
+      {showFeatures && open.features && (
         <ul className="pb-1">
           {features.length === 0 && (
             <li className="px-3 py-1.5 text-[10px] text-gray-600 italic">No features added yet</li>
@@ -222,12 +237,15 @@ export function NavigationSection({
           )}
           {filteredFeatures.map(feature => {
             const balloon = balloonMap.get(feature.balloonId)
-            const isLinked = balloon?.id === selectedBalloonId
+            const hasValidLink = !!balloon &&
+              balloon.balloonNumber === feature.balloonNumber &&
+              (feature.pageNumber === undefined || feature.pageNumber === balloon.pageNumber)
+            const isLinked = hasValidLink && balloon.id === selectedBalloonId
             return (
               <li key={feature.id}>
                 <button
                   onClick={() => {
-                    if (balloon) {
+                    if (hasValidLink) {
                       onGoToPage(balloon.pageNumber)
                       onSelectBalloon(balloon.id)
                     }
@@ -244,13 +262,20 @@ export function NavigationSection({
                   </span>
                   <span className="truncate flex-1">{feature.type}</span>
                   <div className="flex items-center gap-1 shrink-0">
-                    <span className={[
-                      'inline-flex items-center justify-center w-4 h-4 rounded-full text-[8px] font-bold shrink-0',
-                      isLinked ? 'bg-primary text-white' : 'bg-white/10 text-gray-400',
-                    ].join(' ')}>
-                      {feature.balloonNumber}
-                    </span>
-                    {balloon && (
+                    {hasValidLink ? (
+                      <span className={[
+                        'inline-flex items-center justify-center w-4 h-4 rounded-full text-[8px] font-bold shrink-0',
+                        isLinked ? 'bg-primary text-white' : 'bg-white/10 text-gray-400',
+                      ].join(' ')}>
+                        {feature.balloonNumber}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[8px] font-semibold text-amber-500">
+                        <AlertTriangle className="h-3 w-3" />
+                        Unlinked
+                      </span>
+                    )}
+                    {hasValidLink && (
                       <span className="text-[9px] text-gray-600 tabular-nums">
                         p.{balloon.pageNumber}
                       </span>

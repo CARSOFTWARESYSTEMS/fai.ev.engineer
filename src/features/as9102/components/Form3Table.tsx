@@ -3,6 +3,8 @@ import { Form3Row } from './Form3Row'
 
 interface Form3TableProps {
   rows: Form3RowData[]
+  selectedBalloonId: string | null
+  onSelectBalloon: (balloonId: string) => void
   onUpdate: (
     featureId: string,
     balloonId: string,
@@ -13,21 +15,28 @@ interface Form3TableProps {
 
 const HEADERS = [
   { label: 'Char No',              note: null,          align: 'center', sticky: true },
-  { label: 'Balloon No',           note: null,          align: 'center', sticky: false },
+  { label: 'Reference Location',   note: 'balloon',     align: 'center', sticky: false },
   { label: 'Page No',              note: null,          align: 'center', sticky: false },
   { label: 'Characteristic Type',  note: null,          align: 'left',   sticky: false },
-  { label: 'Drawing Requirement',  note: 'nom+tol+units', align: 'left', sticky: false },
+  { label: 'Characteristic Design Requirement', note: 'type+nom+tol+units', align: 'left', sticky: false },
   { label: 'Nominal',              note: null,          align: 'right',  sticky: false },
   { label: 'Tolerance',            note: null,          align: 'right',  sticky: false },
   { label: 'Min',                  note: null,          align: 'right',  sticky: false },
   { label: 'Max',                  note: null,          align: 'right',  sticky: false },
   { label: 'Units',                note: null,          align: 'left',   sticky: false },
-  { label: 'Result',               note: 'editable',    align: 'left',   sticky: false },
+  { label: 'Results',              note: 'editable',    align: 'left',   sticky: false },
   { label: 'Status',               note: 'editable',    align: 'left',   sticky: false },
+  { label: 'Designed Tooling',     note: 'editable',    align: 'left',   sticky: false },
+  { label: 'Non-Conformance Number', note: 'editable',  align: 'left',   sticky: false },
   { label: 'Inspector Notes',      note: 'editable',    align: 'left',   sticky: false },
 ]
 
-export function Form3Table({ rows, onUpdate }: Form3TableProps) {
+export function Form3Table({
+  rows,
+  selectedBalloonId,
+  onSelectBalloon,
+  onUpdate,
+}: Form3TableProps) {
   return (
     <div className="flex-1 overflow-auto min-h-0">
       <table className="min-w-max w-full text-xs border-collapse">
@@ -55,7 +64,13 @@ export function Form3Table({ rows, onUpdate }: Form3TableProps) {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {rows.map(row => (
-            <Form3Row key={row.featureId} row={row} onUpdate={onUpdate} />
+            <Form3Row
+              key={row.featureId}
+              row={row}
+              isSelected={row.balloonId === selectedBalloonId}
+              onSelectBalloon={onSelectBalloon}
+              onUpdate={onUpdate}
+            />
           ))}
         </tbody>
       </table>

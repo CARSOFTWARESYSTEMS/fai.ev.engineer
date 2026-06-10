@@ -1,16 +1,16 @@
 import { FileText, Target, TableProperties, ClipboardList, Map, ChevronLeft, ChevronRight, X, Download } from 'lucide-react'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
 import type { Feature } from '../../featureTable/types/featureTypes'
-import { useWorkspaceSidebarPreferences } from '../hooks/useWorkspaceSidebarPreferences'
 import { SidebarSection } from './SidebarSection'
 import { ProjectSummaryCard } from './ProjectSummaryCard'
-import { WorkspaceModeSelector } from './WorkspaceModeSelector'
 import { PdfToolsSection } from './PdfToolsSection'
 import { BalloonToolsSection } from './BalloonToolsSection'
 import { FeatureToolsSection } from './FeatureToolsSection'
 import { As9102Section } from './As9102Section'
 import { NavigationSection } from './NavigationSection'
 import { ExportSection } from './ExportSection'
+import { MODE_VISIBLE_SECTIONS, type SidebarSectionId, type WorkspaceMode } from '../types/workspaceTypes'
+import type { Form3Row } from '../../as9102/types/form3Types'
 
 interface WorkspaceSidebarProps {
   // Mobile
@@ -60,6 +60,14 @@ interface WorkspaceSidebarProps {
   selectedBalloonId: string | null
   onSelectBalloon: (id: string) => void
   projectName: string
+  form3Rows: Form3Row[]
+
+  // Workspace navigation
+  isExpanded: boolean
+  onToggleExpanded: () => void
+  isSectionOpen: (section: SidebarSectionId) => boolean
+  onToggleSection: (section: SidebarSectionId) => void
+  workspaceMode: WorkspaceMode
 }
 
 export function WorkspaceSidebar({
@@ -99,15 +107,15 @@ export function WorkspaceSidebar({
   selectedBalloonId,
   onSelectBalloon,
   projectName,
+  form3Rows,
+  isExpanded,
+  onToggleExpanded,
+  isSectionOpen,
+  onToggleSection,
+  workspaceMode,
 }: WorkspaceSidebarProps) {
-  const {
-    isExpanded,
-    toggleExpanded,
-    isSectionOpen,
-    toggleSection,
-    workspaceMode,
-    setWorkspaceMode,
-  } = useWorkspaceSidebarPreferences()
+  const visibleSections = MODE_VISIBLE_SECTIONS[workspaceMode]
+  const isSectionVisible = (section: SidebarSectionId) => visibleSections.includes(section)
 
   const sidebarContent = (
     <div className={[
@@ -119,7 +127,7 @@ export function WorkspaceSidebar({
       {/* ── Scrollable body ─────────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
 
-        {/* Project Summary + Mode Selector — only when expanded */}
+        {/* Project summary — workflow navigation lives in the top header */}
         {isExpanded && (
           <>
             <ProjectSummaryCard
@@ -127,19 +135,17 @@ export function WorkspaceSidebar({
               balloonCount={balloonCount}
               featureCount={featureCount}
             />
-            <div className="mx-3 border-t border-white/[0.06] my-1" />
-            <WorkspaceModeSelector mode={workspaceMode} onChange={setWorkspaceMode} />
             <div className="mx-3 border-t border-white/[0.06] mb-1" />
           </>
         )}
 
         {/* ── PDF VIEWER ──────────────────────────────────────────────────── */}
-        <SidebarSection
+        {isSectionVisible('pdf') && <SidebarSection
           title="PDF Viewer"
           icon={FileText}
           isExpanded={isExpanded}
           isOpen={isSectionOpen('pdf')}
-          onToggle={() => toggleSection('pdf')}
+          onToggle={() => onToggleSection('pdf')}
         >
           <PdfToolsSection
             isExpanded={isExpanded}
@@ -155,38 +161,40 @@ export function WorkspaceSidebar({
             onFitWidth={onFitWidth}
             onFitPage={onFitPage}
             onRotate={onRotate}
-            onDownload={onDownload}
             onToggleFullscreen={onToggleFullscreen}
           />
-        </SidebarSection>
+        </SidebarSection>}
 
         {/* ── BALLOONING ─────────────────────────────────────────────────── */}
-        <SidebarSection
+        {isSectionVisible('balloons') && <SidebarSection
           title="Ballooning"
           icon={Target}
           count={balloonCount > 0 ? balloonCount : undefined}
           isExpanded={isExpanded}
           isOpen={isSectionOpen('balloons')}
-          onToggle={() => toggleSection('balloons')}
+          onToggle={() => onToggleSection('balloons')}
         >
           <BalloonToolsSection
             isExpanded={isExpanded}
+            isWorkflowBallooning={workspaceMode === 'ballooning'}
             isBalloonMode={isBalloonMode}
             hasSelectedBalloon={hasSelectedBalloon}
             balloonCount={balloonCount}
-            onToggleBalloonMode={onToggleBalloonMode}
+            onToggleBalloonMode={() => {
+              if (workspaceMode === 'ballooning') onToggleBalloonMode()
+            }}
             onDeleteSelectedBalloon={onDeleteSelectedBalloon}
           />
-        </SidebarSection>
+        </SidebarSection>}
 
         {/* ── FEATURE TABLE ──────────────────────────────────────────────── */}
-        <SidebarSection
+        {isSectionVisible('features') && <SidebarSection
           title="Feature Table"
           icon={TableProperties}
           count={featureCount > 0 ? featureCount : undefined}
           isExpanded={isExpanded}
           isOpen={isSectionOpen('features')}
-          onToggle={() => toggleSection('features')}
+          onToggle={() => onToggleSection('features')}
         >
           <FeatureToolsSection
             isExpanded={isExpanded}
@@ -199,30 +207,31 @@ export function WorkspaceSidebar({
             onToggleTableCollapse={onToggleTableCollapse}
             onEnsureTableOpenForAdd={onEnsureTableOpenForAdd}
           />
-        </SidebarSection>
+        </SidebarSection>}
 
         {/* ── AS9102 ─────────────────────────────────────────────────────── */}
-        <SidebarSection
+        {isSectionVisible('form3') && <SidebarSection
           title="AS9102"
           icon={ClipboardList}
           isExpanded={isExpanded}
           isOpen={isSectionOpen('form3')}
-          onToggle={() => toggleSection('form3')}
+          onToggle={() => onToggleSection('form3')}
         >
           <As9102Section
             isExpanded={isExpanded}
             isForm3Open={isForm3Open}
             onToggleForm3={onToggleForm3}
+            features={features}
           />
-        </SidebarSection>
+        </SidebarSection>}
 
         {/* ── NAVIGATOR ──────────────────────────────────────────────────── */}
-        <SidebarSection
+        {isSectionVisible('navigator') && <SidebarSection
           title="Navigator"
           icon={Map}
           isExpanded={isExpanded}
           isOpen={isSectionOpen('navigator')}
-          onToggle={() => toggleSection('navigator')}
+          onToggle={() => onToggleSection('navigator')}
         >
           <NavigationSection
             isExpanded={isExpanded}
@@ -234,25 +243,29 @@ export function WorkspaceSidebar({
             onSelectBalloon={onSelectBalloon}
             features={features}
             projectName={projectName}
+            workspaceMode={workspaceMode}
           />
-        </SidebarSection>
+        </SidebarSection>}
 
-        {/* ── EXPORT ─────────────────────────────────────────────────────── */}
-        <SidebarSection
-          title="Export"
-          icon={Download}
-          isExpanded={isExpanded}
-          isOpen={isSectionOpen('export')}
-          onToggle={() => toggleSection('export')}
-        >
-          <ExportSection
+        {/* ── EXPORT ───────────────────────────────────────────────────────── */}
+        {isSectionVisible('export') && (
+          <SidebarSection
+            title={workspaceMode === 'export' ? 'Export Deliverables' : 'Export'}
+            icon={Download}
             isExpanded={isExpanded}
-            features={features}
-            balloons={balloons}
-            projectName={projectName}
-            onExportBalloonedPdf={onDownload}
-          />
-        </SidebarSection>
+            isOpen={isSectionOpen('export')}
+            onToggle={() => onToggleSection('export')}
+          >
+            <ExportSection
+              isExpanded={isExpanded}
+              features={features}
+              balloons={balloons}
+              form3Rows={form3Rows}
+              projectName={projectName}
+              onExportBalloonedPdf={onDownload}
+            />
+          </SidebarSection>
+        )}
 
         {/* Bottom padding */}
         <div className="h-4" />
@@ -261,7 +274,7 @@ export function WorkspaceSidebar({
       {/* ── Collapse/expand toggle ─────────────────────────────────────────── */}
       <div className="shrink-0 border-t border-white/[0.08] py-1">
         <button
-          onClick={toggleExpanded}
+          onClick={onToggleExpanded}
           title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
           className={[
             'flex items-center justify-center p-2 rounded-lg hover:bg-white/[0.08] transition-colors',
