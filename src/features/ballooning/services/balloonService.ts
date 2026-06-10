@@ -8,6 +8,7 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  onSnapshot,
   type FieldValue,
 } from 'firebase/firestore'
 import { firestore } from '../../../firebase/firestore'
@@ -18,6 +19,21 @@ import type { Balloon } from '../types/balloonTypes'
 type BalloonWriteDoc = Omit<Balloon, 'id' | 'createdAt' | 'updatedAt'> & {
   createdAt: FieldValue
   updatedAt: FieldValue
+}
+
+export function subscribeToBalloons(
+  projectId: string,
+  onUpdate: (balloons: Balloon[]) => void,
+): () => void {
+  const q = query(
+    collection(firestore, 'projects', projectId, 'balloons'),
+    orderBy('balloonNumber', 'asc'),
+  )
+  return onSnapshot(
+    q,
+    snap => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() }) as Balloon)),
+    err => console.error('[balloonService] snapshot error:', err),
+  )
 }
 
 export async function loadBalloons(projectId: string): Promise<Balloon[]> {

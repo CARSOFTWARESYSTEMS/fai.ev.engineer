@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Balloon } from '../types/balloonTypes'
 import {
-  loadBalloons,
   addBalloonDoc,
   updateBalloonPositionDoc,
   deleteBalloonDoc,
+  subscribeToBalloons,
 } from '../services/balloonService'
 
 interface UseBalloonProps {
@@ -18,16 +18,26 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
   const [balloons, setBalloons] = useState<Balloon[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isBalloonMode, setIsBalloonMode] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  // Track temp IDs for optimistic balloon placement so onSnapshot doesn't remove them
+  // before Firestore confirms the write
+  const pendingTempIds = useRef(new Set<string>())
 
   useEffect(() => {
     if (!projectId) return
-    console.log('[useBalloons] loading balloons for project:', projectId)
-    loadBalloons(projectId)
-      .then(loaded => {
-        console.log('[useBalloons] loaded', loaded.length, 'balloons')
-        setBalloons(loaded)
+    const unsubscribe = subscribeToBalloons(projectId, firestoreBalloons => {
+      setBalloons(prev => {
+        const firestoreIds = new Set(firestoreBalloons.map(b => b.id))
+        const activeTemps = prev.filter(
+          b => b.id.startsWith('__temp_') &&
+               pendingTempIds.current.has(b.id) &&
+               !firestoreIds.has(b.id),
+        )
+        return [...firestoreBalloons, ...activeTemps]
       })
-      .catch(err => console.error('[useBalloons] load failed:', err))
+    })
+    return unsubscribe
   }, [projectId])
 
   const setBalloonMode = useCallback((enabled: boolean) => {
@@ -50,18 +60,14 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
     xPercent: number,
     yPercent: number,
   ) => {
-    console.log('[useBalloons] addBalloon called — projectId:', projectId, '| userId:', userId, '| page:', pageNumber, '| x:', xPercent.toFixed(4), 'y:', yPercent.toFixed(4))
-    if (!projectId || !userId) {
-      console.warn('[useBalloons] addBalloon BLOCKED — missing projectId or userId')
-      return
-    }
+    if (!projectId || !userId) return
 
     const nextNumber = balloons.length === 0
       ? 1
       : Math.max(...balloons.map(b => b.balloonNumber)) + 1
 
-    // Use a stable temp ID for optimistic update; replaced with Firestore ID on success
     const tempId = `__temp_${Date.now()}`
+    pendingTempIds.current.add(tempId)
     const optimistic: Balloon = {
       id: tempId,
       projectId,
@@ -73,8 +79,6 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
       updatedAt: null,
       createdBy: userId,
     }
-
-    console.log('[useBalloons] optimistic balloon created — tempId:', tempId, '| balloonNumber:', nextNumber)
     setBalloons(prev => [...prev, optimistic])
     setSelectedId(tempId)
 
@@ -87,11 +91,13 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
         yPercent,
         createdBy: userId,
       })
-      console.log('[useBalloons] Firestore write SUCCESS — realId:', realId)
-      setBalloons(prev => prev.map(b => b.id === tempId ? { ...b, id: realId } : b))
+      pendingTempIds.current.delete(tempId)
       setSelectedId(realId)
+      // Remove the optimistic temp; onSnapshot will have already added the real doc
+      setBalloons(prev => prev.filter(b => b.id !== tempId))
     } catch (err) {
       console.error('[useBalloons] Firestore write FAILED:', err)
+      pendingTempIds.current.delete(tempId)
       setBalloons(prev => prev.filter(b => b.id !== tempId))
       setSelectedId(null)
     }
@@ -109,19 +115,34 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
   const deleteSelected = useCallback(async () => {
     if (!selectedId) return
     const id = selectedId
+    const snapshot = balloons.find(b => b.id === id)
+    if (!snapshot) return
+
+    setDeleteError(null)
     setSelectedId(null)
     setBalloons(prev => prev.filter(b => b.id !== id))
+
     try {
       await deleteBalloonDoc(projectId, id)
     } catch (err) {
       console.error('[Balloons] Delete failed:', err)
+      // Rollback: restore balloon in sorted order
+      setBalloons(prev =>
+        [...prev, snapshot].sort((a, b) => a.balloonNumber - b.balloonNumber),
+      )
+      setSelectedId(id)
+      setDeleteError('Delete failed — balloon restored. Please try again.')
     }
-  }, [selectedId, projectId])
+  }, [selectedId, projectId, balloons])
+
+  const clearDeleteError = useCallback(() => setDeleteError(null), [])
 
   return {
     balloons,
     selectedId,
     isBalloonMode,
+    deleteError,
+    clearDeleteError,
     setSelectedId,
     setBalloonMode,
     toggleBalloonMode,

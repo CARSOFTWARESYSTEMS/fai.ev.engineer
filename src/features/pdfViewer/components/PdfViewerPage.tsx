@@ -451,6 +451,9 @@ export function PdfViewerPage() {
           balloonCount={balloons.balloons.length}
           onToggleBalloonMode={balloons.toggleBalloonMode}
           onDeleteSelectedBalloon={balloons.deleteSelected}
+          deleteError={balloons.deleteError}
+          onClearDeleteError={balloons.clearDeleteError}
+          statusByBalloonId={statusByBalloonId}
           isTableOpen={isTableOpen}
           tableLayout={tableLayout}
           isTableCollapsed={isCollapsed}
@@ -484,7 +487,7 @@ export function PdfViewerPage() {
         <div className={`flex-1 overflow-hidden flex flex-col${tableLayout === 'right' ? ' lg:flex-row' : ''}`}>
 
           {/* PDF area */}
-          <div className="flex-1 overflow-auto min-h-0">
+          <div className="flex-1 overflow-auto min-h-0" ref={viewer.scrollAreaRef}>
             <PdfCanvas
               pdfBlobUrl={pdfBlobUrl}
               currentPage={viewer.currentPage}

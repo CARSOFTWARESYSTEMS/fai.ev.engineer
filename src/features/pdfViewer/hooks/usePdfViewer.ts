@@ -4,14 +4,21 @@ import type { PageNaturalSize, PdfRotation } from '../types/pdfViewerTypes'
 const ZOOM_STEP = 0.25
 const MIN_SCALE = 0.25
 const MAX_SCALE = 4.0
-const TOOLBAR_HEIGHT = 56
+
+// Padding values matching PdfCanvas inner wrapper (px-4 py-6)
+const CANVAS_PADDING_X = 32  // px-4 on each side = 16*2
+const CANVAS_PADDING_Y = 48  // py-6 on each side = 24*2
 
 function clampScale(s: number): number {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, parseFloat(s.toFixed(2))))
 }
 
 export function usePdfViewer() {
+  // containerRef: used only for fullscreen API (needs the root element)
   const containerRef = useRef<HTMLDivElement>(null)
+  // scrollAreaRef: the actual PDF scroll container, used for fit-width/fit-page measurements
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+
   const [scale, setScale] = useState(1.0)
   const [rotation, setRotation] = useState<PdfRotation>(0)
   const [currentPage, setCurrentPage] = useState(1)
@@ -24,17 +31,21 @@ export function usePdfViewer() {
   const zoomOut = useCallback(() => setScale(s => clampScale(s - ZOOM_STEP)), [])
 
   const fitWidth = useCallback(() => {
-    if (!containerRef.current || !pageNaturalSize) return
-    const cw = containerRef.current.clientWidth - 48
+    if (!pageNaturalSize) return
+    const area = scrollAreaRef.current ?? containerRef.current
+    if (!area) return
+    const cw = area.clientWidth - CANVAS_PADDING_X
     const isRotated = rotation === 90 || rotation === 270
     const pw = isRotated ? pageNaturalSize.height : pageNaturalSize.width
     setScale(clampScale(cw / pw))
   }, [pageNaturalSize, rotation])
 
   const fitPage = useCallback(() => {
-    if (!containerRef.current || !pageNaturalSize) return
-    const cw = containerRef.current.clientWidth - 48
-    const ch = containerRef.current.clientHeight - TOOLBAR_HEIGHT - 48
+    if (!pageNaturalSize) return
+    const area = scrollAreaRef.current ?? containerRef.current
+    if (!area) return
+    const cw = area.clientWidth - CANVAS_PADDING_X
+    const ch = area.clientHeight - CANVAS_PADDING_Y
     const isRotated = rotation === 90 || rotation === 270
     const pw = isRotated ? pageNaturalSize.height : pageNaturalSize.width
     const ph = isRotated ? pageNaturalSize.width : pageNaturalSize.height
@@ -77,6 +88,7 @@ export function usePdfViewer() {
 
   return {
     containerRef,
+    scrollAreaRef,
     scale,
     rotation,
     currentPage,

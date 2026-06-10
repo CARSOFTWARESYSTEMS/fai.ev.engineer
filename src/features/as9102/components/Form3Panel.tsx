@@ -158,12 +158,16 @@ export function Form3Panel({
       )}
 
       {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-gray-100 bg-gray-50 px-5 py-2 flex items-center justify-between">
-        <p className="text-[10px] text-gray-400">
+      <div className="shrink-0 border-t border-gray-100 bg-gray-50 px-5 py-2 flex items-center justify-between gap-4">
+        <p className="text-[10px] text-gray-400 hidden md:block">
           AS9102D · Form 3 · Characteristic Accountability, Verification, and Compatibility Evaluation
         </p>
-        <p className="text-[10px] text-gray-400 hidden sm:block">
-          FAI Engineer · EV.ENGINEER
+        <p className="text-[10px] text-gray-400 shrink-0 ml-auto">
+          <span className="hidden sm:inline">Shortcuts: </span>
+          <kbd className="font-mono bg-gray-200 text-gray-600 rounded px-1">P</kbd> Pass ·{' '}
+          <kbd className="font-mono bg-gray-200 text-gray-600 rounded px-1">F</kbd> Fail ·{' '}
+          <kbd className="font-mono bg-gray-200 text-gray-600 rounded px-1">N</kbd> Pending ·{' '}
+          <kbd className="font-mono bg-gray-200 text-gray-600 rounded px-1">↑↓</kbd> Navigate
         </p>
       </div>
     </div>

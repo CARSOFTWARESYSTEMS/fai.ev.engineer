@@ -5,7 +5,9 @@ import type { Form3Row as Form3RowData, Form3ResultFields, Form3Status } from '.
 interface Form3RowProps {
   row: Form3RowData
   isSelected: boolean
+  isFocused?: boolean
   onSelectBalloon: (balloonId: string) => void
+  onFocused?: () => void
   onUpdate: (
     featureId: string,
     balloonId: string,
@@ -41,10 +43,11 @@ const ROW_BG: Record<Form3Status, string> = {
 export function Form3Row({
   row,
   isSelected,
+  isFocused,
   onSelectBalloon,
+  onFocused,
   onUpdate,
 }: Form3RowProps) {
-  // Local state is initialized once (after isLoaded=true) and tracks user input between saves
   const rowRef = useRef<HTMLTableRowElement>(null)
   const [result, setResult] = useState(row.result)
   const [designedTooling, setDesignedTooling] = useState(row.designedTooling)
@@ -55,6 +58,10 @@ export function Form3Row({
   useEffect(() => {
     if (isSelected) rowRef.current?.scrollIntoView({ block: 'nearest' })
   }, [isSelected])
+
+  useEffect(() => {
+    if (isFocused) rowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [isFocused])
 
   const fire = (overrides: Partial<Form3ResultFields>) => {
     onUpdate(row.featureId, row.balloonId, row.characteristicNumber, {
@@ -81,12 +88,16 @@ export function Form3Row({
   return (
     <tr
       ref={rowRef}
-      onClick={() => row.isLinked && onSelectBalloon(row.balloonId)}
+      onClick={() => {
+        onFocused?.()
+        row.isLinked && onSelectBalloon(row.balloonId)
+      }}
       className={[
         'group transition-colors hover:brightness-[0.97]',
         row.isLinked ? 'cursor-pointer' : '',
         ROW_BG[row.status],
-        isSelected ? 'ring-2 ring-inset ring-primary bg-blue-50' : '',
+        isSelected ? 'ring-2 ring-inset ring-primary bg-blue-50' :
+        isFocused ? 'ring-1 ring-inset ring-primary/40 bg-primary/5' : '',
       ].join(' ')}
     >
       {/* Char No — sticky left */}

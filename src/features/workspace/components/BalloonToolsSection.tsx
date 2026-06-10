@@ -1,4 +1,4 @@
-import { Target, Trash2, Info } from 'lucide-react'
+import { Target, Trash2, Info, X } from 'lucide-react'
 import { SidebarActionButton, SidebarActionCard } from './SidebarActionCard'
 
 interface BalloonToolsSectionProps {
@@ -7,8 +7,10 @@ interface BalloonToolsSectionProps {
   isBalloonMode: boolean
   hasSelectedBalloon: boolean
   balloonCount: number
+  deleteError?: string | null
   onToggleBalloonMode: () => void
   onDeleteSelectedBalloon: () => void
+  onClearDeleteError?: () => void
 }
 
 export function BalloonToolsSection({
@@ -17,8 +19,10 @@ export function BalloonToolsSection({
   isBalloonMode,
   hasSelectedBalloon,
   balloonCount,
+  deleteError,
   onToggleBalloonMode,
   onDeleteSelectedBalloon,
+  onClearDeleteError,
 }: BalloonToolsSectionProps) {
   if (!isExpanded) return null
 
@@ -63,6 +67,20 @@ export function BalloonToolsSection({
         <div className="flex items-center gap-1.5 px-1 py-0.5">
           <Info className="w-3 h-3 text-gray-600 shrink-0" />
           <span className="text-[10px] text-gray-600">Select a balloon to delete it</span>
+        </div>
+      )}
+
+      {/* Delete error notification */}
+      {deleteError && (
+        <div className="flex items-center gap-1.5 mx-1 mt-1 px-2 py-1.5 rounded-lg bg-red-900/30 border border-red-500/30">
+          <span className="flex-1 text-[10px] text-red-300">{deleteError}</span>
+          <button
+            onClick={onClearDeleteError}
+            className="text-red-400 hover:text-red-200 transition-colors shrink-0"
+            title="Dismiss"
+          >
+            <X className="w-3 h-3" />
+          </button>
         </div>
       )}
     </div>

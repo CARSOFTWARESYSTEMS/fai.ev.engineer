@@ -10,7 +10,7 @@ import { As9102Section } from './As9102Section'
 import { NavigationSection } from './NavigationSection'
 import { ExportSection } from './ExportSection'
 import { MODE_VISIBLE_SECTIONS, type SidebarSectionId, type WorkspaceMode } from '../types/workspaceTypes'
-import type { Form3Row } from '../../as9102/types/form3Types'
+import type { Form3Row, Form3Status } from '../../as9102/types/form3Types'
 
 interface WorkspaceSidebarProps {
   // Mobile
@@ -37,8 +37,10 @@ interface WorkspaceSidebarProps {
   isBalloonMode: boolean
   hasSelectedBalloon: boolean
   balloonCount: number
+  deleteError?: string | null
   onToggleBalloonMode: () => void
   onDeleteSelectedBalloon: () => void
+  onClearDeleteError?: () => void
 
   // Feature Tools
   isTableOpen: boolean
@@ -61,6 +63,7 @@ interface WorkspaceSidebarProps {
   onSelectBalloon: (id: string) => void
   projectName: string
   form3Rows: Form3Row[]
+  statusByBalloonId?: ReadonlyMap<string, Form3Status>
 
   // Workspace navigation
   isExpanded: boolean
@@ -90,8 +93,10 @@ export function WorkspaceSidebar({
   isBalloonMode,
   hasSelectedBalloon,
   balloonCount,
+  deleteError,
   onToggleBalloonMode,
   onDeleteSelectedBalloon,
+  onClearDeleteError,
   isTableOpen,
   tableLayout,
   isTableCollapsed,
@@ -108,6 +113,7 @@ export function WorkspaceSidebar({
   onSelectBalloon,
   projectName,
   form3Rows,
+  statusByBalloonId,
   isExpanded,
   onToggleExpanded,
   isSectionOpen,
@@ -186,10 +192,12 @@ export function WorkspaceSidebar({
             isBalloonMode={isBalloonMode}
             hasSelectedBalloon={hasSelectedBalloon}
             balloonCount={balloonCount}
+            deleteError={deleteError}
             onToggleBalloonMode={() => {
               if (workspaceMode === 'ballooning') onToggleBalloonMode()
             }}
             onDeleteSelectedBalloon={onDeleteSelectedBalloon}
+            onClearDeleteError={onClearDeleteError}
           />
         </SidebarSection>}
 
@@ -253,6 +261,7 @@ export function WorkspaceSidebar({
             features={features}
             projectName={projectName}
             workspaceMode={workspaceMode}
+            statusByBalloonId={statusByBalloonId}
           />
         </SidebarSection>}
 

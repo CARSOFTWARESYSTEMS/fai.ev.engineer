@@ -4,7 +4,7 @@ import type { Balloon } from '../../ballooning/types/balloonTypes'
 import { exportFeaturesToExcel, exportFeaturesToCSV } from '../../export/services/excelExportService'
 import { exportForm3CSV, exportForm3Excel } from '../../as9102/services/form3ExportService'
 import type { Form3Row } from '../../as9102/types/form3Types'
-import { SidebarActionButton, SidebarActionCard } from './SidebarActionCard'
+import { SidebarActionCard } from './SidebarActionCard'
 
 interface ExportSectionProps {
   isExpanded: boolean
@@ -25,14 +25,24 @@ function ExportBtn({
   sublabel?: string
 }) {
   return (
-    <SidebarActionButton
-      icon={Icon}
+    <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
-      label={label}
-      description={sublabel}
       title={disabled ? 'No data to export' : label}
-    />
+      className={[
+        'flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-xs transition-all',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#111827]',
+        'disabled:cursor-not-allowed disabled:opacity-35',
+        'text-blue-100/80 hover:bg-white/[0.06] hover:text-white',
+      ].join(' ')}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0 text-blue-300/70" />
+      <span className="min-w-0 flex-1">
+        <span className="block font-medium leading-none">{label}</span>
+        {sublabel && <span className="mt-0.5 block text-[9px] text-blue-100/40">{sublabel}</span>}
+      </span>
+    </button>
   )
 }
 
@@ -63,7 +73,7 @@ export function ExportSection({
         tone="blue"
         active
       >
-        <div className="mt-3 space-y-1.5 border-t border-white/[0.08] pt-3">
+        <div className="mt-2 space-y-0.5 border-t border-white/[0.08] pt-2">
           <ExportBtn
             onClick={() => exportFeaturesToExcel(features, balloons, projectName)}
             disabled={!hasFeatures}
@@ -78,7 +88,7 @@ export function ExportSection({
             label="Feature Table CSV"
             sublabel={hasFeatures ? `${features.length} characteristics` : 'No features yet'}
           />
-          <div className="mx-2 my-1 border-t border-white/[0.08]" />
+          <div className="my-1" />
           <ExportBtn
             onClick={() => exportForm3Excel(form3Rows, projectName)}
             disabled={!hasForm3Rows}
@@ -93,7 +103,7 @@ export function ExportSection({
             label="AS9102 Form 3 CSV"
             sublabel={hasForm3Rows ? `${form3Rows.length} inspection rows` : 'No Form 3 rows yet'}
           />
-          <div className="mx-2 my-1 border-t border-white/[0.08]" />
+          <div className="my-1" />
           <ExportBtn
             onClick={onExportBalloonedPdf}
             disabled={balloons.length === 0}

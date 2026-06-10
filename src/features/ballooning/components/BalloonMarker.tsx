@@ -44,12 +44,12 @@ export function BalloonMarker({
   const [livePos, setLivePos] = useState<{ x: number; y: number } | null>(null)
   const hasDragged = useRef(false)
 
-  const storedPosition = rotateBalloonPoint(
+  const displayPosition = rotateBalloonPoint(
     { x: balloon.xPercent, y: balloon.yPercent },
     rotation,
   )
-  const xPercent = livePos?.x ?? storedPosition.x
-  const yPercent = livePos?.y ?? storedPosition.y
+  const xPercent = livePos?.x ?? displayPosition.x
+  const yPercent = livePos?.y ?? displayPosition.y
 
   useEffect(() => {
     if (isSelected && focusRequest > 0) {
@@ -66,8 +66,8 @@ export function BalloonMarker({
     dragRef.current = {
       startClientX: e.clientX,
       startClientY: e.clientY,
-      startXPercent: storedPosition.x,
-      startYPercent: storedPosition.y,
+      startXPercent: displayPosition.x,
+      startYPercent: displayPosition.y,
     }
   }
 
