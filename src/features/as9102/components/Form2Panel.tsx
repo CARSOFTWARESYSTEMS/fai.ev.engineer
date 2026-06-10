@@ -1,13 +1,36 @@
-import { X, FileText, PlusCircle, Trash2, Loader2 } from 'lucide-react'
+import { X, FileText, PlusCircle, Trash2, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import type { Form2Row, Form2RowUpdateInput } from '../types/form2Types'
+import type { Form2SaveStatus } from '../hooks/useForm2'
+import { UndoToast } from '../../../components/ui/UndoToast'
 
 interface Form2PanelProps {
   rows: Form2Row[]
   isLoaded: boolean
+  saveStatus: Form2SaveStatus
+  pendingDeleteLabel: string | null
   onAddRow: () => void
   onUpdateRow: (rowId: string, data: Form2RowUpdateInput) => void
   onDeleteRow: (rowId: string) => void
+  onUndoDelete: () => void
+  onDismissDeleteToast: () => void
   onClose: () => void
+}
+
+function SaveIndicator({ status }: { status: Form2SaveStatus }) {
+  if (status === 'idle') return null
+  return (
+    <span className={[
+      'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-all',
+      status === 'saving' ? 'text-gray-500 bg-gray-100' :
+      status === 'saved'  ? 'text-green-700 bg-green-50 border border-green-200' :
+      'text-red-700 bg-red-50 border border-red-200',
+    ].join(' ')}>
+      {status === 'saving' && <Loader2 className="w-3 h-3 animate-spin" />}
+      {status === 'saved'  && <CheckCircle2 className="w-3 h-3" />}
+      {status === 'error'  && <AlertCircle className="w-3 h-3" />}
+      {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved' : 'Save failed'}
+    </span>
+  )
 }
 
 const COLUMNS: { key: keyof Form2RowUpdateInput; label: string; placeholder: string; width: string }[] = [
@@ -28,7 +51,7 @@ const cellInput = [
   'placeholder-gray-300 focus:outline-none focus:border-primary focus:bg-white transition-colors',
 ].join(' ')
 
-export function Form2Panel({ rows, isLoaded, onAddRow, onUpdateRow, onDeleteRow, onClose }: Form2PanelProps) {
+export function Form2Panel({ rows, isLoaded, saveStatus, pendingDeleteLabel, onAddRow, onUpdateRow, onDeleteRow, onUndoDelete, onDismissDeleteToast, onClose }: Form2PanelProps) {
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
 
@@ -47,11 +70,12 @@ export function Form2Panel({ rows, isLoaded, onAddRow, onUpdateRow, onDeleteRow,
                 </span>
               </div>
               <p className="text-[11px] text-text-secondary">
-                {rows.length} row{rows.length !== 1 ? 's' : ''} — changes autosave
+                {rows.length} row{rows.length !== 1 ? 's' : ''} — autosave
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <SaveIndicator status={saveStatus} />
             <button
               type="button"
               onClick={onAddRow}
@@ -153,6 +177,17 @@ export function Form2Panel({ rows, isLoaded, onAddRow, onUpdateRow, onDeleteRow,
           AS9102D · Form 2 · Material and/or Process Performance Requirements — Certification of Compliance
         </p>
       </div>
+
+      {/* Undo toast */}
+      {pendingDeleteLabel && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] pointer-events-auto">
+          <UndoToast
+            message={`${pendingDeleteLabel} deleted`}
+            onUndo={onUndoDelete}
+            onDismiss={onDismissDeleteToast}
+          />
+        </div>
+      )}
     </div>
   )
 }

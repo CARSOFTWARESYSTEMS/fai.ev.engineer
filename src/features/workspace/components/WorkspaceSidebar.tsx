@@ -11,6 +11,8 @@ import { NavigationSection } from './NavigationSection'
 import { ExportSection } from './ExportSection'
 import { MODE_VISIBLE_SECTIONS, type SidebarSectionId, type WorkspaceMode } from '../types/workspaceTypes'
 import type { Form3Row, Form3Status } from '../../as9102/types/form3Types'
+import type { Form1Data } from '../../as9102/types/form1Types'
+import type { Form2Row } from '../../as9102/types/form2Types'
 
 interface WorkspaceSidebarProps {
   // Mobile
@@ -66,8 +68,11 @@ interface WorkspaceSidebarProps {
   selectedBalloonId: string | null
   onSelectBalloon: (id: string) => void
   projectName: string
+  form1Data: Partial<Form1Data>
+  form2Rows: Form2Row[]
   form3Rows: Form3Row[]
   statusByBalloonId?: ReadonlyMap<string, Form3Status>
+  onOpenFairPackage: () => void
 
   // Workspace navigation
   isExpanded: boolean
@@ -120,8 +125,11 @@ export function WorkspaceSidebar({
   selectedBalloonId,
   onSelectBalloon,
   projectName,
+  form1Data,
+  form2Rows,
   form3Rows,
   statusByBalloonId,
+  onOpenFairPackage,
   isExpanded,
   onToggleExpanded,
   isSectionOpen,
@@ -291,9 +299,12 @@ export function WorkspaceSidebar({
               isExpanded={isExpanded}
               features={features}
               balloons={balloons}
+              form1Data={form1Data}
+              form2Rows={form2Rows}
               form3Rows={form3Rows}
               projectName={projectName}
               onExportBalloonedPdf={onDownload}
+              onOpenFairPackage={onOpenFairPackage}
             />
           </SidebarSection>
         )}

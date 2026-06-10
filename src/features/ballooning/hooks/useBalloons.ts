@@ -195,7 +195,7 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
   const clearDeleteError = useCallback(() => setDeleteError(null), [])
 
   return {
-    balloons,
+    items: balloons,
     selectedId,
     isBalloonMode,
     deleteError,

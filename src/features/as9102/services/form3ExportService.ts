@@ -42,6 +42,14 @@ export function exportForm3Excel(rows: Form3Row[], projectName: string): void {
   XLSX.writeFile(wb, fileName(projectName, 'xlsx'))
 }
 
+export function buildForm3WorkbookBytes(rows: Form3Row[]): Uint8Array {
+  const ws = XLSX.utils.json_to_sheet(toRows(rows))
+  ws['!cols'] = FORM3_EXPORT_COLUMNS.map(c => ({ wch: c.wch }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'AS9102 Form 3')
+  return XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as Uint8Array
+}
+
 export function exportForm3CSV(rows: Form3Row[], projectName: string): void {
   const header = FORM3_EXPORT_COLUMNS.map(c => `"${c.label}"`).join(',')
   const body = rows.map(r =>

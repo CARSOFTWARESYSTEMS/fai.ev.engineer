@@ -28,6 +28,7 @@ import { PdfCanvas } from './PdfCanvas'
 import { PdfLoadingState } from './PdfLoadingState'
 import { PdfErrorState } from './PdfErrorState'
 import { exportBalloonedPdf } from '../../export/services/balloonedPdfExportService'
+import { FairPackageModal } from '../../export/components/FairPackageModal'
 
 type PdfLoadPhase = 'project' | 'drive' | 'download'
 type PdfLoadErrorAction = 'retry' | 'reconnect-drive'
@@ -91,6 +92,7 @@ export function PdfViewerPage() {
   const [isForm1Open, setIsForm1Open] = useState(false)
   const [isForm2Open, setIsForm2Open] = useState(false)
   const [isForm3Open, setIsForm3Open] = useState(false)
+  const [isFairPackageOpen, setIsFairPackageOpen] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
   const [bottomHeight, setBottomHeight] = useState<number>(() => {
@@ -165,7 +167,7 @@ export function PdfViewerPage() {
     projectId: projectId ?? '',
     userId: user?.uid ?? '',
     features: features.features,
-    balloons: balloons.balloons,
+    balloons: balloons.items,
   })
   const statusByFeatureId = useMemo(
     () => new Map(form3.rows.map(row => [row.featureId, row.status])),
@@ -330,13 +332,13 @@ export function PdfViewerPage() {
       await exportBalloonedPdf(
         pdfBlobUrl,
         project.sourcePdfName || 'drawing.pdf',
-        balloons.balloons,
+        balloons.items,
         statusByBalloonId,
       )
     } catch (err) {
       window.alert(`Unable to export ballooned PDF. ${getPdfErrorMessage(err)}`)
     }
-  }, [pdfBlobUrl, project, balloons.balloons, statusByBalloonId])
+  }, [pdfBlobUrl, project, balloons.items, statusByBalloonId])
 
   const { setNumPages, setCurrentPage, setPageNaturalSize } = viewer
 
@@ -345,12 +347,12 @@ export function PdfViewerPage() {
   }, [setCurrentPage, viewer.numPages])
 
   const handleSelectLinkedBalloon = useCallback((balloonId: string) => {
-    const balloon = balloons.balloons.find(item => item.id === balloonId)
+    const balloon = balloons.items.find(item => item.id === balloonId)
     if (!balloon) return
     setCurrentPage(balloon.pageNumber)
     balloons.setSelectedId(balloon.id)
     setBalloonFocusRequest(request => request + 1)
-  }, [balloons.balloons, balloons.setSelectedId, setCurrentPage])
+  }, [balloons.items, balloons.setSelectedId, setCurrentPage])
 
   const handleDocumentLoad = useCallback((numPages: number) => {
     setNumPages(numPages)
@@ -375,7 +377,7 @@ export function PdfViewerPage() {
   // P8: Clear balloon selection when navigating to a page where the selected balloon does not live
   useEffect(() => {
     if (!balloons.selectedId) return
-    const selected = balloons.balloons.find(b => b.id === balloons.selectedId)
+    const selected = balloons.items.find(b => b.id === balloons.selectedId)
     if (selected && selected.pageNumber !== viewer.currentPage) {
       balloons.setSelectedId(null)
     }
@@ -468,7 +470,7 @@ export function PdfViewerPage() {
           onToggleFullscreen={viewer.toggleFullscreen}
           isBalloonMode={balloons.isBalloonMode}
           hasSelectedBalloon={!!balloons.selectedId}
-          balloonCount={balloons.balloons.length}
+          balloonCount={balloons.items.length}
           onToggleBalloonMode={balloons.toggleBalloonMode}
           onDeleteSelectedBalloon={balloons.deleteSelected}
           deleteError={balloons.deleteError}
@@ -494,12 +496,15 @@ export function PdfViewerPage() {
           onToggleForm1={() => setIsForm1Open(o => !o)}
           onToggleForm2={() => setIsForm2Open(o => !o)}
           onToggleForm3={() => setIsForm3Open(o => !o)}
-          balloons={balloons.balloons}
+          balloons={balloons.items}
           features={features.features}
           selectedBalloonId={balloons.selectedId}
           onSelectBalloon={handleSelectLinkedBalloon}
           projectName={project.projectName}
+          form1Data={form1.data}
+          form2Rows={form2.rows}
           form3Rows={form3.rows}
+          onOpenFairPackage={() => setIsFairPackageOpen(true)}
           isExpanded={workspace.isExpanded}
           onToggleExpanded={workspace.toggleExpanded}
           isSectionOpen={workspace.isSectionOpen}
@@ -523,7 +528,7 @@ export function PdfViewerPage() {
               canvasRef={setPdfCanvas}
               overlay={
                 <BalloonLayer
-                  balloons={balloons.balloons}
+                  balloons={balloons.items}
                   currentPage={viewer.currentPage}
                   rotation={viewer.rotation}
                   pdfCanvas={pdfCanvas}
@@ -577,7 +582,7 @@ export function PdfViewerPage() {
               <div className="flex-1 overflow-hidden flex flex-col min-h-0 min-w-0">
                 <FeatureTablePanel
                   features={features.features}
-                  balloons={balloons.balloons}
+                  balloons={balloons.items}
                   selectedBalloonId={balloons.selectedId}
                   projectId={project.projectId}
                   userId={user?.uid ?? ''}
@@ -613,9 +618,13 @@ export function PdfViewerPage() {
         <Form2Panel
           rows={form2.rows}
           isLoaded={form2.isLoaded}
+          saveStatus={form2.saveStatus}
+          pendingDeleteLabel={form2.pendingDeleteLabel}
           onAddRow={form2.addRow}
           onUpdateRow={form2.updateRow}
           onDeleteRow={form2.deleteRow}
+          onUndoDelete={form2.undoRowDelete}
+          onDismissDeleteToast={form2.dismissRowDeleteToast}
           onClose={() => setIsForm2Open(false)}
         />
       )}
@@ -633,6 +642,23 @@ export function PdfViewerPage() {
           onSelectBalloon={handleSelectLinkedBalloon}
           onUpdate={form3.updateRow}
           onClose={() => setIsForm3Open(false)}
+        />
+      )}
+
+      {/* FAIR Package export modal */}
+      {isFairPackageOpen && pdfBlobUrl && (
+        <FairPackageModal
+          input={{
+            form1: form1.data,
+            form2Rows: form2.rows,
+            form3Rows: form3.rows,
+            features: features.features,
+            balloons: balloons.items,
+            statusByBalloonId,
+            pdfBlobUrl,
+            sourcePdfName: project.sourcePdfName || 'drawing.pdf',
+          }}
+          onClose={() => setIsFairPackageOpen(false)}
         />
       )}
 
