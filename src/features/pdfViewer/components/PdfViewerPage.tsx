@@ -19,6 +19,7 @@ import { PdfToolbar } from './PdfToolbar'
 import { PdfCanvas } from './PdfCanvas'
 import { PdfLoadingState } from './PdfLoadingState'
 import { PdfErrorState } from './PdfErrorState'
+import { exportBalloonedPdf } from '../../export/services/balloonedPdfExportService'
 
 export function PdfViewerPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -29,6 +30,7 @@ export function PdfViewerPage() {
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [pdfCanvas, setPdfCanvas] = useState<HTMLCanvasElement | null>(null)
 
   const [isTableOpen, setIsTableOpen] = useState<boolean>(() =>
     localStorage.getItem('fai-feature-table-open') === 'true'
@@ -151,15 +153,18 @@ export function PdfViewerPage() {
 
   useEffect(() => { loadPdf() }, [loadPdf])
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!pdfBlobUrl || !project) return
-    const a = document.createElement('a')
-    a.href = pdfBlobUrl
-    a.download = project.sourcePdfName || 'drawing.pdf'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  }, [pdfBlobUrl, project])
+    try {
+      await exportBalloonedPdf(
+        pdfBlobUrl,
+        project.sourcePdfName || 'drawing.pdf',
+        balloons.balloons,
+      )
+    } catch (err) {
+      window.alert(`Unable to export ballooned PDF. ${getPdfErrorMessage(err)}`)
+    }
+  }, [pdfBlobUrl, project, balloons.balloons])
 
   const { setNumPages, setCurrentPage, setPageNaturalSize } = viewer
 
@@ -300,10 +305,13 @@ export function PdfViewerPage() {
               onDocumentLoad={handleDocumentLoad}
               onPageLoad={handlePageLoad}
               onDocumentError={handleDocumentError}
+              canvasRef={setPdfCanvas}
               overlay={
                 <BalloonLayer
                   balloons={balloons.balloons}
                   currentPage={viewer.currentPage}
+                  rotation={viewer.rotation}
+                  pdfCanvas={pdfCanvas}
                   isBalloonMode={balloons.isBalloonMode}
                   selectedId={balloons.selectedId}
                   onSelect={balloons.setSelectedId}

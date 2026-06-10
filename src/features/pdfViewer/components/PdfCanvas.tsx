@@ -16,6 +16,7 @@ interface PdfCanvasProps {
   onDocumentLoad: (numPages: number) => void
   onPageLoad: (size: PageNaturalSize) => void
   onDocumentError: (error: Error) => void
+  canvasRef?: React.Ref<HTMLCanvasElement>
   // Optional overlay rendered on top of the page (e.g. balloon layer).
   // Placed inside a `relative inline-block` wrapper that matches the page dimensions.
   overlay?: React.ReactNode
@@ -29,6 +30,7 @@ export function PdfCanvas({
   onDocumentLoad,
   onPageLoad,
   onDocumentError,
+  canvasRef,
   overlay,
 }: PdfCanvasProps) {
   return (
@@ -55,6 +57,7 @@ export function PdfCanvas({
             pageNumber={currentPage}
             scale={scale}
             rotate={rotation}
+            canvasRef={canvasRef}
             onLoadSuccess={(page) => {
               if (page.originalWidth && page.originalHeight) {
                 onPageLoad({ width: page.originalWidth, height: page.originalHeight })

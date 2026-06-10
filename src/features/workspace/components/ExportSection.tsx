@@ -8,6 +8,7 @@ interface ExportSectionProps {
   features: Feature[]
   balloons: Balloon[]
   projectName: string
+  onExportBalloonedPdf: () => void
 }
 
 function ExportBtn({
@@ -49,7 +50,13 @@ function ExportBtn({
   )
 }
 
-export function ExportSection({ isExpanded, features, balloons, projectName }: ExportSectionProps) {
+export function ExportSection({
+  isExpanded,
+  features,
+  balloons,
+  projectName,
+  onExportBalloonedPdf,
+}: ExportSectionProps) {
   if (!isExpanded) return null
 
   const hasFeatures = features.length > 0
@@ -85,11 +92,20 @@ export function ExportSection({ isExpanded, features, balloons, projectName }: E
         </p>
       </div>
 
-      {/* Coming soon */}
+      {/* PDF exports */}
+      <p className="text-[9px] font-semibold tracking-[0.1em] text-gray-600 uppercase px-0 pt-3 pb-1">
+        PDF
+      </p>
+      <ExportBtn
+        onClick={onExportBalloonedPdf}
+        icon={FileText}
+        label="Ballooned PDF"
+        sublabel={`${balloons.length} balloon${balloons.length !== 1 ? 's' : ''}`}
+      />
+
       <p className="text-[9px] font-semibold tracking-[0.1em] text-gray-600 uppercase px-0 pt-3 pb-1">
         Coming Soon
       </p>
-      <ExportBtn icon={FileText} label="Ballooned PDF" sublabel="PDF with balloon overlays" comingSoon />
       <ExportBtn icon={FileText} label="Project Backup" sublabel="Full project archive" comingSoon />
     </div>
   )

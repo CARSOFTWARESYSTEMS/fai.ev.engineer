@@ -3,9 +3,8 @@ export interface Balloon {
   projectId: string
   pageNumber: number
   balloonNumber: number
-  // Normalized coordinates (0–1) relative to the rendered page at click time.
-  // This keeps balloons in the correct position across zoom, fit-width, fit-page,
-  // and rotation changes, because the overlay div is always the same size as the page.
+  // Normalized coordinates (0–1) in the page's canonical, unrotated coordinate space.
+  // Viewer rotation is applied only while rendering and hit-testing.
   xPercent: number
   yPercent: number
   createdAt: unknown   // Firestore Timestamp

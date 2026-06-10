@@ -250,6 +250,7 @@ export function WorkspaceSidebar({
             features={features}
             balloons={balloons}
             projectName={projectName}
+            onExportBalloonedPdf={onDownload}
           />
         </SidebarSection>
 

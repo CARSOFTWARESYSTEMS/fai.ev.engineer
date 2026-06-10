@@ -149,9 +149,9 @@ export function PdfToolsSection({
         <RotateCw className="w-3.5 h-3.5 shrink-0" />
         <span>Rotate</span>
       </Btn>
-      <Btn onClick={onDownload} title="Download PDF">
+      <Btn onClick={onDownload} title="Download ballooned PDF">
         <Download className="w-3.5 h-3.5 shrink-0" />
-        <span>Download</span>
+        <span>Download Ballooned</span>
       </Btn>
       <Btn onClick={onToggleFullscreen} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'} active={isFullscreen}>
         {isFullscreen

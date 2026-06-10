@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Balloon } from '../types/balloonTypes'
+import type { PdfRotation } from '../../pdfViewer/types/pdfViewerTypes'
+import { rotateBalloonPoint, unrotateBalloonPoint } from '../utils/balloonCoordinates'
 
 interface DragState {
   startClientX: number
@@ -10,6 +12,7 @@ interface DragState {
 
 interface BalloonMarkerProps {
   balloon: Balloon
+  rotation: PdfRotation
   isSelected: boolean
   layerRef: React.RefObject<HTMLDivElement>
   onSelect: (id: string) => void
@@ -24,6 +27,7 @@ const DRAG_THRESHOLD_PX = 4
 
 export function BalloonMarker({
   balloon,
+  rotation,
   isSelected,
   layerRef,
   onSelect,
@@ -33,8 +37,12 @@ export function BalloonMarker({
   const [livePos, setLivePos] = useState<{ x: number; y: number } | null>(null)
   const hasDragged = useRef(false)
 
-  const xPercent = livePos?.x ?? balloon.xPercent
-  const yPercent = livePos?.y ?? balloon.yPercent
+  const storedPosition = rotateBalloonPoint(
+    { x: balloon.xPercent, y: balloon.yPercent },
+    rotation,
+  )
+  const xPercent = livePos?.x ?? storedPosition.x
+  const yPercent = livePos?.y ?? storedPosition.y
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -45,8 +53,8 @@ export function BalloonMarker({
     dragRef.current = {
       startClientX: e.clientX,
       startClientY: e.clientY,
-      startXPercent: balloon.xPercent,
-      startYPercent: balloon.yPercent,
+      startXPercent: storedPosition.x,
+      startYPercent: storedPosition.y,
     }
   }
 
@@ -70,11 +78,12 @@ export function BalloonMarker({
       const rect = layerRef.current.getBoundingClientRect()
       const dx = e.clientX - dragRef.current.startClientX
       const dy = e.clientY - dragRef.current.startClientY
-      onDragEnd(
-        balloon.id,
-        clamp(dragRef.current.startXPercent + dx / rect.width),
-        clamp(dragRef.current.startYPercent + dy / rect.height),
-      )
+      const displayPosition = {
+        x: clamp(dragRef.current.startXPercent + dx / rect.width),
+        y: clamp(dragRef.current.startYPercent + dy / rect.height),
+      }
+      const storedPosition = unrotateBalloonPoint(displayPosition, rotation)
+      onDragEnd(balloon.id, storedPosition.x, storedPosition.y)
     }
     dragRef.current = null
     setLivePos(null)

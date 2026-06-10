@@ -1,10 +1,16 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { Balloon } from '../types/balloonTypes'
+import type { PdfRotation } from '../../pdfViewer/types/pdfViewerTypes'
 import { BalloonMarker } from './BalloonMarker'
+import { BlankPlacementWarningDialog } from './BlankPlacementWarningDialog'
+import { unrotateBalloonPoint, type NormalizedPoint } from '../utils/balloonCoordinates'
+import { isPointNearPdfContent } from '../utils/pdfContentDetection'
 
 interface BalloonLayerProps {
   balloons: Balloon[]
   currentPage: number
+  rotation: PdfRotation
+  pdfCanvas: HTMLCanvasElement | null
   isBalloonMode: boolean
   selectedId: string | null
   onSelect: (id: string) => void
@@ -15,6 +21,8 @@ interface BalloonLayerProps {
 export function BalloonLayer({
   balloons,
   currentPage,
+  rotation,
+  pdfCanvas,
   isBalloonMode,
   selectedId,
   onSelect,
@@ -22,32 +30,30 @@ export function BalloonLayer({
   onMoveBalloon,
 }: BalloonLayerProps) {
   const layerRef = useRef<HTMLDivElement>(null)
+  const [pendingPlacement, setPendingPlacement] = useState<NormalizedPoint | null>(null)
 
   const visibleBalloons = balloons.filter(b => b.pageNumber === currentPage)
 
-  // DEBUG: log render state
-  console.log('[BalloonLayer] render — isBalloonMode:', isBalloonMode, '| page:', currentPage, '| total balloons:', balloons.length, '| visible:', visibleBalloons.length)
-
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    console.log('[BalloonLayer] pointerdown — isBalloonMode:', isBalloonMode, '| button:', e.button, '| type:', e.pointerType, '| hasRef:', !!layerRef.current)
-
-    if (!isBalloonMode || !layerRef.current) {
-      console.log('[BalloonLayer] SKIPPED — mode off or no layer ref')
-      return
-    }
+    if (!isBalloonMode || !layerRef.current) return
     // Primary button only (left click / touch / pen)
     if (e.button !== 0) return
 
     e.preventDefault()
 
     const rect = layerRef.current.getBoundingClientRect()
-    console.log('[BalloonLayer] layer rect — w:', rect.width, 'h:', rect.height, 'left:', rect.left, 'top:', rect.top)
+    const displayPosition = {
+      x: Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height)),
+    }
+    const storedPosition = unrotateBalloonPoint(displayPosition, rotation)
 
-    const xPercent = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
-    const yPercent = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+    if (!isPointNearPdfContent(pdfCanvas, displayPosition.x, displayPosition.y)) {
+      setPendingPlacement(storedPosition)
+      return
+    }
 
-    console.log('[BalloonLayer] placing balloon — xPercent:', xPercent.toFixed(4), 'yPercent:', yPercent.toFixed(4))
-    onAddBalloon(xPercent, yPercent)
+    onAddBalloon(storedPosition.x, storedPosition.y)
   }
 
   return (
@@ -68,12 +74,22 @@ export function BalloonLayer({
         <BalloonMarker
           key={balloon.id}
           balloon={balloon}
+          rotation={rotation}
           isSelected={selectedId === balloon.id}
           layerRef={layerRef}
           onSelect={onSelect}
           onDragEnd={onMoveBalloon}
         />
       ))}
+      {pendingPlacement && (
+        <BlankPlacementWarningDialog
+          onCancel={() => setPendingPlacement(null)}
+          onConfirm={() => {
+            onAddBalloon(pendingPlacement.x, pendingPlacement.y)
+            setPendingPlacement(null)
+          }}
+        />
+      )}
     </div>
   )
 }
