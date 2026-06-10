@@ -9,6 +9,7 @@ export interface Form3Result {
   result: string
   status: Form3Status
   designedTooling: string
+  measurementEquipmentUsed: string
   nonConformanceNumber: string
   inspectorNotes: string
   createdAt: unknown  // Firestore Timestamp
@@ -20,7 +21,7 @@ export type Form3ResultInput = Omit<Form3Result, 'id' | 'createdAt' | 'updatedAt
 
 export type Form3ResultFields = Pick<
   Form3Result,
-  'result' | 'status' | 'designedTooling' | 'nonConformanceNumber' | 'inspectorNotes'
+  'result' | 'status' | 'designedTooling' | 'measurementEquipmentUsed' | 'nonConformanceNumber' | 'inspectorNotes'
 >
 
 // Computed display row — merges Feature + Balloon data with saved Form3Result
@@ -42,6 +43,7 @@ export interface Form3Row {
   result: string
   status: Form3Status
   designedTooling: string
+  measurementEquipmentUsed: string
   nonConformanceNumber: string
   inspectorNotes: string
   isSaved: boolean

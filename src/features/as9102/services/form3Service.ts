@@ -4,6 +4,7 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  onSnapshot,
   serverTimestamp,
   type FieldValue,
 } from 'firebase/firestore'
@@ -16,6 +17,17 @@ import type { Form3Result, Form3ResultInput } from '../types/form3Types'
 type Form3WriteDoc = Omit<Form3Result, 'id' | 'createdAt' | 'updatedAt'> & {
   createdAt: FieldValue
   updatedAt: FieldValue
+}
+
+export function subscribeToForm3Results(
+  projectId: string,
+  onUpdate: (results: Form3Result[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(firestore, 'projects', projectId, 'form3Results'),
+    snap => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() }) as Form3Result)),
+    err => console.error('[form3Service] snapshot error:', err),
+  )
 }
 
 export async function loadForm3Results(projectId: string): Promise<Map<string, Form3Result>> {

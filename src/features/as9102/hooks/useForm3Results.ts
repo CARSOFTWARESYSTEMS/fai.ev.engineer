@@ -7,7 +7,7 @@ import type {
   Form3ResultFields,
   Form3Row,
 } from '../types/form3Types'
-import { loadForm3Results, upsertForm3ResultDoc } from '../services/form3Service'
+import { subscribeToForm3Results, upsertForm3ResultDoc } from '../services/form3Service'
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -44,21 +44,34 @@ export function useForm3Results({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const debounces = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Stores the latest uncommitted write data per featureId so we can flush on tab hide
+  // Tracks the latest uncommitted write per featureId so snapshot doesn't overwrite optimistic state
   const pendingWriteData = useRef<Map<string, PendingWriteEntry>>(new Map())
 
   useEffect(() => {
     if (!projectId) return
     setIsLoaded(false)
-    loadForm3Results(projectId)
-      .then(map => {
-        setResults(map)
-        setIsLoaded(true)
+
+    const unsubscribe = subscribeToForm3Results(projectId, firestoreResults => {
+      setResults(prev => {
+        const next = new Map<string, Form3Result>()
+        // Apply all Firestore results except those with pending local writes
+        firestoreResults.forEach(r => {
+          if (!pendingWriteData.current.has(r.featureId)) {
+            next.set(r.featureId, r)
+          }
+        })
+        // Keep optimistic state for pending writes
+        prev.forEach((v, featureId) => {
+          if (pendingWriteData.current.has(featureId)) {
+            next.set(featureId, v)
+          }
+        })
+        return next
       })
-      .catch(err => {
-        console.error('[useForm3Results] load failed:', err)
-        setIsLoaded(true)
-      })
+      setIsLoaded(true)
+    })
+
+    return unsubscribe
   }, [projectId])
 
   const rows: Form3Row[] = useMemo(() => {
@@ -92,6 +105,7 @@ export function useForm3Results({
           result,
           status,
           designedTooling: saved?.designedTooling ?? '',
+          measurementEquipmentUsed: saved?.measurementEquipmentUsed ?? '',
           nonConformanceNumber: saved?.nonConformanceNumber ?? '',
           inspectorNotes: saved?.inspectorNotes ?? f.comments,
           isSaved: !!saved,
@@ -123,7 +137,7 @@ export function useForm3Results({
       return m
     })
 
-    // Track latest pending data so visibilitychange can flush it
+    // Track latest pending data so visibilitychange and snapshot merge can use it
     pendingWriteData.current.set(featureId, { balloonId, characteristicNumber, fields: { ...fields } })
 
     // Debounced Firestore write
@@ -134,7 +148,6 @@ export function useForm3Results({
     debounces.current.set(
       featureId,
       setTimeout(async () => {
-        pendingWriteData.current.delete(featureId)
         const input: Form3ResultInput = {
           projectId,
           featureId,
@@ -154,20 +167,20 @@ export function useForm3Results({
         } catch (err) {
           console.error('[useForm3Results] save failed:', err)
           setSaveStatus('error')
+        } finally {
+          pendingWriteData.current.delete(featureId)
         }
       }, 800),
     )
   }, [projectId, userId])
 
-  // Flush pending writes immediately when the tab becomes hidden (browser close, tab switch)
-  // to minimise data loss from the 800ms debounce window.
+  // Flush pending writes immediately when the tab becomes hidden
   useEffect(() => {
     const onVisibilityChange = () => {
       if (document.visibilityState !== 'hidden') return
       const pending = Array.from(pendingWriteData.current.entries())
       if (pending.length === 0) return
 
-      // Cancel timers and write immediately
       pending.forEach(([fId]) => {
         const timer = debounces.current.get(fId)
         if (timer) {
@@ -188,7 +201,7 @@ export function useForm3Results({
             ...entry.fields,
           }),
         ),
-      ).catch(() => {/* best-effort; errors are non-actionable on tab hide */})
+      ).catch(() => {/* best-effort */})
     }
 
     document.addEventListener('visibilitychange', onVisibilityChange)

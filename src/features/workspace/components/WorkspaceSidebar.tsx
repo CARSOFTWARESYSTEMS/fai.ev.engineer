@@ -52,8 +52,12 @@ interface WorkspaceSidebarProps {
   onToggleTableCollapse: () => void
   onEnsureTableOpenForAdd: () => void
 
-  // Form 3
+  // AS9102 Forms
+  isForm1Open: boolean
+  isForm2Open: boolean
   isForm3Open: boolean
+  onToggleForm1: () => void
+  onToggleForm2: () => void
   onToggleForm3: () => void
 
   // Navigator
@@ -105,7 +109,11 @@ export function WorkspaceSidebar({
   onToggleTableLayout,
   onToggleTableCollapse,
   onEnsureTableOpenForAdd,
+  isForm1Open,
+  isForm2Open,
   isForm3Open,
+  onToggleForm1,
+  onToggleForm2,
   onToggleForm3,
   balloons,
   features,
@@ -235,7 +243,11 @@ export function WorkspaceSidebar({
         >
           <As9102Section
             isExpanded={isExpanded}
+            isForm1Open={isForm1Open}
+            isForm2Open={isForm2Open}
             isForm3Open={isForm3Open}
+            onToggleForm1={onToggleForm1}
+            onToggleForm2={onToggleForm2}
             onToggleForm3={onToggleForm3}
             features={features}
           />

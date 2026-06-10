@@ -12,6 +12,12 @@ interface UseBalloonProps {
   userId: string
 }
 
+interface PendingBalloonDelete {
+  id: string
+  snapshot: Balloon
+  timerId: ReturnType<typeof setTimeout>
+}
+
 const BALLOON_MODE_KEY = 'fai-balloon-placement-enabled'
 
 export function useBalloons({ projectId, userId }: UseBalloonProps) {
@@ -19,10 +25,13 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isBalloonMode, setIsBalloonMode] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [pendingDeleteLabel, setPendingDeleteLabel] = useState<string | null>(null)
 
-  // Track temp IDs for optimistic balloon placement so onSnapshot doesn't remove them
-  // before Firestore confirms the write
+  // Track temp IDs for optimistic placement so onSnapshot doesn't remove them before Firestore confirms
   const pendingTempIds = useRef(new Set<string>())
+  // Track IDs that are "logically deleted" in the UI but not yet in Firestore (undo window)
+  const pendingDeleteIds = useRef(new Set<string>())
+  const pendingDeleteRef = useRef<PendingBalloonDelete | null>(null)
 
   useEffect(() => {
     if (!projectId) return
@@ -34,7 +43,9 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
                pendingTempIds.current.has(b.id) &&
                !firestoreIds.has(b.id),
         )
-        return [...firestoreBalloons, ...activeTemps]
+        // Exclude balloons that are in the undo window (not yet deleted from Firestore)
+        const filtered = firestoreBalloons.filter(b => !pendingDeleteIds.current.has(b.id))
+        return [...filtered, ...activeTemps]
       })
     })
     return unsubscribe
@@ -93,7 +104,6 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
       })
       pendingTempIds.current.delete(tempId)
       setSelectedId(realId)
-      // Remove the optimistic temp; onSnapshot will have already added the real doc
       setBalloons(prev => prev.filter(b => b.id !== tempId))
     } catch (err) {
       console.error('[useBalloons] Firestore write FAILED:', err)
@@ -118,22 +128,69 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
     const snapshot = balloons.find(b => b.id === id)
     if (!snapshot) return
 
+    // Flush any existing pending delete immediately
+    if (pendingDeleteRef.current) {
+      const prev = pendingDeleteRef.current
+      clearTimeout(prev.timerId)
+      pendingDeleteRef.current = null
+      pendingDeleteIds.current.delete(prev.id)
+      deleteBalloonDoc(projectId, prev.id).catch(err =>
+        console.error('[useBalloons] deferred delete failed:', err),
+      )
+    }
+
     setDeleteError(null)
     setSelectedId(null)
+    pendingDeleteIds.current.add(id)
     setBalloons(prev => prev.filter(b => b.id !== id))
+    setPendingDeleteLabel(`Balloon #${snapshot.balloonNumber}`)
 
-    try {
-      await deleteBalloonDoc(projectId, id)
-    } catch (err) {
-      console.error('[Balloons] Delete failed:', err)
-      // Rollback: restore balloon in sorted order
+    const timerId = setTimeout(async () => {
+      pendingDeleteRef.current = null
+      pendingDeleteIds.current.delete(id)
+      setPendingDeleteLabel(null)
+      try {
+        await deleteBalloonDoc(projectId, id)
+      } catch (err) {
+        console.error('[Balloons] Delete failed:', err)
+        setBalloons(prev =>
+          [...prev, snapshot].sort((a, b) => a.balloonNumber - b.balloonNumber),
+        )
+        setSelectedId(id)
+        setDeleteError('Delete failed — balloon restored. Please try again.')
+      }
+    }, 5000)
+
+    pendingDeleteRef.current = { id, snapshot, timerId }
+  }, [selectedId, projectId, balloons])
+
+  const undoBalloonDelete = useCallback(() => {
+    if (!pendingDeleteRef.current) return
+    const { id, snapshot, timerId } = pendingDeleteRef.current
+    clearTimeout(timerId)
+    pendingDeleteRef.current = null
+    pendingDeleteIds.current.delete(id)
+    setPendingDeleteLabel(null)
+    setBalloons(prev => [...prev, snapshot].sort((a, b) => a.balloonNumber - b.balloonNumber))
+    setSelectedId(id)
+  }, [])
+
+  const dismissBalloonDeleteToast = useCallback(() => {
+    if (!pendingDeleteRef.current) return
+    const { id, snapshot, timerId } = pendingDeleteRef.current
+    clearTimeout(timerId)
+    pendingDeleteRef.current = null
+    pendingDeleteIds.current.delete(id)
+    setPendingDeleteLabel(null)
+    deleteBalloonDoc(projectId, id).catch(err => {
+      console.error('[useBalloons] delete failed after dismiss:', err)
       setBalloons(prev =>
         [...prev, snapshot].sort((a, b) => a.balloonNumber - b.balloonNumber),
       )
       setSelectedId(id)
       setDeleteError('Delete failed — balloon restored. Please try again.')
-    }
-  }, [selectedId, projectId, balloons])
+    })
+  }, [projectId])
 
   const clearDeleteError = useCallback(() => setDeleteError(null), [])
 
@@ -143,11 +200,14 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
     isBalloonMode,
     deleteError,
     clearDeleteError,
+    pendingDeleteLabel,
     setSelectedId,
     setBalloonMode,
     toggleBalloonMode,
     addBalloon,
     moveBalloon,
     deleteSelected,
+    undoBalloonDelete,
+    dismissBalloonDeleteToast,
   }
 }

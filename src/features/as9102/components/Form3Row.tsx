@@ -51,6 +51,7 @@ export function Form3Row({
   const rowRef = useRef<HTMLTableRowElement>(null)
   const [result, setResult] = useState(row.result)
   const [designedTooling, setDesignedTooling] = useState(row.designedTooling)
+  const [measurementEquipmentUsed, setMeasurementEquipmentUsed] = useState(row.measurementEquipmentUsed)
   const [nonConformanceNumber, setNonConformanceNumber] = useState(row.nonConformanceNumber)
   const [inspectorNotes, setInspectorNotes] = useState(row.inspectorNotes)
   const [validationMessage, setValidationMessage] = useState('')
@@ -58,16 +59,14 @@ export function Form3Row({
   useEffect(() => {
     if (isSelected) rowRef.current?.scrollIntoView({ block: 'nearest' })
   }, [isSelected])
-
-  useEffect(() => {
-    if (isFocused) rowRef.current?.scrollIntoView({ block: 'nearest' })
-  }, [isFocused])
+  // isFocused scroll is handled by the virtualizer in Form3Table — no scrollIntoView needed here
 
   const fire = (overrides: Partial<Form3ResultFields>) => {
     onUpdate(row.featureId, row.balloonId, row.characteristicNumber, {
       result: overrides.result ?? result,
       status: overrides.status ?? row.status,
       designedTooling: overrides.designedTooling ?? designedTooling,
+      measurementEquipmentUsed: overrides.measurementEquipmentUsed ?? measurementEquipmentUsed,
       nonConformanceNumber: overrides.nonConformanceNumber ?? nonConformanceNumber,
       inspectorNotes: overrides.inspectorNotes ?? inspectorNotes,
     })
@@ -97,7 +96,7 @@ export function Form3Row({
         row.isLinked ? 'cursor-pointer' : '',
         ROW_BG[row.status],
         isSelected ? 'ring-2 ring-inset ring-primary bg-blue-50' :
-        isFocused ? 'ring-1 ring-inset ring-primary/40 bg-primary/5' : '',
+        isFocused ? 'border-l-[3px] border-primary bg-primary/8' : '',
       ].join(' ')}
     >
       {/* Char No — sticky left */}
@@ -207,6 +206,20 @@ export function Form3Row({
           onChange={e => {
             setDesignedTooling(e.target.value)
             fire({ designedTooling: e.target.value })
+          }}
+          className="w-full bg-transparent border border-transparent rounded px-1.5 py-0.5 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:border-primary focus:bg-white transition-colors"
+        />
+      </td>
+
+      {/* Measurement Equipment Used */}
+      <td className={`${cell} min-w-[170px]`}>
+        <input
+          type="text"
+          value={measurementEquipmentUsed}
+          placeholder="Equipment used…"
+          onChange={e => {
+            setMeasurementEquipmentUsed(e.target.value)
+            fire({ measurementEquipmentUsed: e.target.value })
           }}
           className="w-full bg-transparent border border-transparent rounded px-1.5 py-0.5 text-xs text-gray-700 placeholder-gray-300 focus:outline-none focus:border-primary focus:bg-white transition-colors"
         />

@@ -15,6 +15,7 @@ export const FORM3_EXPORT_COLUMNS = [
   { key: 'result',                          label: 'Results',                            wch: 16 },
   { key: 'status',                          label: 'Status',                             wch: 10 },
   { key: 'designedTooling',                 label: 'Designed Tooling',                   wch: 22 },
+  { key: 'measurementEquipmentUsed',        label: 'Measurement Equipment Used',         wch: 28 },
   { key: 'nonConformanceNumber',            label: 'Non-Conformance Number',             wch: 26 },
   { key: 'inspectorNotes',                  label: 'Inspector Notes',                    wch: 32 },
 ] as const

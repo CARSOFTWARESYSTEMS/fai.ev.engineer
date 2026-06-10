@@ -1,7 +1,10 @@
-import { X, ClipboardList, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, ClipboardList, CheckCircle2, AlertCircle, Loader2, Info } from 'lucide-react'
 import type { SaveStatus } from '../hooks/useForm3Results'
 import type { Form3ResultFields, Form3Row } from '../types/form3Types'
 import { Form3Table } from './Form3Table'
+
+const KEYBOARD_HINT_KEY = 'fai-form3-keyboard-hint-shown'
 
 interface Form3PanelProps {
   projectName: string
@@ -24,14 +27,12 @@ interface Form3PanelProps {
 function SaveIndicator({ status }: { status: 'idle' | 'saving' | 'saved' | 'error' }) {
   if (status === 'idle') return null
   return (
-    <span
-      className={[
-        'inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full',
-        status === 'saving' ? 'text-gray-500 bg-gray-100' :
-        status === 'saved'  ? 'text-green-700 bg-green-50' :
-        'text-red-600 bg-red-50',
-      ].join(' ')}
-    >
+    <span className={[
+      'inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded-full',
+      status === 'saving' ? 'text-gray-500 bg-gray-100' :
+      status === 'saved'  ? 'text-green-700 bg-green-50' :
+      'text-red-600 bg-red-50',
+    ].join(' ')}>
       {status === 'saving' && <Loader2 className="w-3 h-3 animate-spin" />}
       {status === 'saved'  && <CheckCircle2 className="w-3 h-3" />}
       {status === 'error'  && <AlertCircle className="w-3 h-3" />}
@@ -40,14 +41,18 @@ function SaveIndicator({ status }: { status: 'idle' | 'saving' | 'saved' | 'erro
   )
 }
 
-function StatusSummary({ rows }: { rows: Form3Row[] }) {
-  const pass    = rows.filter(r => r.status === 'pass').length
-  const fail    = rows.filter(r => r.status === 'fail').length
-  const pending = rows.filter(r => r.status === 'pending').length
-  const completion = rows.length === 0 ? 0 : Math.round(((pass + fail) / rows.length) * 100)
+function StatusSummary({ rows, pageFilter }: { rows: Form3Row[]; pageFilter: number | null }) {
+  const filtered = pageFilter !== null ? rows.filter(r => r.pageNumber === pageFilter) : rows
+  const pass    = filtered.filter(r => r.status === 'pass').length
+  const fail    = filtered.filter(r => r.status === 'fail').length
+  const pending = filtered.filter(r => r.status === 'pending').length
+  const completion = filtered.length === 0 ? 0 : Math.round(((pass + fail) / filtered.length) * 100)
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
-      <span className="text-text-secondary"><strong>{rows.length}</strong> total characteristics</span>
+      {pageFilter !== null && (
+        <span className="text-text-secondary font-medium">Page {pageFilter} ·</span>
+      )}
+      <span className="text-text-secondary"><strong>{filtered.length}</strong> characteristics</span>
       <span className="flex items-center gap-1 text-green-700 font-medium">
         <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
         {pass} pass
@@ -77,6 +82,24 @@ export function Form3Panel({
   onUpdate,
   onClose,
 }: Form3PanelProps) {
+  const [pageFilter, setPageFilter] = useState<number | null>(null)
+  const [showKeyboardHint, setShowKeyboardHint] = useState(false)
+
+  // Show keyboard shortcut hint on first open
+  useEffect(() => {
+    if (!localStorage.getItem(KEYBOARD_HINT_KEY)) {
+      setShowKeyboardHint(true)
+    }
+  }, [])
+
+  const dismissHint = () => {
+    localStorage.setItem(KEYBOARD_HINT_KEY, '1')
+    setShowKeyboardHint(false)
+  }
+
+  // Derive unique pages for the filter bar
+  const pages = Array.from(new Set(rows.map(r => r.pageNumber).filter(p => p > 0))).sort((a, b) => a - b)
+
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
 
@@ -91,9 +114,7 @@ export function Form3Panel({
             </div>
             <div className="min-w-0">
               <div className="flex items-baseline gap-2">
-                <h1 className="text-sm font-bold text-gray-900 whitespace-nowrap">
-                  AS9102 Form 3
-                </h1>
+                <h1 className="text-sm font-bold text-gray-900 whitespace-nowrap">AS9102 Form 3</h1>
                 <span className="text-xs text-text-secondary hidden sm:inline">
                   First Article Inspection Report
                 </span>
@@ -111,13 +132,7 @@ export function Form3Panel({
             <button
               type="button"
               onClick={onClose}
-              title="Close Form 3"
-              aria-label="Close Form 3"
-              className={[
-                'inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-2.5',
-                'text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-              ].join(' ')}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-2.5 text-xs font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-400 hover:bg-gray-50 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               <X className="w-4 h-4" />
               <span className="hidden sm:inline">Close Form 3</span>
@@ -125,13 +140,65 @@ export function Form3Panel({
           </div>
         </div>
 
-        {/* Stats bar */}
+        {/* Stats + page filter bar */}
         {isLoaded && rows.length > 0 && (
-          <div className="px-5 py-1.5 border-t border-gray-100 bg-gray-50">
-            <StatusSummary rows={rows} />
+          <div className="px-5 py-1.5 border-t border-gray-100 bg-gray-50 flex items-center gap-4 flex-wrap">
+            <StatusSummary rows={rows} pageFilter={pageFilter} />
+            {pages.length > 1 && (
+              <div className="flex items-center gap-1 ml-auto flex-wrap shrink-0">
+                <span className="text-[10px] text-gray-400 mr-1">Page:</span>
+                <button
+                  onClick={() => setPageFilter(null)}
+                  className={[
+                    'px-2 py-0.5 rounded text-[10px] font-medium border transition-all',
+                    pageFilter === null
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-primary hover:text-primary',
+                  ].join(' ')}
+                >
+                  All
+                </button>
+                {pages.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPageFilter(p === pageFilter ? null : p)}
+                    className={[
+                      'px-2 py-0.5 rounded text-[10px] font-medium border transition-all',
+                      pageFilter === p
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-primary hover:text-primary',
+                    ].join(' ')}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* ── First-time keyboard hint ─────────────────────────────────────── */}
+      {showKeyboardHint && (
+        <div className="shrink-0 bg-blue-50 border-b border-blue-100 px-5 py-2 flex items-center gap-3">
+          <Info className="w-4 h-4 text-blue-500 shrink-0" />
+          <p className="text-xs text-blue-700 flex-1">
+            <strong>Keyboard shortcuts:</strong>
+            {' '}<kbd className="font-mono bg-blue-100 text-blue-700 rounded px-1">↑↓</kbd> navigate rows,{' '}
+            <kbd className="font-mono bg-blue-100 text-blue-700 rounded px-1">P</kbd> Pass,{' '}
+            <kbd className="font-mono bg-blue-100 text-blue-700 rounded px-1">F</kbd> Fail,{' '}
+            <kbd className="font-mono bg-blue-100 text-blue-700 rounded px-1">N</kbd> Pending
+            <span className="ml-1 text-blue-500">(P requires a Result value first)</span>
+          </p>
+          <button
+            type="button"
+            onClick={dismissHint}
+            className="text-blue-400 hover:text-blue-600 transition-colors text-xs shrink-0"
+          >
+            Got it
+          </button>
+        </div>
+      )}
 
       {/* ── Content ────────────────────────────────────────────────────────── */}
       {!isLoaded ? (
@@ -152,6 +219,7 @@ export function Form3Panel({
         <Form3Table
           rows={rows}
           selectedBalloonId={selectedBalloonId}
+          pageFilter={pageFilter}
           onSelectBalloon={onSelectBalloon}
           onUpdate={onUpdate}
         />

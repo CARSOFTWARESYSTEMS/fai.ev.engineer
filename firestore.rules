@@ -98,6 +98,22 @@ service cloud.firestore {
         allow update: if isProjectOwner(projectId);
         allow delete: if isProjectOwner(projectId);
       }
+
+      // ── projects/{projectId}/form1/{form1Id} ─────────────────────────────
+      match /form1/{form1Id} {
+        allow read:   if isProjectOwner(projectId);
+        allow create: if isProjectOwner(projectId);
+        allow update: if isProjectOwner(projectId);
+        allow delete: if isProjectOwner(projectId);
+      }
+
+      // ── projects/{projectId}/form2Rows/{rowId} ───────────────────────────
+      match /form2Rows/{rowId} {
+        allow read:   if isProjectOwner(projectId);
+        allow create: if isProjectOwner(projectId);
+        allow update: if isProjectOwner(projectId);
+        allow delete: if isProjectOwner(projectId);
+      }
     }
   }
 }

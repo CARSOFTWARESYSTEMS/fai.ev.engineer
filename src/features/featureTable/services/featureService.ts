@@ -7,6 +7,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  onSnapshot,
   serverTimestamp,
   type FieldValue,
 } from 'firebase/firestore'
@@ -18,6 +19,21 @@ import type { Feature, FeatureInput, FeatureUpdateInput } from '../types/feature
 type FeatureWriteDoc = Omit<Feature, 'id' | 'createdAt' | 'updatedAt'> & {
   createdAt: FieldValue
   updatedAt: FieldValue
+}
+
+export function subscribeToFeatures(
+  projectId: string,
+  onUpdate: (features: Feature[]) => void,
+): () => void {
+  const q = query(
+    collection(firestore, 'projects', projectId, 'features'),
+    orderBy('featureNumber', 'asc'),
+  )
+  return onSnapshot(
+    q,
+    snap => onUpdate(snap.docs.map(d => ({ id: d.id, ...d.data() }) as Feature)),
+    err => console.error('[featureService] snapshot error:', err),
+  )
 }
 
 export async function loadFeatures(projectId: string): Promise<Feature[]> {

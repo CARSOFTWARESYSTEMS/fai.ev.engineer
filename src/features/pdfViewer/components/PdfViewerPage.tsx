@@ -13,8 +13,13 @@ import { useBalloons } from '../../ballooning/hooks/useBalloons'
 import { BalloonLayer } from '../../ballooning/components/BalloonLayer'
 import { useFeatures } from '../../featureTable/hooks/useFeatures'
 import { FeatureTablePanel } from '../../featureTable/components/FeatureTablePanel'
+import { Form1Panel } from '../../as9102/components/Form1Panel'
+import { Form2Panel } from '../../as9102/components/Form2Panel'
 import { Form3Panel } from '../../as9102/components/Form3Panel'
+import { useForm1 } from '../../as9102/hooks/useForm1'
+import { useForm2 } from '../../as9102/hooks/useForm2'
 import { useForm3Results } from '../../as9102/hooks/useForm3Results'
+import { UndoToast } from '../../../components/ui/UndoToast'
 import { WorkspaceSidebar } from '../../workspace/components/WorkspaceSidebar'
 import { useWorkspaceSidebarPreferences } from '../../workspace/hooks/useWorkspaceSidebarPreferences'
 import type { WorkspaceMode } from '../../workspace/types/workspaceTypes'
@@ -83,6 +88,8 @@ export function PdfViewerPage() {
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() =>
     localStorage.getItem('fai-feature-table-collapsed') === 'true'
   )
+  const [isForm1Open, setIsForm1Open] = useState(false)
+  const [isForm2Open, setIsForm2Open] = useState(false)
   const [isForm3Open, setIsForm3Open] = useState(false)
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
@@ -150,6 +157,8 @@ export function PdfViewerPage() {
   const viewer = usePdfViewer()
   const balloons = useBalloons({ projectId: projectId ?? '', userId: user?.uid ?? '' })
   const features = useFeatures({ projectId: projectId ?? '', userId: user?.uid ?? '' })
+  const form1 = useForm1({ projectId: projectId ?? '' })
+  const form2 = useForm2({ projectId: projectId ?? '' })
   const workspace = useWorkspaceSidebarPreferences()
   const didRestoreBalloonMode = useRef(false)
   const form3 = useForm3Results({
@@ -363,6 +372,17 @@ export function PdfViewerPage() {
     })
   }, [])
 
+  // P8: Clear balloon selection when navigating to a page where the selected balloon does not live
+  useEffect(() => {
+    if (!balloons.selectedId) return
+    const selected = balloons.balloons.find(b => b.id === balloons.selectedId)
+    if (selected && selected.pageNumber !== viewer.currentPage) {
+      balloons.setSelectedId(null)
+    }
+  // We only want to run this when the page changes, not on every balloon list update
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer.currentPage])
+
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (isLoading) {
     const loadingMessage = loadPhase === 'project'
@@ -468,7 +488,11 @@ export function PdfViewerPage() {
           onToggleTableLayout={toggleTableLayout}
           onToggleTableCollapse={toggleCollapsed}
           onEnsureTableOpenForAdd={handleEnsureTableOpenForAdd}
+          isForm1Open={isForm1Open}
+          isForm2Open={isForm2Open}
           isForm3Open={isForm3Open}
+          onToggleForm1={() => setIsForm1Open(o => !o)}
+          onToggleForm2={() => setIsForm2Open(o => !o)}
           onToggleForm3={() => setIsForm3Open(o => !o)}
           balloons={balloons.balloons}
           features={features.features}
@@ -573,6 +597,29 @@ export function PdfViewerPage() {
         </div>
       </div>
 
+      {/* AS9102 Form 1 — full-screen overlay */}
+      {isForm1Open && (
+        <Form1Panel
+          data={form1.data}
+          isLoaded={form1.isLoaded}
+          saveStatus={form1.saveStatus}
+          onUpdate={form1.updateField}
+          onClose={() => setIsForm1Open(false)}
+        />
+      )}
+
+      {/* AS9102 Form 2 — full-screen overlay */}
+      {isForm2Open && (
+        <Form2Panel
+          rows={form2.rows}
+          isLoaded={form2.isLoaded}
+          onAddRow={form2.addRow}
+          onUpdateRow={form2.updateRow}
+          onDeleteRow={form2.deleteRow}
+          onClose={() => setIsForm2Open(false)}
+        />
+      )}
+
       {/* AS9102 Form 3 — full-screen overlay */}
       {isForm3Open && (
         <Form3Panel
@@ -587,6 +634,30 @@ export function PdfViewerPage() {
           onUpdate={form3.updateRow}
           onClose={() => setIsForm3Open(false)}
         />
+      )}
+
+      {/* Undo toasts — bottom-center, stacked */}
+      {(balloons.pendingDeleteLabel || features.pendingDeleteLabel) && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 items-center pointer-events-none">
+          {balloons.pendingDeleteLabel && (
+            <div className="pointer-events-auto">
+              <UndoToast
+                message={`${balloons.pendingDeleteLabel} deleted`}
+                onUndo={balloons.undoBalloonDelete}
+                onDismiss={balloons.dismissBalloonDeleteToast}
+              />
+            </div>
+          )}
+          {features.pendingDeleteLabel && (
+            <div className="pointer-events-auto">
+              <UndoToast
+                message={`${features.pendingDeleteLabel} deleted`}
+                onUndo={features.undoFeatureDelete}
+                onDismiss={features.dismissFeatureDeleteToast}
+              />
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

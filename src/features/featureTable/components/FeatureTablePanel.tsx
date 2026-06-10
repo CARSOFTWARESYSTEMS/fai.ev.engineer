@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { PlusCircle, TableProperties, PanelRight, PanelBottom, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Balloon } from '../../ballooning/types/balloonTypes'
 import type { Form3Status } from '../../as9102/types/form3Types'
@@ -6,8 +7,8 @@ import type { Feature, FeatureInput, FeatureFormData } from '../types/featureTyp
 import { FeatureTableRow } from './FeatureTableRow'
 import { FeatureEditor } from './FeatureEditor'
 
-// Sentinel: editing a new (unsaved) feature
 const NEW = '__new'
+const ROW_HEIGHT = 34
 
 interface FeatureTablePanelProps {
   features: Feature[]
@@ -43,11 +44,12 @@ export function FeatureTablePanel({
   onToggleCollapse,
 }: FeatureTablePanelProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Close the new-feature editor when the selected balloon changes
   useEffect(() => {
     if (editingId === NEW) setEditingId(null)
-  }, [selectedBalloonId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBalloonId])
 
   const selectedBalloon = selectedBalloonId
     ? balloons.find(b => b.id === selectedBalloonId) ?? null
@@ -61,12 +63,25 @@ export function FeatureTablePanel({
     ? 1
     : Math.max(...features.map(f => f.featureNumber)) + 1
 
-  const canAddFeature =
-    selectedBalloon !== null &&
-    linkedFeature === null &&
-    editingId !== NEW
+  const canAddFeature = selectedBalloon !== null && linkedFeature === null && editingId !== NEW
 
-  // ── handlers ──────────────────────────────────────────────────────────────
+  // Only virtualize when not editing (editor rows have variable height)
+  const shouldVirtualize = editingId === null && features.length > 0
+
+  const virtualizer = useVirtualizer({
+    count: shouldVirtualize ? features.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 6,
+    enabled: shouldVirtualize,
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+  const totalSize = virtualizer.getTotalSize()
+  const paddingTop = shouldVirtualize && virtualItems.length > 0 ? virtualItems[0].start : 0
+  const paddingBottom = shouldVirtualize && virtualItems.length > 0
+    ? totalSize - virtualItems[virtualItems.length - 1].end
+    : 0
 
   const handleSaveNew = (data: FeatureFormData) => {
     if (!selectedBalloon) return
@@ -91,8 +106,6 @@ export function FeatureTablePanel({
     if (editingId === featureId) setEditingId(null)
     onDeleteFeature(featureId)
   }
-
-  // ── render ─────────────────────────────────────────────────────────────────
 
   const COLS = ['#', 'B', 'Status', 'Type', 'Nominal', 'Tol', 'Min', 'Max', 'Units', 'Comments', '']
 
@@ -158,7 +171,6 @@ export function FeatureTablePanel({
 
       {!isCollapsed && (
         <>
-          {/* Context hint */}
           {!selectedBalloon && features.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-text-secondary">
               <TableProperties className="w-10 h-10 mb-3 text-border" />
@@ -174,9 +186,8 @@ export function FeatureTablePanel({
             </div>
           )}
 
-          {/* Table */}
           {(features.length > 0 || editingId === NEW) && (
-            <div className="flex-1 overflow-auto">
+            <div ref={scrollRef} className="flex-1 overflow-auto">
               <table className="w-full text-xs border-collapse">
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
@@ -191,28 +202,58 @@ export function FeatureTablePanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {features.map(f =>
-                    editingId === f.id ? (
-                      <FeatureEditor
-                        key={f.id}
-                        feature={f}
-                        balloonNumber={f.balloonNumber}
-                        defaultFeatureNumber={f.featureNumber}
-                        onSave={(data) => handleSaveEdit(f.id, data)}
-                        onCancel={() => setEditingId(null)}
-                      />
-                    ) : (
-                      <FeatureTableRow
-                        key={f.id}
-                        feature={f}
-                        isSelected={selectedBalloon?.id === f.balloonId}
-                        linkedBalloon={balloons.find(b => b.id === f.balloonId) ?? null}
-                        status={statusByFeatureId.get(f.id) ?? 'pending'}
-                        onEdit={setEditingId}
-                        onDelete={handleDelete}
-                        onSelectBalloon={onSelectBalloon}
-                      />
-                    )
+                  {/* Virtualized rendering when not editing */}
+                  {shouldVirtualize ? (
+                    <>
+                      {paddingTop > 0 && (
+                        <tr><td style={{ height: paddingTop }} colSpan={COLS.length} /></tr>
+                      )}
+                      {virtualItems.map(vRow => {
+                        const f = features[vRow.index]
+                        return (
+                          <FeatureTableRow
+                            key={f.id}
+                            feature={f}
+                            isSelected={selectedBalloon?.id === f.balloonId}
+                            linkedBalloon={balloons.find(b => b.id === f.balloonId) ?? null}
+                            status={statusByFeatureId.get(f.id) ?? 'pending'}
+                            onEdit={setEditingId}
+                            onDelete={handleDelete}
+                            onSelectBalloon={onSelectBalloon}
+                          />
+                        )
+                      })}
+                      {paddingBottom > 0 && (
+                        <tr><td style={{ height: paddingBottom }} colSpan={COLS.length} /></tr>
+                      )}
+                    </>
+                  ) : (
+                    // Full render when editing (editor row has variable height)
+                    <>
+                      {features.map(f =>
+                        editingId === f.id ? (
+                          <FeatureEditor
+                            key={f.id}
+                            feature={f}
+                            balloonNumber={f.balloonNumber}
+                            defaultFeatureNumber={f.featureNumber}
+                            onSave={(data) => handleSaveEdit(f.id, data)}
+                            onCancel={() => setEditingId(null)}
+                          />
+                        ) : (
+                          <FeatureTableRow
+                            key={f.id}
+                            feature={f}
+                            isSelected={selectedBalloon?.id === f.balloonId}
+                            linkedBalloon={balloons.find(b => b.id === f.balloonId) ?? null}
+                            status={statusByFeatureId.get(f.id) ?? 'pending'}
+                            onEdit={setEditingId}
+                            onDelete={handleDelete}
+                            onSelectBalloon={onSelectBalloon}
+                          />
+                        )
+                      )}
+                    </>
                   )}
                   {editingId === NEW && selectedBalloon && (
                     <FeatureEditor
