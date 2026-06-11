@@ -157,9 +157,9 @@ export async function updateProject(
   if (data.description !== undefined) patch.description = data.description.trim()
   if (data.status      !== undefined) patch.status      = data.status
 
-  const isAdmin = callerRole === 'admin' || callerRole === 'super_admin'
-  if (isAdmin && data.priority !== undefined) patch.priority = data.priority
-  if (isAdmin && data.dueDate !== undefined) {
+  const isManager = callerRole === 'admin' || callerRole === 'super_admin' || callerRole === 'manager'
+  if (isManager && data.priority !== undefined) patch.priority = data.priority
+  if (isManager && data.dueDate !== undefined) {
     const [year, month, day] = data.dueDate.split('-').map(Number)
     const dueDate = new Date(year, month - 1, day)
     if (
@@ -190,7 +190,7 @@ export async function deleteProject(projectId: string, _uid: string, userEmail: 
 
   const userSnap = await getDoc(doc(firestore, 'users', _uid))
   const role = userSnap.data()?.role
-  if (role !== 'admin' && role !== 'super_admin') {
+  if (role !== 'admin' && role !== 'super_admin' && role !== 'manager') {
     throw new Error('Insufficient permissions to delete project')
   }
 

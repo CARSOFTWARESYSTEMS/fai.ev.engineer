@@ -208,7 +208,7 @@ export function ProjectsPage() {
   const [searchParams] = useSearchParams()
   const { user, firebaseUser } = useAuth()
   const { productConfig, canAccess } = useProductConfig()
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
 
   const [projects, setProjects]   = useState<FAIProject[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -258,7 +258,7 @@ export function ProjectsPage() {
 
   // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
-    if (!isAdmin || !projectToDelete || !firebaseUser) return
+    if (!isManager || !projectToDelete || !firebaseUser) return
     setIsDeleting(true)
     try {
       await deleteProject(projectToDelete.projectId, firebaseUser.uid, firebaseUser.email ?? '')
@@ -356,7 +356,7 @@ export function ProjectsPage() {
                   <KanbanCard
                     key={project.projectId}
                     project={project}
-                    canDelete={isAdmin}
+                    canDelete={isManager}
                     onDelete={setProjectToDelete}
                   />
                 ))
@@ -568,7 +568,7 @@ export function ProjectsPage() {
                     <KanbanCard
                       key={project.projectId}
                       project={project}
-                      canDelete={isAdmin}
+                      canDelete={isManager}
                       onDelete={setProjectToDelete}
                     />
                   ))}
@@ -647,7 +647,7 @@ export function ProjectsPage() {
                       <Pencil className="w-3.5 h-3.5" />
                       Edit
                     </Link>
-                    {isAdmin && (
+                    {isManager && (
                       <button
                         onClick={() => setProjectToDelete(project)}
                         className="ml-auto inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
@@ -669,7 +669,7 @@ export function ProjectsPage() {
       </main>
 
       {/* Delete modal */}
-      {isAdmin && projectToDelete && (
+      {isManager && projectToDelete && (
         <DeleteProjectModal
           projectName={projectToDelete.projectName}
           isDeleting={isDeleting}

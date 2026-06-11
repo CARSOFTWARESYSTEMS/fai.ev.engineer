@@ -98,7 +98,7 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
     organizationCode: toOrgCode(orgName),
     organizationName: orgName,
     gstNumber: gstNumber.trim(),
-    role: 'user',
+    role: 'engineer',
     profileCompleted: true,
     subscriptionPlan: 'trial',
     createdAt: serverTimestamp(),
@@ -144,7 +144,7 @@ export async function updateUserProfile(
       gstNumber: data.gstNumber.trim(),
       updatedAt: serverTimestamp(),
     }
-    if (data.role === 'user' || data.role === 'admin') {
+    if (data.role) {
       const currentProfile = await getDoc(doc(firestore, 'users', uid))
       if (currentProfile.data()?.role !== 'super_admin') patch.role = data.role
     }

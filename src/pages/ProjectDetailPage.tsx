@@ -175,7 +175,7 @@ export function ProjectDetailPage() {
   }, [projectId, user?.uid])
 
   const handleDeleteConfirm = async () => {
-    const canDelete = user?.role === 'admin' || user?.role === 'super_admin'
+    const canDelete = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
     if (!canDelete || !projectId || !user) return
     setIsDeleting(true)
     setDeleteError('')
@@ -217,7 +217,7 @@ export function ProjectDetailPage() {
   }
 
   const statusClass = PROJECT_STATUS_COLORS[project.status]
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isManager = user?.role === 'admin' || user?.role === 'super_admin'
   const priority = normalisePriority(project.priority)
   const priorityLabel = getPriorityLabel(priority)
   const priorityClass = getPriorityBadgeClass(priority)
@@ -292,7 +292,7 @@ export function ProjectDetailPage() {
               <Pencil className="w-4 h-4" />
               <span className="hidden sm:inline">Edit</span>
             </Link>
-            {isAdmin && (
+            {isManager && (
               <button
                 onClick={() => setShowDelete(true)}
                 className="inline-flex items-center gap-2 px-4 py-2.5 text-red-600 font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
@@ -519,7 +519,7 @@ export function ProjectDetailPage() {
         </div>
       </main>
 
-      {isAdmin && showDelete && (
+      {isManager && showDelete && (
         <DeleteProjectModal
           projectName={project.projectName}
           isDeleting={isDeleting}

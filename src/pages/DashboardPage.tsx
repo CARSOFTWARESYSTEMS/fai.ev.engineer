@@ -115,7 +115,7 @@ export function DashboardPage() {
   const { user, firebaseUser } = useAuth()
   const { productKey, productConfig, organizationConfig, usingDefaultOrgConfig, canAccess } = useProductConfig()
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
 
   const [projects, setProjects]               = useState<FAIProject[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
@@ -142,7 +142,7 @@ export function DashboardPage() {
   }, [firebaseUser?.uid])
 
   const handleDeleteConfirm = async () => {
-    if (!isAdmin || !projectToDelete || !firebaseUser) return
+    if (!isManager || !projectToDelete || !firebaseUser) return
     setIsDeleting(true)
     try {
       await deleteProject(projectToDelete.projectId, firebaseUser.uid, firebaseUser.email ?? '')
@@ -506,7 +506,7 @@ export function DashboardPage() {
                         <Pencil className="w-3 h-3" />
                         Edit
                       </Link>
-                      {isAdmin && (
+                      {isManager && (
                         <button
                           onClick={() => setProjectToDelete(project)}
                           className="ml-auto inline-flex items-center justify-center w-7 h-7 text-text-secondary hover:text-error hover:bg-red-50 rounded-lg transition-colors">
@@ -523,7 +523,7 @@ export function DashboardPage() {
         </div>
 
         {/* ── 4. Product & Org Config — admin only ─────────────────────────── */}
-        {isAdmin && (
+        {isManager && (
           <div className="card p-5">
             <div className="flex items-center gap-2 mb-4">
               <Key className="w-4 h-4 text-primary" />
@@ -583,7 +583,7 @@ export function DashboardPage() {
 
       </main>
 
-      {isAdmin && projectToDelete && (
+      {isManager && projectToDelete && (
         <DeleteProjectModal
           projectName={projectToDelete.projectName}
           isDeleting={isDeleting}

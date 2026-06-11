@@ -52,7 +52,9 @@ export function ProfilePage() {
   const [orgName, setOrgName] = useState(user?.organizationName ?? '')
   const [orgCode, setOrgCode] = useState(user?.organizationCode ?? 'default')
   const [gst, setGst] = useState(user?.gstNumber ?? '')
-  const [adminEnabled, setAdminEnabled] = useState(user?.role === 'admin')
+  const [managerEnabled, setManagerEnabled] = useState(
+    user?.role === 'admin' || user?.role === 'manager'
+  )
 
   // Track whether user manually edited orgCode
   const [orgCodeCustomized, setOrgCodeCustomized] = useState(false)
@@ -69,7 +71,7 @@ export function ProfilePage() {
     setOrgName(user.organizationName ?? '')
     setOrgCode(user.organizationCode ?? 'default')
     setGst(user.gstNumber ?? '')
-    setAdminEnabled(user.role === 'admin')
+    setManagerEnabled(user.role === 'admin' || user.role === 'manager')
   }, [user])
 
   // Auto-update orgCode when orgName changes (unless manually customized)
@@ -115,7 +117,7 @@ export function ProfilePage() {
         organizationName: orgName.trim(),
         organizationCode: orgCode.trim() || 'default',
         gstNumber: gst.trim(),
-        ...(user?.role === 'super_admin' ? {} : { role: adminEnabled ? 'admin' : 'user' }),
+        ...(user?.role === 'super_admin' ? {} : { role: managerEnabled ? 'manager' : 'engineer' }),
       })
       await refreshProfile()
       setSuccess(true)
@@ -349,7 +351,7 @@ export function ProfilePage() {
                   <Shield className="w-4 h-4 text-purple-700" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-primary">Admin Mode</p>
+                  <p className="text-sm font-semibold text-text-primary">Manager Mode</p>
                   {user.role === 'super_admin' ? (
                     <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2.5">
                       <p className="text-sm font-semibold text-purple-700">Super Admin access enabled</p>
@@ -357,15 +359,15 @@ export function ProfilePage() {
                   ) : (
                     <label className="mt-2 flex items-center justify-between gap-4 cursor-pointer">
                       <div>
-                        <span className="block text-sm font-medium text-text-primary">Enable Admin Access</span>
+                        <span className="block text-sm font-medium text-text-primary">Enable Manager Access</span>
                         <span className="block text-xs text-text-secondary mt-1 leading-relaxed">
-                          Temporary internal testing option. Later this will be controlled by organization roles.
+                          Grants delete, priority, and due date controls. Later this will be controlled by organization roles.
                         </span>
                       </div>
                       <input
                         type="checkbox"
-                        checked={adminEnabled}
-                        onChange={(e) => setAdminEnabled(e.target.checked)}
+                        checked={managerEnabled}
+                        onChange={(e) => setManagerEnabled(e.target.checked)}
                         className="sr-only peer"
                       />
                       <span className="relative w-11 h-6 rounded-full bg-gray-200 peer-checked:bg-primary transition-colors shrink-0 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:bg-white after:rounded-full after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />

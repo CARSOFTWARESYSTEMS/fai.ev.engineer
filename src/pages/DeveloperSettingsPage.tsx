@@ -307,7 +307,7 @@ function DeveloperCard({
 
 // ─── Developers tab ───────────────────────────────────────────────────────────
 
-function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
+function DevelopersTab({ currentEmail, canManage }: { currentEmail: string | null; canManage: boolean }) {
   const [firestoreDevs, setFirestoreDevs] = useState<DeveloperRecord[]>([])
 
   const [addEmail,       setAddEmail]       = useState('')
@@ -426,8 +426,8 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
                   </span>
                 )}
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
-                  bg-primary-light text-primary border border-primary/20 shrink-0">
-                  bootstrap
+                  bg-purple-100 text-purple-700 border border-purple-200 shrink-0">
+                  Super Admin
                 </span>
               </div>
             )
@@ -452,14 +452,21 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
             : undefined
         }
         headerRight={
-          <button
-            onClick={() => { setManagedCardOpen(true); setAddFormOpen(true); setAddError('') }}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold
-              px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Developer
-          </button>
+          canManage ? (
+            <button
+              onClick={() => { setManagedCardOpen(true); setAddFormOpen(true); setAddError('') }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold
+                px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Developer
+            </button>
+          ) : (
+            <span className="text-[10px] font-semibold text-text-secondary bg-gray-100
+              px-2.5 py-1 rounded-lg border border-border">
+              View only
+            </span>
+          )
         }
       >
         <div className="flex flex-col gap-3">
@@ -468,8 +475,8 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
             <FeedbackBanner type="success" message="Developer added successfully." />
           )}
 
-          {/* Add form */}
-          {addFormOpen && (
+          {/* Add form — only visible to admin developers */}
+          {canManage && addFormOpen && (
             <div className="p-4 rounded-xl border border-primary/20 bg-primary-light/30 flex flex-col gap-3">
               <p className="text-xs font-bold text-primary uppercase tracking-wide">New Developer</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -942,7 +949,7 @@ function ConfigurationsTab() {
 
 export function DeveloperSettingsPage() {
   const { firebaseUser } = useAuth()
-  const { isDeveloper, isBootstrap, isLoading } = useDeveloperAccess()
+  const { isDeveloper, isBootstrap, isDeveloperAdmin, isLoading } = useDeveloperAccess()
   const [activeTab, setActiveTab] = useState<Tab>('developers')
 
   if (isLoading) {
@@ -956,7 +963,7 @@ export function DeveloperSettingsPage() {
   if (!isDeveloper) return <AccessDenied />
 
   const TABS: { id: Tab; label: string; icon: typeof Code2 }[] = [
-    { id: 'developers',     label: 'Developers',     icon: Users     },
+    { id: 'developers',     label: 'User Management', icon: Users     },
     { id: 'configurations', label: 'Configurations', icon: Settings2 },
   ]
 
@@ -1029,7 +1036,7 @@ export function DeveloperSettingsPage() {
         </div>
 
         {/* Tab content */}
-        {activeTab === 'developers'     && <DevelopersTab currentEmail={firebaseUser?.email ?? null} />}
+        {activeTab === 'developers'     && <DevelopersTab currentEmail={firebaseUser?.email ?? null} canManage={isDeveloperAdmin} />}
         {activeTab === 'configurations' && <ConfigurationsTab />}
 
       </main>

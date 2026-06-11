@@ -249,8 +249,8 @@ export function EditProjectPage() {
     if (!form.drawingNumber.trim())   { setSaveError('Drawing Number is required.'); return }
     if (!form.drawingRevision.trim()) { setSaveError('Drawing Revision is required.'); return }
 
-    const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
-    if (isAdmin && !form.dueDate) { setSaveError('Due Date is required for admin updates.'); return }
+    const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
+    if (isManager && !form.dueDate) { setSaveError('Due Date is required for manager updates.'); return }
 
     setIsSaving(true)
     try {
@@ -264,7 +264,7 @@ export function EditProjectPage() {
         material:        form.material,
         description:     form.description,
         status:          form.status,
-        ...(isAdmin ? {
+        ...(isManager ? {
           priority: form.priority,
           dueDate: form.dueDate,
         } : {}),
@@ -280,7 +280,7 @@ export function EditProjectPage() {
 
   // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
-    const canDelete = user?.role === 'admin' || user?.role === 'super_admin'
+    const canDelete = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
     if (!canDelete || !projectId || !user) return
     setIsDeleting(true)
     setDeleteError('')
@@ -322,7 +322,7 @@ export function EditProjectPage() {
     )
   }
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -390,7 +390,7 @@ export function EditProjectPage() {
         </div>
 
         {/* Admin planning */}
-        {isAdmin && (
+        {isManager && (
           <div className="rounded-xl border border-primary/20 bg-primary-light/50 p-4 mb-5">
             <div className="flex items-center gap-2 mb-3">
               <Shield className="w-4 h-4 text-primary shrink-0" />
@@ -713,7 +713,7 @@ export function EditProjectPage() {
             </button>
             <Link to={`/projects/${projectId}`} className="btn-ghost text-sm">Cancel</Link>
           </div>
-          {isAdmin && (
+          {isManager && (
             <button
               type="button"
               onClick={() => { setDeleteError(''); setShowDelete(true) }}
@@ -726,7 +726,7 @@ export function EditProjectPage() {
         </div>
       </div>
 
-      {isAdmin && showDelete && (
+      {isManager && showDelete && (
         <DeleteProjectModal
           projectName={project.projectName}
           isDeleting={isDeleting}

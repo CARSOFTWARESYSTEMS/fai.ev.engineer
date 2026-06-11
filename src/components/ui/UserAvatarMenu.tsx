@@ -25,7 +25,7 @@ export function UserAvatarMenu() {
   const displayName = user?.displayName || firebaseUser?.displayName || 'User'
   const photoURL    = user?.photoURL    || firebaseUser?.photoURL
   const email       = user?.email       || firebaseUser?.email
-  const isAdmin     = user?.role === 'admin' || user?.role === 'super_admin'
+  const isManager   = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
 
   // Close on outside click
   useEffect(() => {
@@ -109,9 +109,9 @@ export function UserAvatarMenu() {
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <p className="text-sm font-bold text-text-primary truncate">{displayName}</p>
-                  {isAdmin && (
+                  {isManager && (
                     <span className="text-[10px] font-semibold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded shrink-0">
-                      {user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                      {user?.role === 'super_admin' ? 'Super Admin' : 'Manager'}
                     </span>
                   )}
                 </div>
@@ -153,7 +153,7 @@ export function UserAvatarMenu() {
               Edit Profile
             </Link>
 
-            {isAdmin && (
+            {isManager && (
               <>
                 <button
                   disabled
@@ -172,7 +172,7 @@ export function UserAvatarMenu() {
                   role="menuitem"
                 >
                   <Shield className="w-4 h-4 shrink-0" />
-                  Admin Panel
+                  Manager Panel
                   <span className="ml-auto text-[10px] bg-gray-100 px-1.5 py-0.5 rounded font-medium">
                     Soon
                   </span>

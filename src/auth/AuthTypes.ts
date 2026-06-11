@@ -2,7 +2,9 @@ import type { User as FirebaseUser } from 'firebase/auth'
 
 // ─── Firestore user document schema ──────────────────────────────────────────
 
-export type UserRole = 'user' | 'admin' | 'super_admin'
+// 'engineer' | 'manager' are the current product roles.
+// 'user' | 'admin' are legacy values kept for backward compatibility.
+export type UserRole = 'user' | 'admin' | 'super_admin' | 'engineer' | 'manager'
 
 export interface EVEngineerUser {
   uid: string
