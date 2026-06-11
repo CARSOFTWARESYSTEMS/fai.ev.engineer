@@ -22,7 +22,13 @@ service cloud.firestore {
                .data.get('role', 'member');
     }
 
+    // Admin = internal platform admin; does NOT include product Manager role
     function isAdmin() {
+      return isAuth() && userRole() in ['admin', 'super_admin'];
+    }
+
+    // ManagerOrAbove = product Manager + platform admins; used for project-level gates
+    function isManagerOrAbove() {
       return isAuth() && userRole() in ['admin', 'super_admin', 'manager'];
     }
 
@@ -76,11 +82,19 @@ service cloud.firestore {
 
     // ── developerConfig/{email} ───────────────────────────────────────────────
     match /developerConfig/{email} {
-      // Any authenticated user may read their OWN entry to discover their own access level.
-      // Reading other developers' entries requires developer access.
-      allow read:   if isAuth() && request.auth.token.email == email || isDeveloper();
+      // Self-read always allowed; reading other entries requires developer access.
+      allow read:   if (isAuth() && request.auth.token.email == email) || isDeveloper();
       allow create: if isDeveloperAdmin() && request.resource.data.email == email;
-      allow update: if isDeveloper();
+      // Admins can update any field.
+      // Developers may only update their own entry and cannot change 'role' or 'enabled'.
+      allow update: if isDeveloperAdmin()
+        || (
+          isDeveloper()
+          && request.auth.token.email == email
+          && !request.resource.data.diff(resource.data)
+                .affectedKeys()
+                .hasAny(['role', 'enabled'])
+        );
       allow delete: if isDeveloperAdmin();
     }
 
@@ -104,10 +118,20 @@ service cloud.firestore {
 
     // ── projects/{projectId} ──────────────────────────────────────────────────
     match /projects/{projectId} {
-      allow read:   if isAuth() && (isOwner(resource.data.uid) || isAdmin());
+      allow read:   if isAuth() && (isOwner(resource.data.uid) || isManagerOrAbove());
       allow create: if isAuth() && isOwner(request.resource.data.uid);
-      allow update: if isAuth() && (isOwner(resource.data.uid) || isAdmin());
-      allow delete: if isAdmin();
+      // Managers+ can update any field. Engineers (owners) can update all fields
+      // EXCEPT manager-only fields: priority, dueDate, status.
+      allow update: if isAuth() && (
+        isManagerOrAbove()
+        || (
+          isOwner(resource.data.uid)
+          && !request.resource.data.diff(resource.data)
+                .affectedKeys()
+                .hasAny(['priority', 'dueDate', 'status'])
+        )
+      );
+      allow delete: if isManagerOrAbove();
 
       match /balloons/{balloonId} {
         allow read:   if isProjectOwner(projectId);

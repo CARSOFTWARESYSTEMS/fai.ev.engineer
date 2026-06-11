@@ -263,10 +263,10 @@ export function EditProjectPage() {
         drawingRevision: form.drawingRevision,
         material:        form.material,
         description:     form.description,
-        status:          form.status,
         ...(isManager ? {
+          status:   form.status,
           priority: form.priority,
-          dueDate: form.dueDate,
+          dueDate:  form.dueDate,
         } : {}),
       })
       setSaveSuccess(true)
@@ -371,21 +371,27 @@ export function EditProjectPage() {
           </div>
 
           <div className="w-full sm:w-52 shrink-0">
-            <label htmlFor="status" className="block text-xs font-semibold text-text-secondary mb-1.5">
+            <label className="block text-xs font-semibold text-text-secondary mb-1.5">
               Status
             </label>
-            <select
-              id="status"
-              value={form.status}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, status: e.target.value as EditableProjectStatus }))
-              }
-              className="input-field"
-            >
-              {EDITABLE_STATUSES.map((status) => (
-                <option key={status} value={status}>{PROJECT_STATUS_LABELS[status]}</option>
-              ))}
-            </select>
+            {isManager ? (
+              <select
+                id="status"
+                value={form.status}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, status: e.target.value as EditableProjectStatus }))
+                }
+                className="input-field"
+              >
+                {EDITABLE_STATUSES.map((status) => (
+                  <option key={status} value={status}>{PROJECT_STATUS_LABELS[status]}</option>
+                ))}
+              </select>
+            ) : (
+              <div className="px-3 py-2 rounded-lg border border-border bg-gray-50 text-sm text-text-secondary select-none">
+                {PROJECT_STATUS_LABELS[form.status as keyof typeof PROJECT_STATUS_LABELS] ?? form.status}
+              </div>
+            )}
           </div>
         </div>
 

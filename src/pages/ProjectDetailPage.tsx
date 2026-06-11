@@ -217,7 +217,7 @@ export function ProjectDetailPage() {
   }
 
   const statusClass = PROJECT_STATUS_COLORS[project.status]
-  const isManager = user?.role === 'admin' || user?.role === 'super_admin'
+  const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
   const priority = normalisePriority(project.priority)
   const priorityLabel = getPriorityLabel(priority)
   const priorityClass = getPriorityBadgeClass(priority)

@@ -168,6 +168,7 @@ function DevAvatar({ name }: { name: string }) {
 function DeveloperCard({
   dev,
   currentEmail,
+  canManage,
   onToggle,
   onRoleChange,
   onDelete,
@@ -175,6 +176,7 @@ function DeveloperCard({
 }: {
   dev: DeveloperRecord
   currentEmail: string | null
+  canManage: boolean
   onToggle: (dev: DeveloperRecord) => void
   onRoleChange: (email: string, role: DeveloperRole) => void
   onDelete: (email: string) => Promise<void>
@@ -201,7 +203,7 @@ function DeveloperCard({
 
   return (
     <div className="py-3 first:pt-1 last:pb-0">
-      {deleteConfirm ? (
+      {canManage && deleteConfirm ? (
         // Confirm row
         <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
           <AlertTriangle className="w-4 h-4 text-error shrink-0" />
@@ -244,20 +246,29 @@ function DeveloperCard({
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={dev.role}
-                onChange={e => onRoleChange(dev.email, e.target.value as DeveloperRole)}
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
-                  cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/30
-                  appearance-none pr-4
+              {canManage ? (
+                <select
+                  value={dev.role}
+                  onChange={e => onRoleChange(dev.email, e.target.value as DeveloperRole)}
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
+                    cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary/30
+                    appearance-none pr-4
+                    ${dev.role === 'admin'
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-blue-50 text-blue-700 border-blue-100'}`}
+                  title="Change role"
+                >
+                  <option value="developer">developer</option>
+                  <option value="admin">admin</option>
+                </select>
+              ) : (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
                   ${dev.role === 'admin'
                     ? 'bg-purple-50 text-purple-700 border-purple-200'
-                    : 'bg-blue-50 text-blue-700 border-blue-100'}`}
-                title="Change role"
-              >
-                <option value="developer">developer</option>
-                <option value="admin">admin</option>
-              </select>
+                    : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                  {dev.role}
+                </span>
+              )}
               {addedDate && (
                 <span className="text-[11px] text-text-secondary">
                   Added by {dev.addedBy} · {addedDate}
@@ -274,27 +285,31 @@ function DeveloperCard({
             {dev.enabled ? 'enabled' : 'disabled'}
           </span>
 
-          {/* Toggle */}
-          <button
-            onClick={() => onToggle(dev)}
-            title={dev.enabled ? 'Disable access' : 'Enable access'}
-            className="text-text-secondary hover:text-primary transition-colors shrink-0"
-          >
-            {dev.enabled
-              ? <ToggleRight className="w-6 h-6 text-primary" />
-              : <ToggleLeft  className="w-6 h-6" />}
-          </button>
+          {/* Toggle — admin only */}
+          {canManage && (
+            <button
+              onClick={() => onToggle(dev)}
+              title={dev.enabled ? 'Disable access' : 'Enable access'}
+              className="text-text-secondary hover:text-primary transition-colors shrink-0"
+            >
+              {dev.enabled
+                ? <ToggleRight className="w-6 h-6 text-primary" />
+                : <ToggleLeft  className="w-6 h-6" />}
+            </button>
+          )}
 
-          {/* Delete */}
-          <button
-            onClick={() => setDeleteConfirm(true)}
-            title="Delete developer"
-            disabled={isSelf}
-            className="text-text-secondary hover:text-error transition-colors shrink-0
-              disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {/* Delete — admin only */}
+          {canManage && (
+            <button
+              onClick={() => setDeleteConfirm(true)}
+              title="Delete developer"
+              disabled={isSelf}
+              className="text-text-secondary hover:text-error transition-colors shrink-0
+                disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       )}
 
@@ -559,6 +574,7 @@ function DevelopersTab({ currentEmail, canManage }: { currentEmail: string | nul
                   key={dev.email}
                   dev={dev}
                   currentEmail={currentEmail}
+                  canManage={canManage}
                   onToggle={handleToggle}
                   onRoleChange={handleRoleChange}
                   onDelete={handleDelete}

@@ -155,9 +155,9 @@ export async function updateProject(
   if (data.drawingRevision !== undefined) patch.drawingRevision = data.drawingRevision.trim()
   if (data.material    !== undefined) patch.material    = data.material.trim()
   if (data.description !== undefined) patch.description = data.description.trim()
-  if (data.status      !== undefined) patch.status      = data.status
-
   const isManager = callerRole === 'admin' || callerRole === 'super_admin' || callerRole === 'manager'
+
+  if (isManager && data.status !== undefined) patch.status = data.status
   if (isManager && data.priority !== undefined) patch.priority = data.priority
   if (isManager && data.dueDate !== undefined) {
     const [year, month, day] = data.dueDate.split('-').map(Number)
