@@ -64,7 +64,9 @@ service cloud.firestore {
 
     // ── developerConfig/{email} ───────────────────────────────────────────────
     match /developerConfig/{email} {
-      allow read:   if isDeveloper();
+      // Any authenticated user may read their OWN entry to discover their own access level.
+      // Reading other developers' entries requires developer access.
+      allow read:   if isAuth() && request.auth.token.email == email || isDeveloper();
       allow create: if isDeveloper() && request.resource.data.email == email;
       allow update: if isDeveloper();
       allow delete: if isDeveloper();
