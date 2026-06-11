@@ -17,8 +17,6 @@ service cloud.firestore {
       return uid() == ownerUid;
     }
 
-    // Reads the caller's role from users/{uid}.role.
-    // get() inside rules bypasses the rules themselves — no circular dependency.
     function userRole() {
       return get(/databases/$(database)/documents/users/$(uid()))
                .data.get('role', 'member');
@@ -28,7 +26,6 @@ service cloud.firestore {
       return isAuth() && userRole() in ['admin', 'super_admin'];
     }
 
-    // Checks that the caller owns the project — used by balloon subcollection.
     function isProjectOwner(projectId) {
       return isAuth() &&
         get(/databases/$(database)/documents/projects/$(projectId)).data.uid == uid();
@@ -36,7 +33,6 @@ service cloud.firestore {
 
     // ── Developer access helpers ──────────────────────────────────────────────
 
-    // Hard-coded bootstrap developer emails — always allowed.
     function isBootstrapDeveloper() {
       return request.auth != null &&
         request.auth.token.email in [
@@ -46,8 +42,6 @@ service cloud.firestore {
         ];
     }
 
-    // Checks developerConfig/{email} for an enabled record.
-    // Uses get() which bypasses rules at evaluation time — no circular dependency.
     function isDeveloperInConfig() {
       return isAuth() &&
         request.auth.token.email != null &&
@@ -62,19 +56,13 @@ service cloud.firestore {
 
     // ── users/{userId} ────────────────────────────────────────────────────────
     match /users/{userId} {
-      // Users can read their own profile; admins can read any profile.
       allow read:   if isAuth() && (isOwner(userId) || isAdmin());
-      // Only the user themselves can create their own profile document.
       allow create: if isAuth() && isOwner(userId);
-      // Users can update their own profile; admins can update any.
       allow update: if isAuth() && (isOwner(userId) || isAdmin());
       allow delete: if isAdmin();
     }
 
     // ── developerConfig/{email} ───────────────────────────────────────────────
-    // One document per developer, keyed by email address.
-    // Read + write restricted to authorised developers only.
-    // Delete disabled — use enabled=false to revoke access.
     match /developerConfig/{email} {
       allow read:   if isDeveloper();
       allow create: if isDeveloper() && request.resource.data.email == email;
@@ -83,8 +71,6 @@ service cloud.firestore {
     }
 
     // ── appConfig/{document} ─────────────────────────────────────────────────
-    // UI notices, feature flags, and other app-wide config.
-    // Read by any authenticated user; write restricted to authorised developers.
     match /appConfig/{document=**} {
       allow read:  if isAuth();
       allow write: if isDeveloper();
@@ -104,20 +90,11 @@ service cloud.firestore {
 
     // ── projects/{projectId} ──────────────────────────────────────────────────
     match /projects/{projectId} {
-      // Owner or admin can read a project.
       allow read:   if isAuth() && (isOwner(resource.data.uid) || isAdmin());
-
-      // Any authenticated user can create a project as long as the uid field
-      // matches their own auth UID (prevents creating projects on behalf of others).
       allow create: if isAuth() && isOwner(request.resource.data.uid);
-
-      // Owner or admin can update (admin needed for priority/dueDate writes).
       allow update: if isAuth() && (isOwner(resource.data.uid) || isAdmin());
-
-      // Only admins can delete projects (enforced in deleteProject() service too).
       allow delete: if isAdmin();
 
-      // ── projects/{projectId}/balloons/{balloonId} ─────────────────────────
       match /balloons/{balloonId} {
         allow read:   if isProjectOwner(projectId);
         allow create: if isProjectOwner(projectId) &&
@@ -126,7 +103,6 @@ service cloud.firestore {
         allow delete: if isProjectOwner(projectId);
       }
 
-      // ── projects/{projectId}/features/{featureId} ─────────────────────────
       match /features/{featureId} {
         allow read:   if isProjectOwner(projectId);
         allow create: if isProjectOwner(projectId) &&
@@ -135,7 +111,6 @@ service cloud.firestore {
         allow delete: if isProjectOwner(projectId);
       }
 
-      // ── projects/{projectId}/form3Results/{featureId} ────────────────────
       match /form3Results/{featureId} {
         allow read:   if isProjectOwner(projectId);
         allow create: if isProjectOwner(projectId) &&
@@ -144,7 +119,6 @@ service cloud.firestore {
         allow delete: if isProjectOwner(projectId);
       }
 
-      // ── projects/{projectId}/form1/{form1Id} ─────────────────────────────
       match /form1/{form1Id} {
         allow read:   if isProjectOwner(projectId);
         allow create: if isProjectOwner(projectId);
@@ -152,7 +126,6 @@ service cloud.firestore {
         allow delete: if isProjectOwner(projectId);
       }
 
-      // ── projects/{projectId}/form2Rows/{rowId} ───────────────────────────
       match /form2Rows/{rowId} {
         allow read:   if isProjectOwner(projectId);
         allow create: if isProjectOwner(projectId);
