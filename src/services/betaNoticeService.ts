@@ -9,6 +9,7 @@ export interface BetaNoticeConfig {
   message: string
   severity: BetaNoticeSeverity
   dismissible: boolean
+  nonce?: string  // random ID generated on every save — used to invalidate stored dismissals
 }
 
 export const BETA_NOTICE_DEFAULTS: BetaNoticeConfig = {
@@ -33,6 +34,7 @@ function parseConfig(d: Record<string, unknown>): BetaNoticeConfig {
                    ? (d.severity as BetaNoticeSeverity)
                    : BETA_NOTICE_DEFAULTS.severity,
     dismissible: typeof d.dismissible === 'boolean'        ? d.dismissible : BETA_NOTICE_DEFAULTS.dismissible,
+    nonce:       typeof d.nonce === 'string'               ? d.nonce       : undefined,
   }
 }
 
@@ -57,7 +59,8 @@ export async function getBetaNotice(): Promise<BetaNoticeConfig> {
 
 export async function saveBetaNotice(config: BetaNoticeConfig): Promise<void> {
   const ref = doc(firestore, 'appConfig', 'betaBanner')
-  await setDoc(ref, { ...config, updatedAt: serverTimestamp() })
+  // New nonce on every save so any stored dismissal is invalidated across all sessions
+  await setDoc(ref, { ...config, nonce: crypto.randomUUID(), updatedAt: serverTimestamp() })
 }
 
 export interface RestoreResult {

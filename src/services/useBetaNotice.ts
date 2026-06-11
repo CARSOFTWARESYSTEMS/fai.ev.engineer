@@ -2,14 +2,9 @@ import { useEffect, useState } from 'react'
 import { subscribeToBetaNotice, BETA_NOTICE_DEFAULTS } from './betaNoticeService'
 import type { BetaNoticeConfig } from './betaNoticeService'
 
-const SESSION_KEY = 'fai-beta-banner-dismissed'
-
-// Fingerprint of the meaningful fields that should re-show the banner if changed.
-// Changing title, message, severity, or toggling enabled/dismissible all invalidate
-// a previously stored dismiss, causing the banner to reappear.
-function fingerprint(c: BetaNoticeConfig): string {
-  return `${c.enabled}|${c.title}|${c.message}|${c.severity}|${c.dismissible}`
-}
+// Stores the nonce of the config version the user dismissed.
+// Any new save generates a fresh nonce → stored value no longer matches → banner re-appears.
+const SESSION_KEY = 'fai-beta-banner-dismissed-nonce'
 
 export function useBetaNotice() {
   const [config,      setConfig]      = useState<BetaNoticeConfig>(BETA_NOTICE_DEFAULTS)
@@ -20,14 +15,18 @@ export function useBetaNotice() {
     return subscribeToBetaNotice(incoming => {
       setConfig(incoming)
       setIsLoading(false)
-      // Re-evaluate dismiss: only keep it if the stored fingerprint still matches
       const stored = sessionStorage.getItem(SESSION_KEY)
-      setIsDismissed(stored !== null && stored === fingerprint(incoming))
+      // Keep dismissed only if the stored nonce still matches this exact version
+      setIsDismissed(
+        stored !== null &&
+        incoming.nonce != null &&
+        stored === incoming.nonce,
+      )
     })
   }, [])
 
   const dismiss = () => {
-    sessionStorage.setItem(SESSION_KEY, fingerprint(config))
+    if (config.nonce) sessionStorage.setItem(SESSION_KEY, config.nonce)
     setIsDismissed(true)
   }
 

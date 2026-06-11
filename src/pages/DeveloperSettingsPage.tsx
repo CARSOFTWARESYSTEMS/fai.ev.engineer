@@ -77,6 +77,8 @@ function CollapsibleCard({
   iconBg,
   iconColor,
   defaultOpen = false,
+  open: controlledOpen,
+  onOpenChange,
   badge,
   headerRight,
   disabled = false,
@@ -88,18 +90,23 @@ function CollapsibleCard({
   iconBg: string
   iconColor: string
   defaultOpen?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
   badge?: React.ReactNode
   headerRight?: React.ReactNode
   disabled?: boolean
   children: React.ReactNode
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [internalOpen, setInternalOpen] = useState(defaultOpen)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = (val: boolean) => isControlled ? onOpenChange?.(val) : setInternalOpen(val)
 
   return (
     <div className="card overflow-hidden">
       <button
         type="button"
-        onClick={() => !disabled && setOpen(o => !o)}
+        onClick={() => !disabled && setOpen(!open)}
         className={[
           'w-full flex items-center gap-3 p-4 sm:p-5 text-left transition-colors',
           disabled ? 'cursor-default opacity-60' : 'hover:bg-gray-50/60',
@@ -381,6 +388,8 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
     }
   }
 
+  const [managedCardOpen, setManagedCardOpen] = useState(false)
+
   const nonBootstrapDevs = firestoreDevs.filter(
     d => !(BOOTSTRAP_DEVELOPER_EMAILS as string[]).includes(d.email),
   )
@@ -399,23 +408,26 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
         iconColor="text-primary"
         defaultOpen={false}
       >
-        <div className="flex flex-col divide-y divide-border">
+        <div className="flex flex-col gap-2">
           {BOOTSTRAP_DEVELOPER_EMAILS.map(email => {
             const isSelf = email === currentEmail
             return (
-              <div key={email} className="flex items-center gap-3 py-3 first:pt-1">
-                <DevAvatar name={email} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-text-primary truncate">{email}</p>
-                  {isSelf && <p className="text-[11px] text-text-secondary">Currently logged in</p>}
-                </div>
+              <div key={email} className="flex items-center gap-2.5">
+                {/* Green online indicator */}
+                <span className="relative flex shrink-0">
+                  <span className="w-2.5 h-2.5 rounded-full bg-success block" />
+                  <span className="absolute inset-0 rounded-full bg-success animate-ping opacity-50" />
+                </span>
+                <span className="text-sm text-text-primary flex-1 min-w-0 truncate">{email}</span>
+                {isSelf && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full
+                    bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                    you
+                  </span>
+                )}
                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
                   bg-primary-light text-primary border border-primary/20 shrink-0">
                   bootstrap
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
-                  bg-success/10 text-success border border-success/20 shrink-0">
-                  active
                 </span>
               </div>
             )
@@ -430,7 +442,8 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
         icon={Users}
         iconBg="bg-blue-50"
         iconColor="text-blue-600"
-        defaultOpen={false}
+        open={managedCardOpen}
+        onOpenChange={setManagedCardOpen}
         badge={
           managedCount > 0
             ? <span className="text-[11px] font-semibold bg-primary-light text-primary px-2 py-0.5 rounded-full">
@@ -440,7 +453,7 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
         }
         headerRight={
           <button
-            onClick={() => { setAddFormOpen(o => !o); setAddError('') }}
+            onClick={() => { setManagedCardOpen(true); setAddFormOpen(true); setAddError('') }}
             className="inline-flex items-center gap-1.5 text-xs font-semibold
               px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
           >
@@ -515,7 +528,7 @@ function DevelopersTab({ currentEmail }: { currentEmail: string | null }) {
                     {addStatus === 'saving'
                       ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       : <Plus className="w-3.5 h-3.5" />}
-                    Add Developer
+                    Add
                   </button>
                 </div>
               </div>
@@ -784,7 +797,7 @@ const RESTORABLE_CONFIGS = [
   { path: 'appConfig/betaBanner', description: 'Beta banner title, message, severity, and visibility' },
 ]
 
-function RestoreConfigsPanel() {
+function RestoreConfigsPanel({ onSuccess }: { onSuccess?: () => void }) {
   const [status,   setStatus]   = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [result,   setResult]   = useState<RestoreResult | null>(null)
 
@@ -795,6 +808,7 @@ function RestoreConfigsPanel() {
       const r = await restoreDefaultConfigs()
       setResult(r)
       setStatus(r.errors.length > 0 ? 'error' : 'done')
+      if (r.restored.length > 0) onSuccess?.()
     } catch (err) {
       setResult({ restored: [], errors: [(err as Error).message || 'Unexpected error.'] })
       setStatus('error')
@@ -871,6 +885,8 @@ function RestoreConfigsPanel() {
 // ─── Configurations tab ───────────────────────────────────────────────────────
 
 function ConfigurationsTab() {
+  const [bannerKey, setBannerKey] = useState(0)
+
   return (
     <div className="flex flex-col gap-3">
       <CollapsibleCard
@@ -881,7 +897,7 @@ function ConfigurationsTab() {
         iconColor="text-amber-600"
         defaultOpen={false}
       >
-        <BetaBannerConfig />
+        <BetaBannerConfig key={bannerKey} />
       </CollapsibleCard>
 
       <CollapsibleCard
@@ -916,7 +932,7 @@ function ConfigurationsTab() {
         iconColor="text-amber-600"
         defaultOpen={false}
       >
-        <RestoreConfigsPanel />
+        <RestoreConfigsPanel onSuccess={() => setBannerKey(k => k + 1)} />
       </CollapsibleCard>
     </div>
   )
