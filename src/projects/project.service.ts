@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { FAIProject, CreateProjectInput, UpdateProjectInput } from './project.types'
+import { ENGINEER_ALLOWED_STATUSES } from './project.types'
 import type { UserRole } from '../auth/AuthTypes'
 import { requestDriveToken, deleteFileFromDrive, deleteProjectFolderFromDrive } from '../lib/googleDrive'
 
@@ -139,25 +140,57 @@ export async function getProjectById(projectId: string): Promise<FAIProject | nu
 
 export async function updateProject(
   projectId: string,
-  _uid: string,
+  uid: string,
   callerRole: UserRole,
   data: UpdateProjectInput
 ): Promise<void> {
   console.log('[PROJECT] Update started:', projectId)
 
-  const patch: Record<string, unknown> = { updatedAt: serverTimestamp() }
+  const patch: Record<string, unknown> = {
+    updatedAt: serverTimestamp(),
+    updatedBy: uid,
+  }
 
-  if (data.projectName  !== undefined) patch.projectName  = data.projectName.trim()
-  if (data.customerName !== undefined) patch.customerName = data.customerName.trim()
-  if (data.partNumber   !== undefined) patch.partNumber   = data.partNumber.trim()
-  if (data.partName     !== undefined) patch.partName     = data.partName.trim()
+  if (data.projectName     !== undefined) patch.projectName     = data.projectName.trim()
+  if (data.customerName    !== undefined) patch.customerName    = data.customerName.trim()
+  if (data.partNumber      !== undefined) patch.partNumber      = data.partNumber.trim()
+  if (data.partName        !== undefined) patch.partName        = data.partName.trim()
   if (data.drawingNumber   !== undefined) patch.drawingNumber   = data.drawingNumber.trim()
   if (data.drawingRevision !== undefined) patch.drawingRevision = data.drawingRevision.trim()
-  if (data.material    !== undefined) patch.material    = data.material.trim()
-  if (data.description !== undefined) patch.description = data.description.trim()
+  if (data.material        !== undefined) patch.material        = data.material.trim()
+  if (data.description     !== undefined) patch.description     = data.description.trim()
+
   const isManager = callerRole === 'admin' || callerRole === 'super_admin' || callerRole === 'manager'
 
-  if (isManager && data.status !== undefined) patch.status = data.status
+  // Status — engineers get limited transitions; managers get full workflow
+  if (data.status !== undefined) {
+    const currentSnap = await getDoc(doc(firestore, 'projects', projectId))
+    const currentStatus = (currentSnap.data() as FAIProject | undefined)?.status
+
+    if (currentStatus !== data.status) {
+      if (!isManager) {
+        if (!(ENGINEER_ALLOWED_STATUSES as string[]).includes(data.status)) {
+          throw new Error(`Status "${data.status}" can only be set by a Manager.`)
+        }
+        if (currentStatus === 'completed' || currentStatus === 'archived') {
+          throw new Error(`Cannot change status of a ${currentStatus} project.`)
+        }
+      }
+    }
+
+    patch.status = data.status
+
+    // Audit metadata on status transitions
+    if (data.status === 'completed' && currentStatus !== 'completed') {
+      patch.completedAt = serverTimestamp()
+      patch.completedBy = uid
+    }
+    if (data.status === 'archived' && currentStatus !== 'archived') {
+      patch.archivedAt = serverTimestamp()
+      patch.archivedBy = uid
+    }
+  }
+
   if (isManager && data.priority !== undefined) patch.priority = data.priority
   if (isManager && data.dueDate !== undefined) {
     const [year, month, day] = data.dueDate.split('-').map(Number)

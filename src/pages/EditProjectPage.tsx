@@ -32,7 +32,8 @@ import {
   type EditableProjectStatus,
   fmtTimestamp,
   PROJECT_STATUS_LABELS,
-  EDITABLE_STATUS_OPTIONS,
+  ENGINEER_ALLOWED_STATUSES,
+  MANAGER_ALLOWED_STATUSES,
 } from '../projects/project.types'
 import {
   PRIORITY_LABELS,
@@ -56,7 +57,7 @@ interface FormState {
   dueDate: string
 }
 
-const EDITABLE_STATUSES = EDITABLE_STATUS_OPTIONS
+
 const PRIORITY_OPTIONS: ProjectPriority[] = ['critical', 'high', 'medium', 'low']
 
 function toDateInputValue(value: unknown): string {
@@ -263,8 +264,8 @@ export function EditProjectPage() {
         drawingRevision: form.drawingRevision,
         material:        form.material,
         description:     form.description,
+        status:          form.status,
         ...(isManager ? {
-          status:   form.status,
           priority: form.priority,
           dueDate:  form.dueDate,
         } : {}),
@@ -272,7 +273,8 @@ export function EditProjectPage() {
       setSaveSuccess(true)
       setTimeout(() => navigate(`/projects/${projectId}`), 800)
     } catch (err) {
-      setSaveError(firestoreError(err, 'update'))
+      const e = err as { code?: string; message?: string }
+      setSaveError(e.code ? firestoreError(err, 'update') : (e.message ?? 'Unable to update project. Please try again.'))
     } finally {
       setIsSaving(false)
     }
@@ -323,6 +325,9 @@ export function EditProjectPage() {
   }
 
   const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
+  // Engineer can edit status only when current project status is within their allowed set
+  const normalizedProjectStatus = project.status === 'complete' ? 'completed' : project.status
+  const engineerCanEditStatus = !isManager && (ENGINEER_ALLOWED_STATUSES as string[]).includes(normalizedProjectStatus)
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -383,8 +388,21 @@ export function EditProjectPage() {
                 }
                 className="input-field"
               >
-                {EDITABLE_STATUSES.map((status) => (
-                  <option key={status} value={status}>{PROJECT_STATUS_LABELS[status]}</option>
+                {MANAGER_ALLOWED_STATUSES.map((s) => (
+                  <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
+                ))}
+              </select>
+            ) : engineerCanEditStatus ? (
+              <select
+                id="status"
+                value={form.status}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, status: e.target.value as EditableProjectStatus }))
+                }
+                className="input-field"
+              >
+                {ENGINEER_ALLOWED_STATUSES.map((s) => (
+                  <option key={s} value={s}>{PROJECT_STATUS_LABELS[s]}</option>
                 ))}
               </select>
             ) : (

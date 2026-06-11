@@ -120,15 +120,26 @@ service cloud.firestore {
     match /projects/{projectId} {
       allow read:   if isAuth() && (isOwner(resource.data.uid) || isManagerOrAbove());
       allow create: if isAuth() && isOwner(request.resource.data.uid);
-      // Managers+ can update any field. Engineers (owners) can update all fields
-      // EXCEPT manager-only fields: priority, dueDate, status.
+      // Managers+ can update any field.
+      // Engineers (owners) can update basic fields AND can transition status within
+      // ['draft','in-progress','review'], but cannot touch priority, dueDate, or
+      // move status to/from 'completed'/'archived'.
       allow update: if isAuth() && (
         isManagerOrAbove()
         || (
           isOwner(resource.data.uid)
           && !request.resource.data.diff(resource.data)
                 .affectedKeys()
-                .hasAny(['priority', 'dueDate', 'status'])
+                .hasAny(['priority', 'dueDate'])
+          && (
+            !request.resource.data.diff(resource.data)
+                  .affectedKeys()
+                  .hasAny(['status'])
+            || (
+              request.resource.data.status in ['draft', 'in-progress', 'review']
+              && resource.data.status in ['draft', 'in-progress', 'review']
+            )
+          )
         )
       );
       allow delete: if isManagerOrAbove();

@@ -61,6 +61,13 @@ export interface FAIProject {
   // Timestamps — stored as Firestore Timestamp, typed as unknown for safety
   createdAt: unknown
   updatedAt: unknown
+
+  // Audit metadata — set automatically by updateProject()
+  updatedBy?: string
+  completedAt?: unknown
+  completedBy?: string
+  archivedAt?: unknown
+  archivedBy?: string
 }
 
 // ─── Input shape for createProject() ─────────────────────────────────────────
@@ -127,5 +134,15 @@ export const PROJECT_STATUS_COLORS: Record<ProjectStatus, string> = {
 }
 
 export const EDITABLE_STATUS_OPTIONS: EditableProjectStatus[] = [
+  'draft', 'in-progress', 'review', 'completed', 'archived',
+]
+
+// Statuses Engineers can set (draft / in-progress / review only)
+export const ENGINEER_ALLOWED_STATUSES: EditableProjectStatus[] = [
+  'draft', 'in-progress', 'review',
+]
+
+// Statuses Managers can set (full workflow)
+export const MANAGER_ALLOWED_STATUSES: EditableProjectStatus[] = [
   'draft', 'in-progress', 'review', 'completed', 'archived',
 ]
