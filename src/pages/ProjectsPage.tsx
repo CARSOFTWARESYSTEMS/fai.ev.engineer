@@ -47,6 +47,8 @@ import {
   isDueThisMonth,
 } from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
+import { BetaTestingBanner } from '../components/ui/BetaTestingBanner'
+import { BetaWatermark } from '../components/ui/BetaWatermark'
 
 type ViewMode = 'priority' | 'date' | 'list' | 'kanban'
 
@@ -369,6 +371,8 @@ export function ProjectsPage() {
   // ── Header / loading / error states ────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <BetaWatermark />
+
       {/* Header */}
       <header className="bg-white border-b border-border sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -392,6 +396,8 @@ export function ProjectsPage() {
           </div>
         </div>
       </header>
+
+      <BetaTestingBanner />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
 

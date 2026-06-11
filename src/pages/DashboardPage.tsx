@@ -21,6 +21,8 @@ import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { UserAvatarMenu } from '../components/ui/UserAvatarMenu'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
+import { BetaTestingBanner } from '../components/ui/BetaTestingBanner'
+import { BetaWatermark } from '../components/ui/BetaWatermark'
 import { FEATURE_LABELS, type FeatureKey } from '../config/productConfig.types'
 import { getUserProjects, deleteProject } from '../projects/project.service'
 import {
@@ -230,6 +232,7 @@ export function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <BetaWatermark />
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <header className="bg-white border-b border-border sticky top-0 z-40">
@@ -253,6 +256,8 @@ export function DashboardPage() {
           </div>
         </div>
       </header>
+
+      <BetaTestingBanner />
 
       {/* ── Dismissible org warning ────────────────────────────────────────── */}
       {usingDefaultOrgConfig && !orgWarningDismissed && (

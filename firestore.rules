@@ -34,6 +34,32 @@ service cloud.firestore {
         get(/databases/$(database)/documents/projects/$(projectId)).data.uid == uid();
     }
 
+    // ── Developer access helpers ──────────────────────────────────────────────
+
+    // Hard-coded bootstrap developer emails — always allowed.
+    function isBootstrapDeveloper() {
+      return request.auth != null &&
+        request.auth.token.email in [
+          "sudarshana.karkala@gmail.com",
+          "sudhan.infotech@gmail.com",
+          "carsoftwaresystems@gmail.com"
+        ];
+    }
+
+    // Checks developerConfig/{email} for an enabled record.
+    // Uses get() which bypasses rules at evaluation time — no circular dependency.
+    function isDeveloperInConfig() {
+      return isAuth() &&
+        request.auth.token.email != null &&
+        exists(/databases/$(database)/documents/developerConfig/$(request.auth.token.email)) &&
+        get(/databases/$(database)/documents/developerConfig/$(request.auth.token.email))
+          .data.get('enabled', false) == true;
+    }
+
+    function isDeveloper() {
+      return isBootstrapDeveloper() || isDeveloperInConfig();
+    }
+
     // ── users/{userId} ────────────────────────────────────────────────────────
     match /users/{userId} {
       // Users can read their own profile; admins can read any profile.
@@ -43,6 +69,25 @@ service cloud.firestore {
       // Users can update their own profile; admins can update any.
       allow update: if isAuth() && (isOwner(userId) || isAdmin());
       allow delete: if isAdmin();
+    }
+
+    // ── developerConfig/{email} ───────────────────────────────────────────────
+    // One document per developer, keyed by email address.
+    // Read + write restricted to authorised developers only.
+    // Delete disabled — use enabled=false to revoke access.
+    match /developerConfig/{email} {
+      allow read:   if isDeveloper();
+      allow create: if isDeveloper() && request.resource.data.email == email;
+      allow update: if isDeveloper();
+      allow delete: if false;
+    }
+
+    // ── appConfig/{document} ─────────────────────────────────────────────────
+    // UI notices, feature flags, and other app-wide config.
+    // Read by any authenticated user; write restricted to authorised developers.
+    match /appConfig/{document=**} {
+      allow read:  if isAuth();
+      allow write: if isDeveloper();
     }
 
     // ── productConfigs/{pk} ───────────────────────────────────────────────────

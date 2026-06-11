@@ -12,6 +12,7 @@ import { ProjectDetailPage } from '../pages/ProjectDetailPage'
 import { ProjectPdfViewerPage } from '../pages/ProjectPdfViewerPage'
 import { RoadmapPage } from '../pages/RoadmapPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
+import { DeveloperSettingsPage } from '../pages/DeveloperSettingsPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
 import { CNCMachiningPage } from '../pages/fortius/CNCMachiningPage'
 import { CNCMillingPage } from '../pages/fortius/CNCMillingPage'
@@ -69,6 +70,12 @@ export const router = createBrowserRouter([
   {
     path: '/projects/:projectId/pdf',
     element: <ProtectedRoute><ProjectPdfViewerPage /></ProtectedRoute>,
+  },
+
+  // ─── Developer Settings ───────────────────────────────────────────────────
+  {
+    path: '/developer-settings',
+    element: <ProtectedRoute><DeveloperSettingsPage /></ProtectedRoute>,
   },
 
   // ─── 404 ──────────────────────────────────────────────────────────────────

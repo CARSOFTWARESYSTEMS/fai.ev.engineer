@@ -20,6 +20,8 @@ import { useForm1 } from '../../as9102/hooks/useForm1'
 import { useForm2 } from '../../as9102/hooks/useForm2'
 import { useForm3Results } from '../../as9102/hooks/useForm3Results'
 import { UndoToast } from '../../../components/ui/UndoToast'
+import { BetaTestingBanner } from '../../../components/ui/BetaTestingBanner'
+import { BetaWatermark } from '../../../components/ui/BetaWatermark'
 import { WorkspaceSidebar } from '../../workspace/components/WorkspaceSidebar'
 import { useWorkspaceSidebarPreferences } from '../../workspace/hooks/useWorkspaceSidebarPreferences'
 import type { WorkspaceMode } from '../../workspace/types/workspaceTypes'
@@ -429,6 +431,7 @@ export function PdfViewerPage() {
   // ── Viewer ──────────────────────────────────────────────────────────────────
   return (
     <div className="h-screen flex flex-col bg-gray-900" ref={viewer.containerRef}>
+      <BetaWatermark variant="dark" />
       <PdfToolbar
         projectId={project.projectId}
         projectName={project.projectName}
@@ -446,6 +449,7 @@ export function PdfViewerPage() {
         onToggleSidebar={() => setIsMobileSidebarOpen(o => !o)}
         onWorkspaceModeChange={handleWorkspaceModeChange}
       />
+      <BetaTestingBanner variant="dark" />
 
       {/* Main area: sidebar + content */}
       <div className="flex-1 overflow-hidden flex flex-row">

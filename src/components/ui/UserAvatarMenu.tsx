@@ -9,14 +9,18 @@ import {
   Settings,
   Shield,
   ChevronDown,
+  Code2,
 } from 'lucide-react'
 import { useAuth } from '../../auth/hooks/useAuth'
+import { useDeveloperAccess } from '../../services/useDeveloperAccess'
 
 export function UserAvatarMenu() {
   const { user, firebaseUser, signOut } = useAuth()
   const navigate    = useNavigate()
   const [open, setOpen] = useState(false)
   const containerRef    = useRef<HTMLDivElement>(null)
+
+  const { isDeveloper } = useDeveloperAccess()
 
   const displayName = user?.displayName || firebaseUser?.displayName || 'User'
   const photoURL    = user?.photoURL    || firebaseUser?.photoURL
@@ -176,6 +180,23 @@ export function UserAvatarMenu() {
               </>
             )}
           </div>
+
+          {isDeveloper && (
+            <div className="border-t border-border py-1" role="group">
+              <Link
+                to="/developer-settings"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-gray-50 transition-colors"
+                role="menuitem"
+              >
+                <Code2 className="w-4 h-4 text-primary shrink-0" />
+                Developer Settings
+                <span className="ml-auto text-[10px] font-semibold bg-primary-light text-primary px-1.5 py-0.5 rounded">
+                  DEV
+                </span>
+              </Link>
+            </div>
+          )}
 
           <div className="border-t border-border py-1" role="group">
             <button
