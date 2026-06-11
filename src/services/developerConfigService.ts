@@ -3,6 +3,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   serverTimestamp,
   type Timestamp,
@@ -55,4 +56,14 @@ export async function addDeveloper(
 export async function toggleDeveloper(email: string, enabled: boolean): Promise<void> {
   const ref = doc(firestore, 'developerConfig', email)
   await updateDoc(ref, { enabled, updatedAt: serverTimestamp() })
+}
+
+export async function updateDeveloperRole(email: string, role: DeveloperRole): Promise<void> {
+  const ref = doc(firestore, 'developerConfig', email)
+  await updateDoc(ref, { role, updatedAt: serverTimestamp() })
+}
+
+export async function deleteDeveloper(email: string): Promise<void> {
+  const ref = doc(firestore, 'developerConfig', email)
+  await deleteDoc(ref)
 }

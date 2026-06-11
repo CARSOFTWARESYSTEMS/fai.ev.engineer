@@ -59,3 +59,21 @@ export async function saveBetaNotice(config: BetaNoticeConfig): Promise<void> {
   const ref = doc(firestore, 'appConfig', 'betaBanner')
   await setDoc(ref, { ...config, updatedAt: serverTimestamp() })
 }
+
+export interface RestoreResult {
+  restored: string[]
+  errors: string[]
+}
+
+// Recreates all appConfig documents from their hardcoded defaults.
+// Safe to call even if documents already exist — setDoc overwrites.
+export async function restoreDefaultConfigs(): Promise<RestoreResult> {
+  const result: RestoreResult = { restored: [], errors: [] }
+  try {
+    await saveBetaNotice(BETA_NOTICE_DEFAULTS)
+    result.restored.push('appConfig/betaBanner')
+  } catch (err) {
+    result.errors.push(`appConfig/betaBanner — ${(err as Error).message}`)
+  }
+  return result
+}

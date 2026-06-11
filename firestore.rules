@@ -67,7 +67,7 @@ service cloud.firestore {
       allow read:   if isDeveloper();
       allow create: if isDeveloper() && request.resource.data.email == email;
       allow update: if isDeveloper();
-      allow delete: if false;
+      allow delete: if isDeveloper();
     }
 
     // ── appConfig/{document} ─────────────────────────────────────────────────
