@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, FolderPlus, AlertCircle, Key, Building2 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
+import { useBranding } from '../hooks/useBranding'
 import { createProject } from '../projects/project.service'
 import type { ProjectPriority } from '../projects/projectPriority'
 import { PRIORITY_LABELS, PRIORITY_BADGE_CLASS } from '../projects/projectPriority'
@@ -74,7 +75,8 @@ function Field({
 export function CreateProjectPage() {
   const navigate = useNavigate()
   const { user, firebaseUser } = useAuth()
-  const { productKey, productConfig, organizationConfig } = useProductConfig()
+  const { productKey, organizationConfig } = useProductConfig()
+  const { branding } = useBranding()
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [isSaving, setIsSaving] = useState(false)
@@ -157,8 +159,13 @@ export function CreateProjectPage() {
                 <span className="text-white font-bold text-xs">F</span>
               </div>
               <div className="hidden sm:flex flex-col leading-none">
-                <span className="text-sm font-bold text-text-primary">{productConfig.productName}</span>
-                <span className="text-[10px] text-text-secondary">by {productConfig.brandName}</span>
+                <span className="text-sm font-bold text-text-primary">{branding.businessName}</span>
+                <span className="text-[10px] text-text-secondary">
+                  powered by{' '}
+                  <a href={branding.poweredByUrl} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">
+                    {branding.poweredByText.replace(/^powered by\s+/i, '') || 'EV.ENGINEER'}
+                  </a>
+                </span>
               </div>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useBranding } from '../hooks/useBranding'
 import {
   FolderPlus,
   FolderOpen,
@@ -114,6 +115,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const { user, firebaseUser } = useAuth()
   const { productKey, productConfig, organizationConfig, usingDefaultOrgConfig, canAccess } = useProductConfig()
+  const { branding } = useBranding()
 
   const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
 
@@ -245,8 +247,13 @@ export function DashboardPage() {
                 <span className="text-white font-bold text-sm">F</span>
               </div>
               <div className="flex flex-col leading-none">
-                <span className="text-sm font-bold text-text-primary tracking-tight">{productConfig.productName}</span>
-                <span className="text-[10px] text-text-secondary hidden sm:block">by {productConfig.brandName}</span>
+                <span className="text-sm font-bold text-text-primary tracking-tight">{branding.businessName}</span>
+                <span className="text-[10px] text-text-secondary hidden sm:block">
+                  powered by{' '}
+                  <a href={branding.poweredByUrl} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">
+                    {branding.poweredByText.replace(/^powered by\s+/i, '') || 'EV.ENGINEER'}
+                  </a>
+                </span>
               </div>
               <span className="hidden sm:block text-text-secondary text-sm ml-1">/ Dashboard</span>
             </div>

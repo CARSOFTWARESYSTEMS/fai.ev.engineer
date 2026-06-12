@@ -64,7 +64,10 @@ export function Footer() {
               </div>
               <div className="flex flex-col leading-none">
                 <span className="text-base font-bold tracking-tight">FAI Engineer</span>
-                <span className="text-[10px] font-medium text-slate-400 tracking-wide">by EV.ENGINEER</span>
+                <span className="text-[10px] font-medium text-slate-400 tracking-wide">
+                  by{' '}
+                  <a href="https://ev.engineer" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-white transition-colors">EV.ENGINEER</a>
+                </span>
               </div>
             </div>
 

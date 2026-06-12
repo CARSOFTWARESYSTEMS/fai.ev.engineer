@@ -75,7 +75,10 @@ service cloud.firestore {
     // ── users/{userId} ────────────────────────────────────────────────────────
     match /users/{userId} {
       allow read:   if isAuth() && (isOwner(userId) || isAdmin());
-      allow create: if isAuth() && isOwner(userId);
+      // G1: prevent self-escalation — users may only create their doc with role 'engineer'.
+      // Admins assign elevated roles via the update path (isAdmin guard above).
+      allow create: if isAuth() && isOwner(userId)
+                       && request.resource.data.get('role', 'engineer') == 'engineer';
       // Owners can update their own profile fields but cannot change their own role.
       // Only platform admins (isAdmin) can assign or change roles.
       allow update: if isAuth() && (
@@ -107,6 +110,15 @@ service cloud.firestore {
     match /appConfig/{document=**} {
       allow read:  if isAuth();
       allow write: if isDeveloper();
+    }
+
+    // ── brandings/{brandingId} ───────────────────────────────────────────────
+    match /brandings/{brandingId} {
+      allow read:   if isAuth();
+      allow create: if isDeveloper()
+                       && request.resource.data.get('createdBy', '') == request.auth.token.email;
+      allow update: if isDeveloper();
+      allow delete: if isDeveloper();
     }
 
     // ── productConfigs/{pk} ───────────────────────────────────────────────────

@@ -18,7 +18,7 @@ import {
   CalendarDays,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
-import { useProductConfig } from '../config/hooks/useProductConfig'
+import { useBranding } from '../hooks/useBranding'
 import { getProjectById, updateProject, deleteProject } from '../projects/project.service'
 import {
   uploadProjectPdf,
@@ -113,7 +113,7 @@ export function EditProjectPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { productConfig } = useProductConfig()
+  const { branding } = useBranding()
 
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -383,7 +383,7 @@ export function EditProjectPage() {
                 <span className="text-white font-bold text-xs">F</span>
               </div>
               <span className="hidden sm:block text-sm font-bold text-text-primary">
-                {productConfig.productName}
+                {branding.businessName}
               </span>
             </div>
           </div>

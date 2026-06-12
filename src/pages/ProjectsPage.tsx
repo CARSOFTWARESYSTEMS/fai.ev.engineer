@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
+import { useBranding } from '../hooks/useBranding'
 import { getUserProjects, deleteProject } from '../projects/project.service'
 import {
   type FAIProject,
@@ -207,7 +208,8 @@ export function ProjectsPage() {
   const navigate      = useNavigate()
   const [searchParams] = useSearchParams()
   const { user, firebaseUser } = useAuth()
-  const { productConfig, canAccess } = useProductConfig()
+  const { canAccess } = useProductConfig()
+  const { branding } = useBranding()
   const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
 
   const [projects, setProjects]   = useState<FAIProject[]>([])
@@ -390,7 +392,7 @@ export function ProjectsPage() {
                 <span className="text-white font-bold text-xs">F</span>
               </div>
               <span className="hidden sm:block text-sm font-bold text-text-primary">
-                {productConfig.productName}
+                {branding.businessName}
               </span>
             </div>
           </div>

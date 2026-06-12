@@ -431,7 +431,7 @@ export function PdfViewerPage() {
   // ── Viewer ──────────────────────────────────────────────────────────────────
   return (
     <div className="h-screen flex flex-col bg-gray-900" ref={viewer.containerRef}>
-      <BetaWatermark variant="dark" />
+      <BetaWatermark pageVariant="dark" />
       <PdfToolbar
         projectId={project.projectId}
         projectName={project.projectName}

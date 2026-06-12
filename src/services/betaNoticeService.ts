@@ -1,5 +1,7 @@
 import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
+import { resetWatermarkToDefault } from './watermarkService'
+import { restoreDefaultBranding } from './brandingService'
 
 export type BetaNoticeSeverity = 'info' | 'warning' | 'error'
 
@@ -70,13 +72,25 @@ export interface RestoreResult {
 
 // Recreates all appConfig documents from their hardcoded defaults.
 // Safe to call even if documents already exist — setDoc overwrites.
-export async function restoreDefaultConfigs(): Promise<RestoreResult> {
+export async function restoreDefaultConfigs(updatedBy = 'developer'): Promise<RestoreResult> {
   const result: RestoreResult = { restored: [], errors: [] }
   try {
     await saveBetaNotice(BETA_NOTICE_DEFAULTS)
     result.restored.push('appConfig/betaBanner')
   } catch (err) {
     result.errors.push(`appConfig/betaBanner — ${(err as Error).message}`)
+  }
+  try {
+    await resetWatermarkToDefault(updatedBy)
+    result.restored.push('appConfig/watermark')
+  } catch (err) {
+    result.errors.push(`appConfig/watermark — ${(err as Error).message}`)
+  }
+  try {
+    await restoreDefaultBranding(updatedBy)
+    result.restored.push('appConfig/activeBranding')
+  } catch (err) {
+    result.errors.push(`appConfig/activeBranding — ${(err as Error).message}`)
   }
   return result
 }

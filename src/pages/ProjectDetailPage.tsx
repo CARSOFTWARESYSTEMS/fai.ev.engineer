@@ -19,7 +19,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
-import { useProductConfig } from '../config/hooks/useProductConfig'
+import { useBranding } from '../hooks/useBranding'
 import { getProjectById, deleteProject } from '../projects/project.service'
 import {
   uploadProjectPdf,
@@ -72,7 +72,7 @@ export function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { productConfig } = useProductConfig()
+  const { branding } = useBranding()
 
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -251,7 +251,7 @@ export function ProjectDetailPage() {
               <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
                 <span className="text-white font-bold text-xs">F</span>
               </div>
-              <span className="hidden sm:block text-sm font-bold text-text-primary">{productConfig.productName}</span>
+              <span className="hidden sm:block text-sm font-bold text-text-primary">{branding.businessName}</span>
             </div>
           </div>
         </div>

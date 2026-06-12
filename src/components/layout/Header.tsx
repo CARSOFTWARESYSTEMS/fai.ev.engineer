@@ -33,7 +33,8 @@ export function Header() {
                 FAI Engineer
               </span>
               <span className="text-[10px] font-medium text-text-secondary tracking-wide">
-                by EV.ENGINEER
+                by{' '}
+                <a href="https://ev.engineer" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">EV.ENGINEER</a>
               </span>
             </div>
           </Link>

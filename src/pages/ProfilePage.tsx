@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useBranding } from '../hooks/useBranding'
 import {
   ArrowLeft,
   Save,
@@ -39,6 +40,7 @@ function validateOrgCode(code: string): string | null {
 export function ProfilePage() {
   const navigate = useNavigate()
   const { user, firebaseUser, isLoading, isProfileComplete, refreshProfile } = useAuth()
+  const { branding } = useBranding()
 
   // Guard
   useEffect(() => {
@@ -167,8 +169,13 @@ export function ProfilePage() {
                 <span className="text-white font-bold text-xs">F</span>
               </div>
               <div className="hidden sm:flex flex-col leading-none">
-                <span className="text-sm font-bold text-text-primary">FAI Engineer</span>
-                <span className="text-[10px] text-text-secondary">by EV.ENGINEER</span>
+                <span className="text-sm font-bold text-text-primary">{branding.businessName}</span>
+                <span className="text-[10px] text-text-secondary">
+                  powered by{' '}
+                  <a href={branding.poweredByUrl} target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">
+                    {branding.poweredByText.replace(/^powered by\s+/i, '') || 'EV.ENGINEER'}
+                  </a>
+                </span>
               </div>
             </div>
           </div>

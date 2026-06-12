@@ -4,6 +4,7 @@ import {
   Code2, Users, Settings2, Shield, Plus, ToggleLeft, ToggleRight,
   AlertTriangle, CheckCircle2, Loader2, Lock, RefreshCw, Save,
   Bell, Flag, Wrench, ChevronDown, Trash2, Info, RotateCcw,
+  Type, Palette,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useDeveloperAccess } from '../services/useDeveloperAccess'
@@ -26,6 +27,24 @@ import {
   type BetaNoticeSeverity,
   type RestoreResult,
 } from '../services/betaNoticeService'
+import {
+  subscribeToWatermark,
+  saveWatermark,
+  resetWatermarkToDefault,
+  WATERMARK_DEFAULTS,
+  type WatermarkConfig,
+  type WatermarkVariant,
+} from '../services/watermarkService'
+import {
+  subscribeToBrandingPresets,
+  subscribeToActiveBranding,
+  createBrandingPreset,
+  updateBrandingPreset,
+  deleteBrandingPreset,
+  setActiveBranding,
+  restoreDefaultBranding,
+  type BrandingPreset,
+} from '../services/brandingService'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -814,13 +833,654 @@ function BetaBannerConfig() {
   )
 }
 
+// ─── Watermark config panel ───────────────────────────────────────────────────
+
+function WatermarkConfigPanel() {
+  const { firebaseUser } = useAuth()
+  const [form, setForm]             = useState<WatermarkConfig>(WATERMARK_DEFAULTS)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [feedback, setFeedback]     = useState('')
+
+  useEffect(() => { return subscribeToWatermark(setForm) }, [])
+
+  const handleSave = async () => {
+    setSaveStatus('saving')
+    setFeedback('')
+    try {
+      await saveWatermark(form, firebaseUser?.email ?? 'developer')
+      setSaveStatus('saved')
+      setFeedback('Watermark config saved. Updates live across all open sessions.')
+      setTimeout(() => { setSaveStatus('idle'); setFeedback('') }, 4000)
+    } catch (err) {
+      setSaveStatus('error')
+      setFeedback((err as Error).message || 'Failed to save.')
+    }
+  }
+
+  const handleReset = async () => {
+    setSaveStatus('saving')
+    setFeedback('')
+    try {
+      await resetWatermarkToDefault(firebaseUser?.email ?? 'developer')
+      setForm(WATERMARK_DEFAULTS)
+      setSaveStatus('saved')
+      setFeedback('Reset to defaults and saved.')
+      setTimeout(() => { setSaveStatus('idle'); setFeedback('') }, 4000)
+    } catch (err) {
+      setSaveStatus('error')
+      setFeedback((err as Error).message || 'Failed to reset.')
+    }
+  }
+
+  const isBusy = saveStatus === 'saving'
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-text-secondary">
+        Background watermark shown on all authenticated pages. Never appears in PDF exports.
+      </p>
+
+      {/* Enabled toggle */}
+      <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-gray-50/50">
+        <div>
+          <p className="text-sm font-medium text-text-primary">Watermark Enabled</p>
+          <p className="text-xs text-text-secondary">Show watermark text across all pages</p>
+        </div>
+        <button onClick={() => setForm(f => ({ ...f, enabled: !f.enabled }))}>
+          {form.enabled
+            ? <ToggleRight className="w-7 h-7 text-primary" />
+            : <ToggleLeft  className="w-7 h-7 text-text-secondary" />}
+        </button>
+      </div>
+
+      {/* Text input */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+            Watermark Text
+          </label>
+          <span className={`text-xs ${form.text.length >= 45 ? 'text-amber-600' : 'text-text-secondary'}`}>
+            {form.text.length}/50
+          </span>
+        </div>
+        <input
+          type="text"
+          value={form.text}
+          onChange={e => setForm(f => ({ ...f, text: e.target.value.slice(0, 50) }))}
+          maxLength={50}
+          placeholder="FAI AS9102 BETA TESTING"
+          className="w-full px-3 py-2 text-sm border border-border rounded-lg
+            focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white font-mono uppercase"
+        />
+      </div>
+
+      {/* Opacity slider */}
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide">
+            Opacity
+          </label>
+          <span className="text-xs font-mono text-text-secondary">
+            {(form.opacity * 100).toFixed(0)}%
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0.01}
+          max={0.20}
+          step={0.01}
+          value={form.opacity}
+          onChange={e => setForm(f => ({ ...f, opacity: parseFloat(e.target.value) }))}
+          className="w-full accent-primary"
+        />
+        <div className="flex justify-between text-[10px] text-text-secondary mt-0.5">
+          <span>1% (subtle)</span>
+          <span>20% (visible)</span>
+        </div>
+      </div>
+
+      {/* Variant selector */}
+      <div>
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2 block">
+          Colour Variant
+        </label>
+        <div className="flex gap-2 flex-wrap">
+          {(['light', 'dark', 'auto'] as WatermarkVariant[]).map(v => (
+            <label key={v}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all text-sm ${
+                form.variant === v
+                  ? 'border-primary bg-primary-light text-primary font-semibold'
+                  : 'border-border bg-white text-text-secondary hover:border-primary/30'
+              }`}>
+              <input
+                type="radio"
+                name="watermarkVariant"
+                value={v}
+                checked={form.variant === v}
+                onChange={() => setForm(f => ({ ...f, variant: v }))}
+                className="sr-only"
+              />
+              {v === 'light' && 'Light (dark text)'}
+              {v === 'dark'  && 'Dark (white text)'}
+              {v === 'auto'  && 'Auto (per-page)'}
+            </label>
+          ))}
+        </div>
+        {form.variant === 'auto' && (
+          <p className="text-[11px] text-text-secondary mt-1.5">
+            Auto uses dark text on light pages, white text on the PDF workspace.
+          </p>
+        )}
+      </div>
+
+      {/* Live preview */}
+      {form.enabled && (
+        <div>
+          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">Preview</p>
+          <div className="grid grid-cols-2 gap-2">
+            {(['light', 'dark'] as const).map(variant => {
+              const color = variant === 'dark'
+                ? `rgba(255,255,255,${form.opacity})`
+                : `rgba(17,24,39,${form.opacity})`
+              const isSelected = form.variant === variant || form.variant === 'auto'
+              return (
+                <div key={variant}
+                  className={`relative h-20 rounded-xl overflow-hidden flex items-center justify-center transition-all
+                    ${isSelected ? 'ring-2 ring-primary' : 'ring-1 ring-border'}
+                    ${variant === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
+                  <span
+                    className="text-xl font-black tracking-widest uppercase whitespace-nowrap -rotate-[35deg] select-none"
+                    style={{ color }}>
+                    {form.text || WATERMARK_DEFAULTS.text}
+                  </span>
+                  <span className={`absolute bottom-1.5 right-2 text-[9px] font-semibold
+                    ${variant === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                    {variant}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Feedback */}
+      {feedback && (
+        <FeedbackBanner
+          type={saveStatus === 'error' ? 'error' : 'success'}
+          message={feedback}
+        />
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-3 pt-3 border-t border-border flex-wrap">
+        <button
+          onClick={handleReset}
+          disabled={isBusy}
+          className="inline-flex items-center gap-1.5 text-sm font-medium
+            text-text-secondary hover:text-error border border-border rounded-lg
+            px-4 py-2 transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Reset to Default
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={isBusy}
+          className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold
+            px-5 py-2 bg-primary text-white rounded-lg hover:bg-primary/90
+            transition-colors disabled:opacity-50"
+        >
+          {isBusy
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <Save className="w-4 h-4" />}
+          Save Config
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Branding settings panel ──────────────────────────────────────────────────
+
+type BrandingFormState = {
+  businessName:          string
+  businessCode:          string
+  poweredByText:         string
+  poweredByUrl:          string
+  website:               string
+  supportEmail:          string
+  enabled:               boolean
+  businessCodeCustomized: boolean
+}
+
+const EMPTY_BRANDING_FORM: BrandingFormState = {
+  businessName:          '',
+  businessCode:          '',
+  poweredByText:         'powered by EV.ENGINEER',
+  poweredByUrl:          'https://ev.engineer',
+  website:               '',
+  supportEmail:          '',
+  enabled:               true,
+  businessCodeCustomized: false,
+}
+
+function suggestBrandingCode(name: string): string {
+  return name.trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z0-9\-_]/g, '') ?? ''
+}
+
+function BrandingSettingsPanel() {
+  const { firebaseUser } = useAuth()
+  const [presets, setPresets]               = useState<BrandingPreset[]>([])
+  const [activeBrandingId, setActiveBrandingId] = useState<string | null>(null)
+  const [form, setForm]                     = useState<BrandingFormState>(EMPTY_BRANDING_FORM)
+  const [editingPreset, setEditingPreset]   = useState<BrandingPreset | null>(null)
+  const [formOpen, setFormOpen]             = useState(false)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus]         = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [feedback, setFeedback]             = useState('')
+
+  useEffect(() => {
+    const unsub1 = subscribeToBrandingPresets(setPresets)
+    const unsub2 = subscribeToActiveBranding(preset => setActiveBrandingId(preset?.brandingId ?? null))
+    return () => { unsub1(); unsub2() }
+  }, [])
+
+  const openAdd = () => {
+    setEditingPreset(null)
+    setForm(EMPTY_BRANDING_FORM)
+    setFormOpen(true)
+    setFeedback('')
+    setSaveStatus('idle')
+  }
+
+  const openEdit = (preset: BrandingPreset) => {
+    setEditingPreset(preset)
+    setForm({
+      businessName:          preset.businessName,
+      businessCode:          preset.businessCode,
+      poweredByText:         preset.poweredByText,
+      poweredByUrl:          preset.poweredByUrl,
+      website:               preset.website ?? '',
+      supportEmail:          preset.supportEmail ?? '',
+      enabled:               preset.enabled,
+      businessCodeCustomized: true,
+    })
+    setFormOpen(true)
+    setFeedback('')
+    setSaveStatus('idle')
+  }
+
+  const closeForm = () => {
+    setFormOpen(false)
+    setEditingPreset(null)
+    setSaveStatus('idle')
+    setFeedback('')
+  }
+
+  const handleNameChange = (val: string) =>
+    setForm(f => ({
+      ...f,
+      businessName: val,
+      businessCode: f.businessCodeCustomized ? f.businessCode : suggestBrandingCode(val),
+    }))
+
+  const handleCodeChange = (val: string) =>
+    setForm(f => ({
+      ...f,
+      businessCode:          val.toLowerCase().replace(/[^a-z0-9\-_]/g, ''),
+      businessCodeCustomized: true,
+    }))
+
+  const handleSaveForm = async () => {
+    if (!form.businessName.trim())  { setFeedback('Business name is required.');     setSaveStatus('error'); return }
+    if (!form.businessCode.trim())  { setFeedback('Business code is required.');     setSaveStatus('error'); return }
+    if (!form.poweredByText.trim()) { setFeedback('"Powered by" text is required.'); setSaveStatus('error'); return }
+    if (!form.poweredByUrl.trim())  { setFeedback('"Powered by" URL is required.');  setSaveStatus('error'); return }
+
+    setSaveStatus('saving')
+    setFeedback('')
+    try {
+      const email = firebaseUser?.email ?? 'developer'
+      const data = {
+        businessName:  form.businessName.trim(),
+        businessCode:  form.businessCode.trim(),
+        poweredByText: form.poweredByText.trim(),
+        poweredByUrl:  form.poweredByUrl.trim(),
+        website:       form.website.trim(),
+        supportEmail:  form.supportEmail.trim(),
+        enabled:       form.enabled,
+        createdBy:     email,
+      }
+      if (editingPreset) {
+        await updateBrandingPreset(editingPreset.brandingId, data)
+      } else {
+        await createBrandingPreset(data)
+      }
+      setSaveStatus('saved')
+      setFeedback(editingPreset ? 'Preset updated.' : 'Preset created.')
+      setTimeout(closeForm, 1500)
+    } catch (err) {
+      setSaveStatus('error')
+      setFeedback((err as Error).message || 'Failed to save.')
+    }
+  }
+
+  const handleSetActive = async (brandingId: string) => {
+    try {
+      await setActiveBranding(brandingId, firebaseUser?.email ?? 'developer')
+    } catch (err) {
+      setFeedback((err as Error).message || 'Failed to set active branding.')
+      setSaveStatus('error')
+    }
+  }
+
+  const handleClearActive = async () => {
+    try {
+      await setActiveBranding(null, firebaseUser?.email ?? 'developer')
+    } catch (err) {
+      setFeedback((err as Error).message || 'Failed to deactivate branding.')
+      setSaveStatus('error')
+    }
+  }
+
+  const handleDelete = async (brandingId: string) => {
+    try {
+      await deleteBrandingPreset(brandingId)
+      if (activeBrandingId === brandingId) {
+        await setActiveBranding(null, firebaseUser?.email ?? 'developer')
+      }
+      setDeleteConfirmId(null)
+    } catch (err) {
+      setFeedback((err as Error).message || 'Failed to delete preset.')
+      setSaveStatus('error')
+    }
+  }
+
+  const handleRestoreDefault = async () => {
+    setSaveStatus('saving')
+    setFeedback('')
+    try {
+      await restoreDefaultBranding(firebaseUser?.email ?? 'developer')
+      setSaveStatus('saved')
+      setFeedback('Default branding restored and set as active.')
+      setTimeout(() => { setSaveStatus('idle'); setFeedback('') }, 4000)
+    } catch (err) {
+      setSaveStatus('error')
+      setFeedback((err as Error).message || 'Failed to restore default branding.')
+    }
+  }
+
+  const isBusy = saveStatus === 'saving'
+
+  // Preview: show the form draft when editing, otherwise the active preset
+  const previewBranding = formOpen
+    ? { businessName: form.businessName || 'Business Name', poweredByText: form.poweredByText || 'powered by EV.ENGINEER', poweredByUrl: form.poweredByUrl || '#' }
+    : presets.find(p => p.brandingId === activeBrandingId) ?? null
+
+  return (
+    <div className="flex flex-col gap-4">
+
+      {/* Header preview */}
+      {previewBranding && (
+        <div>
+          <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">
+            Header Preview{formOpen ? ' (draft)' : ' (active)'}
+          </p>
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-white border border-border rounded-xl">
+            <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
+              <span className="text-white font-bold text-xs">F</span>
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-sm font-bold text-text-primary">{previewBranding.businessName}</span>
+              <span className="text-[10px] text-text-secondary">
+                powered by{' '}
+                <a href={previewBranding.poweredByUrl} target="_blank" rel="noopener noreferrer"
+                  className="hover:underline hover:text-primary transition-colors">
+                  {previewBranding.poweredByText.replace(/^powered by\s+/i, '') || 'EV.ENGINEER'}
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No active branding warning */}
+      {!activeBrandingId && !formOpen && (
+        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          No active branding set — app headers are showing fallback name "FAI Engineer".
+        </div>
+      )}
+
+      {/* Preset list */}
+      {presets.length > 0 && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-border flex items-center justify-between">
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide">
+              Branding Presets
+            </p>
+            <span className="text-[11px] text-text-secondary">
+              {presets.length} preset{presets.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="divide-y divide-border">
+            {presets.map(preset => {
+              const isActive   = preset.brandingId === activeBrandingId
+              const isDeleting = deleteConfirmId   === preset.brandingId
+              return (
+                <div key={preset.brandingId} className="px-4 py-3">
+                  {isDeleting ? (
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
+                      <AlertTriangle className="w-4 h-4 text-error shrink-0" />
+                      <p className="text-sm text-error flex-1">
+                        Delete <span className="font-semibold">{preset.businessName}</span>?
+                      </p>
+                      <button onClick={() => setDeleteConfirmId(null)}
+                        className="text-xs font-medium text-text-secondary hover:text-text-primary px-2 py-1 transition-colors">
+                        Cancel
+                      </button>
+                      <button onClick={() => handleDelete(preset.brandingId)}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-white
+                          bg-error hover:bg-error/90 px-3 py-1.5 rounded-lg transition-colors">
+                        <Trash2 className="w-3 h-3" />Delete
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <span className="text-sm font-semibold text-text-primary">{preset.businessName}</span>
+                          <span className="font-mono text-[10px] bg-primary-light text-primary px-1.5 py-0.5 rounded-full">
+                            {preset.businessCode}
+                          </span>
+                          {isActive && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
+                              bg-success/10 text-success border border-success/20">
+                              active
+                            </span>
+                          )}
+                          {!preset.enabled && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
+                              bg-gray-100 text-text-secondary border border-border">
+                              disabled
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-text-secondary">{preset.poweredByText}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                        {!isActive ? (
+                          <button onClick={() => handleSetActive(preset.brandingId)}
+                            className="text-xs font-semibold text-primary border border-primary/30
+                              bg-primary-light hover:bg-primary/10 px-2.5 py-1.5 rounded-lg transition-colors">
+                            Set Active
+                          </button>
+                        ) : (
+                          <button onClick={handleClearActive}
+                            className="text-xs font-medium text-text-secondary border border-border
+                              hover:border-error/40 hover:text-error px-2.5 py-1.5 rounded-lg transition-colors">
+                            Deactivate
+                          </button>
+                        )}
+                        <button onClick={() => openEdit(preset)}
+                          className="text-xs font-medium text-text-secondary border border-border
+                            hover:text-primary hover:border-primary/30 px-2.5 py-1.5 rounded-lg transition-colors">
+                          Edit
+                        </button>
+                        <button onClick={() => setDeleteConfirmId(preset.brandingId)}
+                          className="p-1.5 text-text-secondary hover:text-error transition-colors rounded-lg">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {presets.length === 0 && !formOpen && (
+        <div className="text-center py-10 border border-dashed border-border rounded-xl">
+          <Palette className="w-7 h-7 text-border mx-auto mb-2" />
+          <p className="text-sm font-medium text-text-secondary">No branding presets</p>
+          <p className="text-xs text-text-secondary mt-0.5">
+            Add a preset or restore the default iTelematics branding below.
+          </p>
+        </div>
+      )}
+
+      {/* Add / Edit form */}
+      {formOpen && (
+        <div className="p-4 rounded-xl border border-primary/20 bg-primary-light/30 flex flex-col gap-3">
+          <p className="text-xs font-bold text-primary uppercase tracking-wide">
+            {editingPreset ? `Editing: ${editingPreset.businessName}` : 'New Branding Preset'}
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">Business Name *</label>
+              <input type="text" value={form.businessName}
+                onChange={e => handleNameChange(e.target.value)}
+                placeholder="iTelematics Software Private Limited"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">Business Code *</label>
+              <input type="text" value={form.businessCode}
+                onChange={e => handleCodeChange(e.target.value)}
+                placeholder="itelematics"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">"Powered By" Text *</label>
+              <input type="text" value={form.poweredByText}
+                onChange={e => setForm(f => ({ ...f, poweredByText: e.target.value }))}
+                placeholder="powered by EV.ENGINEER"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">"Powered By" URL *</label>
+              <input type="url" value={form.poweredByUrl}
+                onChange={e => setForm(f => ({ ...f, poweredByUrl: e.target.value }))}
+                placeholder="https://ev.engineer"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">Website</label>
+              <input type="url" value={form.website}
+                onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
+                placeholder="https://example.com"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">Support Email</label>
+              <input type="email" value={form.supportEmail}
+                onChange={e => setForm(f => ({ ...f, supportEmail: e.target.value }))}
+                placeholder="support@example.com"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button onClick={() => setForm(f => ({ ...f, enabled: !f.enabled }))}>
+              {form.enabled
+                ? <ToggleRight className="w-6 h-6 text-primary" />
+                : <ToggleLeft  className="w-6 h-6 text-text-secondary" />}
+            </button>
+            <span className="text-sm text-text-secondary">{form.enabled ? 'Enabled' : 'Disabled'}</span>
+          </div>
+
+          {feedback && saveStatus === 'error' && (
+            <FeedbackBanner type="error" message={feedback} />
+          )}
+
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            <button onClick={closeForm}
+              className="text-sm font-medium text-text-secondary hover:text-error transition-colors px-3 py-2">
+              Cancel
+            </button>
+            <button onClick={handleSaveForm}
+              disabled={isBusy}
+              className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold
+                px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90
+                transition-colors disabled:opacity-50">
+              {isBusy
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Save className="w-3.5 h-3.5" />}
+              {editingPreset ? 'Update' : 'Create'} Preset
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback outside form */}
+      {feedback && saveStatus !== 'error' && !formOpen && (
+        <FeedbackBanner type="success" message={feedback} />
+      )}
+
+      {/* Actions footer */}
+      <div className="flex items-center gap-3 pt-3 border-t border-border flex-wrap">
+        <button onClick={handleRestoreDefault}
+          disabled={isBusy}
+          className="inline-flex items-center gap-1.5 text-sm font-medium
+            text-text-secondary hover:text-error border border-border rounded-lg
+            px-4 py-2 transition-colors disabled:opacity-50">
+          <RefreshCw className="w-3.5 h-3.5" />
+          Restore Default Branding
+        </button>
+        {!formOpen && (
+          <button onClick={openAdd}
+            className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold
+              px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">
+            <Plus className="w-3.5 h-3.5" />
+            Add Preset
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Restore Default Configs panel ───────────────────────────────────────────
 
 const RESTORABLE_CONFIGS = [
-  { path: 'appConfig/betaBanner', description: 'Beta banner title, message, severity, and visibility' },
+  { path: 'appConfig/betaBanner',    description: 'Beta banner title, message, severity, and visibility' },
+  { path: 'appConfig/watermark',     description: 'Watermark text, opacity, variant, and enabled flag' },
+  { path: 'appConfig/activeBranding', description: 'Active branding pointer + default iTelematics preset in brandings/' },
 ]
 
 function RestoreConfigsPanel({ onSuccess }: { onSuccess?: () => void }) {
+  const { firebaseUser } = useAuth()
   const [status,   setStatus]   = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [result,   setResult]   = useState<RestoreResult | null>(null)
 
@@ -828,7 +1488,7 @@ function RestoreConfigsPanel({ onSuccess }: { onSuccess?: () => void }) {
     setStatus('running')
     setResult(null)
     try {
-      const r = await restoreDefaultConfigs()
+      const r = await restoreDefaultConfigs(firebaseUser?.email ?? 'developer')
       setResult(r)
       setStatus(r.errors.length > 0 ? 'error' : 'done')
       if (r.restored.length > 0) onSuccess?.()
@@ -908,7 +1568,15 @@ function RestoreConfigsPanel({ onSuccess }: { onSuccess?: () => void }) {
 // ─── Configurations tab ───────────────────────────────────────────────────────
 
 function ConfigurationsTab() {
-  const [bannerKey, setBannerKey] = useState(0)
+  const [bannerKey,   setBannerKey]   = useState(0)
+  const [watermarkKey, setWatermarkKey] = useState(0)
+  const [brandingKey,  setBrandingKey]  = useState(0)
+
+  const bumpAll = () => {
+    setBannerKey(k => k + 1)
+    setWatermarkKey(k => k + 1)
+    setBrandingKey(k => k + 1)
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -921,6 +1589,28 @@ function ConfigurationsTab() {
         defaultOpen={false}
       >
         <BetaBannerConfig key={bannerKey} />
+      </CollapsibleCard>
+
+      <CollapsibleCard
+        title="Watermark Configuration"
+        subtitle="Background watermark text shown on all authenticated pages — never in exports"
+        icon={Type}
+        iconBg="bg-blue-50"
+        iconColor="text-blue-600"
+        defaultOpen={false}
+      >
+        <WatermarkConfigPanel key={watermarkKey} />
+      </CollapsibleCard>
+
+      <CollapsibleCard
+        title="Branding Settings"
+        subtitle="Active partner branding — business name and powered-by link in all app headers"
+        icon={Palette}
+        iconBg="bg-purple-50"
+        iconColor="text-purple-600"
+        defaultOpen={false}
+      >
+        <BrandingSettingsPanel key={brandingKey} />
       </CollapsibleCard>
 
       <CollapsibleCard
@@ -955,7 +1645,7 @@ function ConfigurationsTab() {
         iconColor="text-amber-600"
         defaultOpen={false}
       >
-        <RestoreConfigsPanel onSuccess={() => setBannerKey(k => k + 1)} />
+        <RestoreConfigsPanel onSuccess={bumpAll} />
       </CollapsibleCard>
     </div>
   )

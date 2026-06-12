@@ -94,7 +94,7 @@ export function CompleteProfilePage() {
           </div>
           <div className="flex flex-col leading-none">
             <span className="font-bold text-text-primary text-sm">FAI Engineer</span>
-            <span className="text-[10px] text-text-secondary font-medium">by EV.ENGINEER</span>
+            <span className="text-[10px] text-text-secondary font-medium">by{' '}<a href="https://ev.engineer" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">EV.ENGINEER</a></span>
           </div>
         </div>
         {/* Step indicator */}
