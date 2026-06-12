@@ -112,6 +112,15 @@ service cloud.firestore {
       allow write: if isDeveloper();
     }
 
+    // ── roleAuditTrail/{eventId} ──────────────────────────────────────────────
+    // Append-only role change log. Admins+ may read and create; never update or delete.
+    match /roleAuditTrail/{eventId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin();
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ── brandings/{brandingId} ───────────────────────────────────────────────
     match /brandings/{brandingId} {
       allow read:   if isAuth();

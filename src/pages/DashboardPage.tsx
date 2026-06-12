@@ -246,7 +246,7 @@ export function DashboardPage() {
               <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
                 <span className="text-white font-bold text-sm">F</span>
               </div>
-              <div className="flex flex-col leading-none">
+              <div className="flex flex-col gap-1 leading-none">
                 <span className="text-sm font-bold text-text-primary tracking-tight">{branding.businessName}</span>
                 <span className="text-[10px] text-text-secondary hidden sm:block">
                   powered by{' '}

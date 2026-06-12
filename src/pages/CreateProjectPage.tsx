@@ -158,7 +158,7 @@ export function CreateProjectPage() {
               <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
                 <span className="text-white font-bold text-xs">F</span>
               </div>
-              <div className="hidden sm:flex flex-col leading-none">
+              <div className="hidden sm:flex flex-col gap-1 leading-none">
                 <span className="text-sm font-bold text-text-primary">{branding.businessName}</span>
                 <span className="text-[10px] text-text-secondary">
                   powered by{' '}

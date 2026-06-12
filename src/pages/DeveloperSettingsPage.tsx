@@ -4,11 +4,29 @@ import {
   Code2, Users, Settings2, Shield, Plus, ToggleLeft, ToggleRight,
   AlertTriangle, CheckCircle2, Loader2, Lock, RefreshCw, Save,
   Bell, Flag, Wrench, ChevronDown, Trash2, Info, RotateCcw,
-  Type, Palette,
+  Type, Palette, UserCog, Search, Filter,
+  Database, Play, RotateCw, Download, Package,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useDeveloperAccess } from '../services/useDeveloperAccess'
 import { BOOTSTRAP_DEVELOPER_EMAILS } from '../config/developerBootstrap'
+import {
+  subscribeUsers,
+  updateUserRole,
+  canEditUserRole,
+  getAllowedTargetRoles,
+  type UserRecord,
+} from '../services/roleManagementService'
+import type { UserRole } from '../auth/AuthTypes'
+import { useProductConfig } from '../config/hooks/useProductConfig'
+import {
+  seedDemoProjects,
+  deleteDemoProjects,
+  exportDemoDataset,
+  getDemoProjectSummary,
+  type SeedProgress,
+  type SeedResult,
+} from '../scripts/demoDataSeeder'
 import {
   subscribeToDevelopers,
   addDeveloper,
@@ -48,7 +66,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'developers' | 'configurations'
+type Tab = 'developers' | 'configurations' | 'users' | 'demo'
 
 // ─── Access Denied ────────────────────────────────────────────────────────────
 
@@ -1231,7 +1249,7 @@ function BrandingSettingsPanel() {
             <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
               <span className="text-white font-bold text-xs">F</span>
             </div>
-            <div className="flex flex-col leading-none">
+            <div className="flex flex-col gap-1 leading-none">
               <span className="text-sm font-bold text-text-primary">{previewBranding.businessName}</span>
               <span className="text-[10px] text-text-secondary">
                 powered by{' '}
@@ -1651,12 +1669,785 @@ function ConfigurationsTab() {
   )
 }
 
+// ─── Role badge ───────────────────────────────────────────────────────────────
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: 'Super Admin',
+  admin:       'Admin',
+  manager:     'Manager',
+  engineer:    'Engineer',
+  user:        'User (legacy)',
+}
+
+const ROLE_BADGE: Record<string, string> = {
+  super_admin: 'bg-purple-50 text-purple-700 border-purple-200',
+  admin:       'bg-red-50 text-red-700 border-red-200',
+  manager:     'bg-blue-50 text-blue-700 border-blue-100',
+  engineer:    'bg-green-50 text-green-700 border-green-200',
+  user:        'bg-gray-100 text-text-secondary border-border',
+}
+
+function RoleBadge({ role }: { role: string }) {
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border
+      ${ROLE_BADGE[role] ?? ROLE_BADGE.user}`}>
+      {ROLE_LABEL[role] ?? role}
+    </span>
+  )
+}
+
+// ─── User avatar ──────────────────────────────────────────────────────────────
+
+function UserAvatar({ name, photoURL }: { name: string; photoURL?: string }) {
+  const initials = name.replace(/[^a-zA-Z\s]/g, '').split(' ')
+    .filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '?'
+  if (photoURL) {
+    return (
+      <img
+        src={photoURL}
+        alt={name}
+        referrerPolicy="no-referrer"
+        className="w-9 h-9 rounded-full border border-border shrink-0 object-cover"
+      />
+    )
+  }
+  return (
+    <div className="w-9 h-9 rounded-full bg-primary-light flex items-center justify-center shrink-0">
+      <span className="text-xs font-bold text-primary select-none">{initials}</span>
+    </div>
+  )
+}
+
+// ─── Date helper ──────────────────────────────────────────────────────────────
+
+function fmtDate(val: unknown): string {
+  if (!val) return '—'
+  try {
+    const d = typeof val === 'object' && 'toDate' in (val as object)
+      ? (val as { toDate: () => Date }).toDate()
+      : new Date(val as string)
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  } catch {
+    return '—'
+  }
+}
+
+function fmtRelative(val: unknown): string {
+  if (!val) return '—'
+  try {
+    const d = typeof val === 'object' && 'toDate' in (val as object)
+      ? (val as { toDate: () => Date }).toDate()
+      : new Date(val as string)
+    const diff = Date.now() - d.getTime()
+    const mins  = Math.floor(diff / 60_000)
+    if (mins < 1)    return 'just now'
+    if (mins < 60)   return `${mins}m ago`
+    const hrs = Math.floor(mins / 60)
+    if (hrs  < 24)   return `${hrs}h ago`
+    const days = Math.floor(hrs / 24)
+    if (days < 30)   return `${days}d ago`
+    return fmtDate(val)
+  } catch {
+    return '—'
+  }
+}
+
+// ─── Inline role change row ───────────────────────────────────────────────────
+
+function RoleChangeRow({
+  user: targetUser,
+  callerRole,
+  isBootstrap,
+  callerUid,
+  callerEmail,
+  onDone,
+}: {
+  user:        UserRecord
+  callerRole:  UserRole
+  isBootstrap: boolean
+  callerUid:   string
+  callerEmail: string
+  onDone:      () => void
+}) {
+  const allowedRoles = getAllowedTargetRoles(callerRole, isBootstrap).filter(r => r !== targetUser.role)
+  const [selected, setSelected]   = useState<UserRole>(allowedRoles[0] ?? targetUser.role)
+  const [confirm,  setConfirm]    = useState(false)
+  const [saving,   setSaving]     = useState(false)
+  const [error,    setError]      = useState('')
+
+  const handleConfirm = async () => {
+    setSaving(true)
+    setError('')
+    try {
+      await updateUserRole({
+        targetUid:      targetUser.uid,
+        targetEmail:    targetUser.email,
+        previousRole:   targetUser.role,
+        newRole:        selected,
+        changedByUid:   callerUid,
+        changedByEmail: callerEmail,
+      })
+      onDone()
+    } catch (err) {
+      setError((err as Error).message || 'Failed to update role.')
+      setSaving(false)
+    }
+  }
+
+  if (!confirm) {
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <select
+          value={selected}
+          onChange={e => setSelected(e.target.value as UserRole)}
+          className="appearance-none pl-3 pr-7 py-1.5 text-xs border border-border rounded-lg
+            bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+        >
+          {allowedRoles.map(r => (
+            <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>
+          ))}
+        </select>
+        <button
+          onClick={() => setConfirm(true)}
+          className="text-xs font-semibold text-white bg-primary hover:bg-primary/90
+            px-3 py-1.5 rounded-lg transition-colors"
+        >
+          Apply
+        </button>
+        <button onClick={onDone} className="text-xs text-text-secondary hover:text-error transition-colors px-2">
+          Cancel
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-2.5 flex-wrap">
+      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+      <span className="text-xs text-text-primary">
+        Change <span className="font-semibold">{targetUser.displayName || targetUser.email}</span>'s role
+        from <span className="font-semibold">{ROLE_LABEL[targetUser.role]}</span>
+        {' → '}<span className="font-semibold">{ROLE_LABEL[selected]}</span>?
+      </span>
+      {error && <span className="text-xs text-error">{error}</span>}
+      <button onClick={() => setConfirm(false)} disabled={saving}
+        className="text-xs text-text-secondary hover:text-text-primary px-2 py-1 transition-colors">
+        No
+      </button>
+      <button onClick={handleConfirm} disabled={saving}
+        className="inline-flex items-center gap-1 text-xs font-semibold text-white
+          bg-primary hover:bg-primary/90 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+        {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+        Yes, Change
+      </button>
+    </div>
+  )
+}
+
+// ─── Product users tab ────────────────────────────────────────────────────────
+
+function ProductUsersTab({
+  callerUid,
+  callerEmail,
+  callerRole,
+  isBootstrap,
+}: {
+  callerUid:   string
+  callerEmail: string
+  callerRole:  UserRole
+  isBootstrap: boolean
+}) {
+  const [users, setUsers]           = useState<UserRecord[]>([])
+  const [loading, setLoading]       = useState(true)
+  const [search,  setSearch]        = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [sortKey, setSortKey]       = useState<'name' | 'created' | 'login'>('name')
+  const [editingUid, setEditingUid] = useState<string | null>(null)
+  const [feedback, setFeedback]     = useState('')
+
+  useEffect(() => {
+    return subscribeUsers(received => {
+      setUsers(received)
+      setLoading(false)
+    })
+  }, [])
+
+  // Filter + sort (client-side — list is small)
+  const filtered = users
+    .filter(u => {
+      const q = search.toLowerCase()
+      const matchSearch = !q
+        || u.displayName?.toLowerCase().includes(q)
+        || u.email?.toLowerCase().includes(q)
+        || u.organizationName?.toLowerCase().includes(q)
+        || u.organizationCode?.toLowerCase().includes(q)
+      const matchRole = roleFilter === 'all' || u.role === roleFilter
+      return matchSearch && matchRole
+    })
+    .sort((a, b) => {
+      if (sortKey === 'name') {
+        return (a.displayName || a.email).localeCompare(b.displayName || b.email)
+      }
+      const getMs = (v: unknown) => {
+        if (!v) return 0
+        try {
+          return typeof v === 'object' && 'toDate' in (v as object)
+            ? (v as { toDate: () => Date }).toDate().getTime()
+            : new Date(v as string).getTime()
+        } catch { return 0 }
+      }
+      if (sortKey === 'created') return getMs(b.createdAt) - getMs(a.createdAt)
+      return getMs(b.lastLoginAt) - getMs(a.lastLoginAt)
+    })
+
+  const handleRoleDone = (msg: string) => {
+    setEditingUid(null)
+    setFeedback(msg)
+    setTimeout(() => setFeedback(''), 3500)
+  }
+
+  const ROLE_FILTER_OPTIONS = ['all', 'super_admin', 'admin', 'manager', 'engineer', 'user']
+
+  return (
+    <div className="flex flex-col gap-4">
+
+      {/* Summary + controls */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name, email, or organization…"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg
+              focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+          />
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Filter className="w-3.5 h-3.5 text-text-secondary" />
+          <select
+            value={roleFilter}
+            onChange={e => setRoleFilter(e.target.value)}
+            className="appearance-none pl-3 pr-7 py-2 text-sm border border-border rounded-lg
+              bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+          >
+            <option value="all">All roles</option>
+            {ROLE_FILTER_OPTIONS.slice(1).map(r => (
+              <option key={r} value={r}>{ROLE_LABEL[r] ?? r}</option>
+            ))}
+          </select>
+          <select
+            value={sortKey}
+            onChange={e => setSortKey(e.target.value as typeof sortKey)}
+            className="appearance-none pl-3 pr-7 py-2 text-sm border border-border rounded-lg
+              bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 cursor-pointer"
+          >
+            <option value="name">Name A–Z</option>
+            <option value="created">Newest first</option>
+            <option value="login">Last login</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Feedback banner */}
+      {feedback && (
+        <FeedbackBanner type="success" message={feedback} />
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && filtered.length === 0 && (
+        <div className="text-center py-14 border border-dashed border-border rounded-xl">
+          <Users className="w-7 h-7 text-border mx-auto mb-2" />
+          <p className="text-sm font-medium text-text-secondary">
+            {search || roleFilter !== 'all' ? 'No users match your filters.' : 'No users found.'}
+          </p>
+        </div>
+      )}
+
+      {/* User list */}
+      {!loading && filtered.length > 0 && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-border flex items-center justify-between">
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide">
+              Users
+            </p>
+            <span className="text-[11px] text-text-secondary">
+              {filtered.length} of {users.length}
+            </span>
+          </div>
+          <div className="divide-y divide-border">
+            {filtered.map(u => {
+              const isSelf    = u.uid === callerUid
+              const canEdit   = canEditUserRole(callerRole, isBootstrap, u.role, isSelf)
+              const isEditing = editingUid === u.uid
+
+              return (
+                <div key={u.uid} className="px-4 py-3.5">
+                  <div className="flex items-start gap-3">
+                    <UserAvatar name={u.displayName || u.email} photoURL={u.photoURL} />
+
+                    <div className="flex-1 min-w-0">
+                      {/* Name + role */}
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span className="text-sm font-semibold text-text-primary">
+                          {u.displayName || '(no name)'}
+                        </span>
+                        {isSelf && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full
+                            bg-amber-50 text-amber-700 border border-amber-200">
+                            you
+                          </span>
+                        )}
+                        <RoleBadge role={u.role} />
+                        {!u.profileCompleted && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full
+                            bg-gray-100 text-text-secondary border border-border">
+                            incomplete profile
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Email */}
+                      <p className="text-xs text-text-secondary truncate">{u.email}</p>
+
+                      {/* Org */}
+                      {(u.organizationName || u.organizationCode) && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-xs text-text-secondary">
+                            {u.organizationName || u.organizationCode}
+                          </span>
+                          {u.organizationCode && u.organizationName && (
+                            <span className="font-mono text-[10px] bg-gray-100 text-text-secondary px-1.5 py-0.5 rounded-full">
+                              {u.organizationCode}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Dates */}
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        <span className="text-[11px] text-text-secondary">
+                          Joined: {fmtDate(u.createdAt)}
+                        </span>
+                        <span className="text-[11px] text-text-secondary">
+                          Last login: {fmtRelative(u.lastLoginAt)}
+                        </span>
+                        {u.subscriptionPlan && (
+                          <span className="text-[10px] font-mono bg-gray-50 text-text-secondary
+                            px-1.5 py-0.5 rounded border border-border">
+                            {u.subscriptionPlan}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Inline role change */}
+                      {isEditing && (
+                        <div className="mt-3 p-3 rounded-xl bg-primary-light/30 border border-primary/20">
+                          <RoleChangeRow
+                            user={u}
+                            callerRole={callerRole}
+                            isBootstrap={isBootstrap}
+                            callerUid={callerUid}
+                            callerEmail={callerEmail}
+                            onDone={() => handleRoleDone(`Role updated for ${u.displayName || u.email}.`)}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    {canEdit && !isEditing && (
+                      <button
+                        onClick={() => setEditingUid(u.uid)}
+                        className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium
+                          text-text-secondary border border-border hover:text-primary
+                          hover:border-primary/30 px-2.5 py-1.5 rounded-lg transition-colors"
+                      >
+                        <UserCog className="w-3.5 h-3.5" />
+                        Change Role
+                      </button>
+                    )}
+                    {isEditing && (
+                      <button
+                        onClick={() => setEditingUid(null)}
+                        className="shrink-0 text-xs font-medium text-text-secondary hover:text-error
+                          transition-colors px-2.5 py-1.5"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Role capability legend */}
+      <div className="p-4 rounded-xl border border-border bg-gray-50/50">
+        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide mb-2">
+          Your Role Change Permissions
+        </p>
+        <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+          {getAllowedTargetRoles(callerRole, isBootstrap).map(r => (
+            <div key={r} className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+              <span className="text-[11px] text-text-secondary">Can assign <span className="font-semibold">{ROLE_LABEL[r]}</span></span>
+            </div>
+          ))}
+          {getAllowedTargetRoles(callerRole, isBootstrap).length === 0 && (
+            <p className="text-[11px] text-text-secondary italic">No role changes allowed for your current role.</p>
+          )}
+        </div>
+        <p className="text-[11px] text-text-secondary mt-2 pt-2 border-t border-border">
+          Role changes are written atomically with an append-only audit entry. No change can be undone.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ─── Demo data tab ────────────────────────────────────────────────────────────
+
+const DEMO_PROJECT_LABELS = [
+  { name: 'Aerospace Bracket — Aft Fuselage',  status: 'completed',   balloons: 30 },
+  { name: 'Aerospace Housing — Actuator',       status: 'in-progress', balloons: 45 },
+  { name: 'Mounting Plate — Avionics Bay',      status: 'review',      balloons: 25 },
+  { name: 'CNC Machined Part — Valve Body',     status: 'draft',       balloons: 20 },
+  { name: 'Battery Cooling Plate — EV Module',  status: 'in-progress', balloons: 40 },
+  { name: 'Precision Fixture — CMM Master',     status: 'completed',   balloons: 35 },
+]
+
+function DemoDataTab({
+  uid,
+  productKey,
+  organizationCode,
+  organizationName,
+}: {
+  uid:              string
+  productKey:       string
+  organizationCode: string
+  organizationName: string
+}) {
+  const [existingCount, setExistingCount] = useState<number | null>(null)
+  const [existingNames, setExistingNames] = useState<string[]>([])
+  const [seeding,       setSeeding]       = useState(false)
+  const [deleting,      setDeleting]      = useState(false)
+  const [exporting,     setExporting]     = useState(false)
+  const [progress,      setProgress]      = useState<SeedProgress | null>(null)
+  const [results,       setResults]       = useState<SeedResult[]>([])
+  const [error,         setError]         = useState('')
+  const [feedback,      setFeedback]      = useState('')
+
+  // Load existing demo project count on mount
+  useEffect(() => {
+    getDemoProjectSummary(uid).then(s => {
+      setExistingCount(s.count)
+      setExistingNames(s.names)
+    }).catch(() => setExistingCount(0))
+  }, [uid])
+
+  const showFeedback = (msg: string) => {
+    setFeedback(msg)
+    setTimeout(() => setFeedback(''), 4000)
+  }
+
+  const handleCreate = async () => {
+    setSeeding(true)
+    setError('')
+    setResults([])
+    setProgress(null)
+    try {
+      const res = await seedDemoProjects(uid, organizationCode, organizationName, productKey, setProgress)
+      setResults(res)
+      setExistingCount(res.length)
+      setExistingNames(res.map(r => r.projectName))
+      showFeedback(`Created ${res.length} demo projects successfully.`)
+    } catch (err) {
+      setError((err as Error).message || 'Seeding failed.')
+    } finally {
+      setSeeding(false)
+      setProgress(null)
+    }
+  }
+
+  const handleReset = async () => {
+    setDeleting(true)
+    setError('')
+    setResults([])
+    try {
+      const deleted = await deleteDemoProjects(uid)
+      showFeedback(`Deleted ${deleted} demo project${deleted !== 1 ? 's' : ''}. Re-creating…`)
+      setExistingCount(0)
+      setExistingNames([])
+    } catch (err) {
+      setError((err as Error).message || 'Delete failed.')
+      setDeleting(false)
+      return
+    }
+    setDeleting(false)
+    await handleCreate()
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    setError('')
+    try {
+      const deleted = await deleteDemoProjects(uid)
+      setExistingCount(0)
+      setExistingNames([])
+      setResults([])
+      showFeedback(`Deleted ${deleted} demo project${deleted !== 1 ? 's' : ''}.`)
+    } catch (err) {
+      setError((err as Error).message || 'Delete failed.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    setError('')
+    try {
+      await exportDemoDataset(uid)
+      showFeedback('Demo dataset exported as JSON.')
+    } catch (err) {
+      setError((err as Error).message || 'Export failed.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const busy = seeding || deleting || exporting
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* Warning banner */}
+      <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-200 bg-amber-50">
+        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-amber-800">Demo data only</p>
+          <p className="text-xs text-amber-700 mt-0.5">
+            These projects appear in the live project list tagged as demo data. Use for testing and demonstrations only.
+            All demo projects are owned by your account and can be deleted at any time.
+          </p>
+        </div>
+      </div>
+
+      {/* Existing demo status */}
+      <div className="p-4 rounded-xl border border-border bg-gray-50/50">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <p className="text-sm font-semibold text-text-primary">Current Demo Projects</p>
+          {existingCount === null
+            ? <Loader2 className="w-4 h-4 animate-spin text-text-secondary" />
+            : <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white border border-border text-text-secondary">
+                {existingCount} project{existingCount !== 1 ? 's' : ''}
+              </span>
+          }
+        </div>
+        {existingNames.length > 0 && (
+          <ul className="space-y-1">
+            {existingNames.map(name => (
+              <li key={name} className="flex items-center gap-2 text-xs text-text-secondary">
+                <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+                {name}
+              </li>
+            ))}
+          </ul>
+        )}
+        {existingCount === 0 && (
+          <p className="text-xs text-text-secondary italic">No demo projects found for your account.</p>
+        )}
+      </div>
+
+      {/* Feedback */}
+      {feedback && <FeedbackBanner type="success" message={feedback} />}
+      {error    && <FeedbackBanner type="error"   message={error}    />}
+
+      {/* Progress */}
+      {seeding && progress && (
+        <div className="p-4 rounded-xl border border-primary/20 bg-primary-light/30">
+          <div className="flex items-center gap-2 mb-2">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <p className="text-sm font-semibold text-primary">
+              Seeding {progress.projectIndex + 1} / {progress.totalProjects}
+            </p>
+          </div>
+          <p className="text-xs text-text-secondary truncate">{progress.projectName}</p>
+          <p className="text-xs text-text-secondary">{progress.step}</p>
+          <div className="mt-2 h-1.5 bg-primary/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all duration-300"
+              style={{ width: `${((progress.projectIndex) / progress.totalProjects) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Seed results */}
+      {results.length > 0 && !seeding && (
+        <div className="rounded-xl border border-border overflow-hidden">
+          <div className="px-4 py-2 bg-gray-50 border-b border-border">
+            <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide">Created Projects</p>
+          </div>
+          <div className="divide-y divide-border">
+            {results.map(r => (
+              <div key={r.projectId} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-text-primary truncate">{r.projectName}</p>
+                  <p className="text-[10px] text-text-secondary font-mono">{r.projectId.slice(0, 12)}…</p>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-text-secondary shrink-0">
+                  <span>{r.balloonCount} balloons</span>
+                  <span>·</span>
+                  <span>{r.form3Count} F3</span>
+                  <span>·</span>
+                  <span>{r.form2Count} F2</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+        {/* Create */}
+        <button
+          onClick={handleCreate}
+          disabled={busy}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-primary/30
+            bg-primary-light hover:bg-primary/10 text-primary font-semibold text-sm
+            transition-colors disabled:opacity-50"
+        >
+          {seeding
+            ? <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            : <Play className="w-4 h-4 shrink-0" />
+          }
+          <div className="text-left">
+            <p className="font-semibold">Create Demo Projects</p>
+            <p className="text-[11px] font-normal text-primary/70">6 projects · 195 features total</p>
+          </div>
+        </button>
+
+        {/* Reset */}
+        <button
+          onClick={handleReset}
+          disabled={busy || existingCount === 0}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border
+            bg-white hover:bg-gray-50 text-text-primary font-semibold text-sm
+            transition-colors disabled:opacity-40"
+        >
+          {deleting
+            ? <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            : <RotateCw className="w-4 h-4 shrink-0" />
+          }
+          <div className="text-left">
+            <p className="font-semibold">Reset Demo Projects</p>
+            <p className="text-[11px] font-normal text-text-secondary">Delete existing + re-seed</p>
+          </div>
+        </button>
+
+        {/* Export */}
+        <button
+          onClick={handleExport}
+          disabled={busy || existingCount === 0}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-border
+            bg-white hover:bg-gray-50 text-text-primary font-semibold text-sm
+            transition-colors disabled:opacity-40"
+        >
+          {exporting
+            ? <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            : <Download className="w-4 h-4 shrink-0" />
+          }
+          <div className="text-left">
+            <p className="font-semibold">Export Demo Dataset</p>
+            <p className="text-[11px] font-normal text-text-secondary">Downloads JSON snapshot</p>
+          </div>
+        </button>
+
+        {/* Delete */}
+        <button
+          onClick={handleDelete}
+          disabled={busy || existingCount === 0}
+          className="flex items-center gap-2.5 px-4 py-3 rounded-xl border border-red-200
+            bg-red-50 hover:bg-red-100 text-error font-semibold text-sm
+            transition-colors disabled:opacity-40"
+        >
+          {deleting
+            ? <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+            : <Trash2 className="w-4 h-4 shrink-0" />
+          }
+          <div className="text-left">
+            <p className="font-semibold">Delete Demo Projects</p>
+            <p className="text-[11px] font-normal text-error/70">Removes all demo data</p>
+          </div>
+        </button>
+      </div>
+
+      {/* What gets created */}
+      <div className="p-4 rounded-xl border border-border bg-gray-50/50">
+        <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide mb-3">
+          Demo Project Catalogue
+        </p>
+        <div className="space-y-2">
+          {DEMO_PROJECT_LABELS.map(p => (
+            <div key={p.name} className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Package className="w-3.5 h-3.5 text-text-secondary shrink-0" />
+                <span className="text-xs text-text-primary truncate">{p.name}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${
+                  p.status === 'completed'   ? 'bg-green-50 text-green-700 border-green-200' :
+                  p.status === 'in-progress' ? 'bg-blue-50 text-blue-700 border-blue-100'  :
+                  p.status === 'review'      ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                  'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>{p.status}</span>
+                <span className="text-[10px] text-text-secondary">{p.balloons} ft</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-text-secondary mt-3 pt-3 border-t border-border">
+          Each project includes Form 1, Form 2 material rows, Form 3 inspection results, and
+          balloon+feature data. Two projects are in <span className="font-semibold">completed</span> state
+          and are immediately ready for FAIR Export.
+        </p>
+      </div>
+
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function DeveloperSettingsPage() {
-  const { firebaseUser } = useAuth()
-  const { isDeveloper, isBootstrap, isDeveloperAdmin, isLoading } = useDeveloperAccess()
+  const { firebaseUser, user, isLoading: authLoading } = useAuth()
+  const { isDeveloper, isBootstrap, isDeveloperAdmin, isLoading: devLoading } = useDeveloperAccess()
+  const { productKey, organizationConfig } = useProductConfig()
   const [activeTab, setActiveTab] = useState<Tab>('developers')
+
+  const isProductAdmin = user?.role === 'admin' || user?.role === 'super_admin'
+  const isLoading      = authLoading || devLoading
+
+  // If only a product admin (not a developer), default them to the users tab
+  useEffect(() => {
+    if (!isLoading && !isDeveloper && isProductAdmin) {
+      setActiveTab('users')
+    }
+  }, [isLoading, isDeveloper, isProductAdmin])
 
   if (isLoading) {
     return (
@@ -1666,12 +2457,15 @@ export function DeveloperSettingsPage() {
     )
   }
 
-  if (!isDeveloper) return <AccessDenied />
+  if (!isDeveloper && !isProductAdmin) return <AccessDenied />
 
-  const TABS: { id: Tab; label: string; icon: typeof Code2 }[] = [
-    { id: 'developers',     label: 'User Management', icon: Users     },
-    { id: 'configurations', label: 'Configurations', icon: Settings2 },
+  const TABS: { id: Tab; label: string; icon: typeof Code2; visible: boolean }[] = [
+    { id: 'developers',     label: 'Developer Access', icon: Users,     visible: isDeveloper    },
+    { id: 'configurations', label: 'Configurations',   icon: Settings2, visible: isDeveloper    },
+    { id: 'users',          label: 'Product Users',    icon: UserCog,   visible: isProductAdmin },
+    { id: 'demo',           label: 'Demo Data',        icon: Database,  visible: isProductAdmin },
   ]
+  const visibleTabs = TABS.filter(t => t.visible)
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1699,6 +2493,12 @@ export function DeveloperSettingsPage() {
                     bootstrap
                   </span>
                 )}
+                {!isDeveloper && isProductAdmin && (
+                  <span className="hidden sm:block text-[10px] font-semibold px-2 py-0.5
+                    rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                    {user?.role === 'super_admin' ? 'super admin' : 'admin'}
+                  </span>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -1717,13 +2517,15 @@ export function DeveloperSettingsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-text-primary">Developer Settings</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Manage developer access and application configuration.
+            {isDeveloper
+              ? 'Manage developer access and application configuration.'
+              : 'Manage product user roles and organization access.'}
           </p>
         </div>
 
         {/* Tab bar */}
         <div className="flex items-center border-b border-border mb-6 gap-1">
-          {TABS.map(({ id, label, icon: Icon }) => (
+          {visibleTabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setActiveTab(id)}
@@ -1744,6 +2546,22 @@ export function DeveloperSettingsPage() {
         {/* Tab content */}
         {activeTab === 'developers'     && <DevelopersTab currentEmail={firebaseUser?.email ?? null} canManage={isDeveloperAdmin} />}
         {activeTab === 'configurations' && <ConfigurationsTab />}
+        {activeTab === 'users'          && isProductAdmin && (
+          <ProductUsersTab
+            callerUid={firebaseUser?.uid ?? ''}
+            callerEmail={firebaseUser?.email ?? ''}
+            callerRole={user?.role ?? 'engineer'}
+            isBootstrap={isBootstrap}
+          />
+        )}
+        {activeTab === 'demo'           && isProductAdmin && (
+          <DemoDataTab
+            uid={firebaseUser?.uid ?? ''}
+            productKey={productKey}
+            organizationCode={organizationConfig.organizationCode}
+            organizationName={organizationConfig.organizationName}
+          />
+        )}
 
       </main>
     </div>
