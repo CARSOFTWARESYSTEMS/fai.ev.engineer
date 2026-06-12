@@ -198,7 +198,7 @@ service cloud.firestore {
           )
         )
       );
-      allow delete: if isManagerOrAbove();
+      allow delete: if isManagerOrAbove() || isOwner(resource.data.uid);
 
       match /balloons/{balloonId} {
         allow read:   if isProjectOwner(projectId);

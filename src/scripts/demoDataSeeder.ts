@@ -576,7 +576,8 @@ export async function deleteDemoProjects(uid: string): Promise<number> {
   )
   const projectsSnap = { docs: allSnap.docs.filter(d => d.data().isDemoData === true) }
 
-  const SUBCOLLECTIONS = ['balloons', 'features', 'form1', 'form2Rows', 'form3Results', 'auditTrail']
+  // auditTrail is append-only (delete: false in rules) — skip it
+  const SUBCOLLECTIONS = ['balloons', 'features', 'form1', 'form2Rows', 'form3Results']
   let deleted = 0
 
   for (const projectDoc of projectsSnap.docs) {
