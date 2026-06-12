@@ -30,11 +30,13 @@ import { loadGisScript, requestDriveToken } from '../lib/googleDrive'
 import {
   type FAIProject,
   type EditableProjectStatus,
+  type ReviewDecision,
   fmtTimestamp,
   PROJECT_STATUS_LABELS,
   ENGINEER_ALLOWED_STATUSES,
   MANAGER_ALLOWED_STATUSES,
 } from '../projects/project.types'
+import { ReviewDecisionModal } from '../components/ui/ReviewDecisionModal'
 import {
   PRIORITY_LABELS,
   normalisePriority,
@@ -131,12 +133,14 @@ export function EditProjectPage() {
     dueDate: '',
   })
 
-  const [isSaving,     setIsSaving]     = useState(false)
-  const [saveError,    setSaveError]    = useState('')
-  const [saveSuccess,  setSaveSuccess]  = useState(false)
-  const [showDelete,   setShowDelete]   = useState(false)
-  const [isDeleting,   setIsDeleting]   = useState(false)
-  const [deleteError,  setDeleteError]  = useState('')
+  const [isSaving,          setIsSaving]          = useState(false)
+  const [saveError,         setSaveError]         = useState('')
+  const [saveSuccess,       setSaveSuccess]       = useState(false)
+  const [showDelete,        setShowDelete]        = useState(false)
+  const [isDeleting,        setIsDeleting]        = useState(false)
+  const [deleteError,       setDeleteError]       = useState('')
+  const [showReviewModal,   setShowReviewModal]   = useState(false)
+  const [pendingStatus,     setPendingStatus]     = useState<EditableProjectStatus | null>(null)
   const [isUploading,      setIsUploading]      = useState(false)
   const [uploadError,      setUploadError]      = useState('')
   const [isDeletingPdf,    setIsDeletingPdf]    = useState(false)
@@ -240,6 +244,37 @@ export function EditProjectPage() {
   }
 
   // ── Save ────────────────────────────────────────────────────────────────────
+
+  const doSave = async (reviewDecision?: ReviewDecision, reviewComment?: string) => {
+    if (!projectId || !user) return
+    const isManager = user.role === 'admin' || user.role === 'super_admin' || user.role === 'manager'
+    setIsSaving(true)
+    setSaveError('')
+    setSaveSuccess(false)
+    try {
+      await updateProject(projectId, user.uid, user.role, {
+        projectName:     form.projectName,
+        customerName:    form.customerName,
+        partNumber:      form.partNumber,
+        partName:        form.partName,
+        drawingNumber:   form.drawingNumber,
+        drawingRevision: form.drawingRevision,
+        material:        form.material,
+        description:     form.description,
+        status:          form.status,
+        ...(isManager ? { priority: form.priority, dueDate: form.dueDate } : {}),
+        ...(reviewDecision ? { reviewDecision, reviewComment: reviewComment ?? '' } : {}),
+      })
+      setSaveSuccess(true)
+      setTimeout(() => navigate(`/projects/${projectId}`), 800)
+    } catch (err) {
+      const e = err as { code?: string; message?: string }
+      setSaveError(e.code ? firestoreError(err, 'update') : (e.message ?? 'Unable to update project. Please try again.'))
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaveError('')
@@ -253,31 +288,26 @@ export function EditProjectPage() {
     const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
     if (isManager && !form.dueDate) { setSaveError('Due Date is required for manager updates.'); return }
 
-    setIsSaving(true)
-    try {
-      await updateProject(projectId!, user!.uid, user!.role, {
-        projectName:     form.projectName,
-        customerName:    form.customerName,
-        partNumber:      form.partNumber,
-        partName:        form.partName,
-        drawingNumber:   form.drawingNumber,
-        drawingRevision: form.drawingRevision,
-        material:        form.material,
-        description:     form.description,
-        status:          form.status,
-        ...(isManager ? {
-          priority: form.priority,
-          dueDate:  form.dueDate,
-        } : {}),
-      })
-      setSaveSuccess(true)
-      setTimeout(() => navigate(`/projects/${projectId}`), 800)
-    } catch (err) {
-      const e = err as { code?: string; message?: string }
-      setSaveError(e.code ? firestoreError(err, 'update') : (e.message ?? 'Unable to update project. Please try again.'))
-    } finally {
-      setIsSaving(false)
+    // Review decision gate — intercept when Manager moves project out of 'review'
+    const normalizedProjectStatus = project!.status === 'complete' ? 'completed' : project!.status
+    if (isManager && normalizedProjectStatus === 'review' && form.status !== 'review') {
+      setPendingStatus(form.status)
+      setShowReviewModal(true)
+      return
     }
+
+    await doSave()
+  }
+
+  const handleReviewConfirm = async (decision: ReviewDecision, comment: string) => {
+    setShowReviewModal(false)
+    setPendingStatus(null)
+    await doSave(decision, comment)
+  }
+
+  const handleReviewCancel = () => {
+    setShowReviewModal(false)
+    setPendingStatus(null)
   }
 
   // ── Delete ──────────────────────────────────────────────────────────────────
@@ -756,6 +786,14 @@ export function EditProjectPage() {
           isDeleting={isDeleting}
           onCancel={() => { setShowDelete(false); setDeleteError('') }}
           onConfirm={handleDeleteConfirm}
+        />
+      )}
+
+      {showReviewModal && pendingStatus && (
+        <ReviewDecisionModal
+          targetStatus={pendingStatus}
+          onConfirm={handleReviewConfirm}
+          onCancel={handleReviewCancel}
         />
       )}
     </div>

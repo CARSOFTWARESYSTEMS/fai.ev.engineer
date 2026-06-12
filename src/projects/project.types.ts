@@ -14,6 +14,24 @@ export type ProjectStatus =
 
 export type EditableProjectStatus = 'draft' | 'in-progress' | 'review' | 'completed' | 'archived'
 
+// ─── Review decision ─────────────────────────────────────────────────────────
+
+export type ReviewDecision = 'approved' | 'rejected' | 'cancelled' | 'needs-rework'
+
+export const REVIEW_DECISION_LABELS: Record<ReviewDecision, string> = {
+  'approved':     'Approved',
+  'rejected':     'Rejected',
+  'cancelled':    'Cancelled',
+  'needs-rework': 'Needs Rework',
+}
+
+export const VALID_DECISIONS_FOR_STATUS: Partial<Record<EditableProjectStatus, ReviewDecision[]>> = {
+  'completed':   ['approved'],
+  'in-progress': ['needs-rework', 'rejected'],
+  'draft':       ['needs-rework', 'rejected', 'cancelled'],
+  'archived':    ['cancelled'],
+}
+
 // ─── Firestore document: projects/{projectId} ─────────────────────────────────
 
 export interface FAIProject {
@@ -68,6 +86,12 @@ export interface FAIProject {
   completedBy?: string
   archivedAt?: unknown
   archivedBy?: string
+
+  // Review decision — set when a Manager transitions a project out of 'review'
+  reviewDecision?: ReviewDecision
+  reviewComment?: string
+  reviewedBy?: string
+  reviewedAt?: unknown
 }
 
 // ─── Input shape for createProject() ─────────────────────────────────────────
@@ -98,6 +122,8 @@ export interface UpdateProjectInput {
   status?: EditableProjectStatus
   priority?: ProjectPriority
   dueDate?: string
+  reviewDecision?: ReviewDecision
+  reviewComment?: string
 }
 
 // ─── Display helpers ──────────────────────────────────────────────────────────

@@ -52,9 +52,11 @@ export function ProfilePage() {
   const [orgName, setOrgName] = useState(user?.organizationName ?? '')
   const [orgCode, setOrgCode] = useState(user?.organizationCode ?? 'default')
   const [gst, setGst] = useState(user?.gstNumber ?? '')
-  const [managerEnabled, setManagerEnabled] = useState(
-    user?.role === 'admin' || user?.role === 'manager'
-  )
+  // Role is read-only — assigned by Developer Admin, not self-service
+  const displayRole = user?.role === 'super_admin' ? 'Super Admin'
+    : user?.role === 'admin' ? 'Admin'
+    : user?.role === 'manager' ? 'Manager'
+    : 'Engineer'
 
   // Track whether user manually edited orgCode
   const [orgCodeCustomized, setOrgCodeCustomized] = useState(false)
@@ -71,7 +73,6 @@ export function ProfilePage() {
     setOrgName(user.organizationName ?? '')
     setOrgCode(user.organizationCode ?? 'default')
     setGst(user.gstNumber ?? '')
-    setManagerEnabled(user.role === 'admin' || user.role === 'manager')
   }, [user])
 
   // Auto-update orgCode when orgName changes (unless manually customized)
@@ -117,7 +118,7 @@ export function ProfilePage() {
         organizationName: orgName.trim(),
         organizationCode: orgCode.trim() || 'default',
         gstNumber: gst.trim(),
-        ...(user?.role === 'super_admin' ? {} : { role: managerEnabled ? 'manager' : 'engineer' }),
+        // role is not sent — it is managed by Developer Admin only
       })
       await refreshProfile()
       setSuccess(true)
@@ -344,35 +345,21 @@ export function ProfilePage() {
               </div>
             </div>
 
-            {/* Temporary admin toggle */}
+            {/* Role — read-only, managed by Developer Admin */}
             <div className="pt-5 border-t border-border">
               <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
                   <Shield className="w-4 h-4 text-purple-700" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-primary">Manager Mode</p>
-                  {user.role === 'super_admin' ? (
-                    <div className="mt-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2.5">
-                      <p className="text-sm font-semibold text-purple-700">Super Admin access enabled</p>
-                    </div>
-                  ) : (
-                    <label className="mt-2 flex items-center justify-between gap-4 cursor-pointer">
-                      <div>
-                        <span className="block text-sm font-medium text-text-primary">Enable Manager Access</span>
-                        <span className="block text-xs text-text-secondary mt-1 leading-relaxed">
-                          Grants delete, priority, and due date controls. Later this will be controlled by organization roles.
-                        </span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={managerEnabled}
-                        onChange={(e) => setManagerEnabled(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <span className="relative w-11 h-6 rounded-full bg-gray-200 peer-checked:bg-primary transition-colors shrink-0 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-5 after:h-5 after:bg-white after:rounded-full after:shadow-sm after:transition-transform peer-checked:after:translate-x-5" />
-                    </label>
-                  )}
+                  <p className="text-sm font-semibold text-text-primary">Account Role</p>
+                  <div className="mt-2 rounded-lg border border-border bg-gray-50 px-3 py-2.5 flex items-center justify-between">
+                    <span className="text-sm text-text-primary font-medium">{displayRole}</span>
+                    <span className="text-xs text-text-secondary">Assigned by admin</span>
+                  </div>
+                  <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
+                    Role changes are managed by your organization administrator.
+                  </p>
                 </div>
               </div>
             </div>

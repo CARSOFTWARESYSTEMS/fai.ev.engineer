@@ -76,7 +76,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read:   if isAuth() && (isOwner(userId) || isAdmin());
       allow create: if isAuth() && isOwner(userId);
-      allow update: if isAuth() && (isOwner(userId) || isAdmin());
+      // Owners can update their own profile fields but cannot change their own role.
+      // Only platform admins (isAdmin) can assign or change roles.
+      allow update: if isAuth() && (
+        (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+        || isAdmin()
+      );
       allow delete: if isAdmin();
     }
 
@@ -117,20 +122,50 @@ service cloud.firestore {
     }
 
     // ── projects/{projectId} ──────────────────────────────────────────────────
+
+    // Canonical status values — the only strings that may ever be written.
+    // 'complete' is intentionally excluded: it is a legacy read-compat value and
+    // must never be written by any new code path.
+    function isValidStatus(s) {
+      return s in ['draft', 'in-progress', 'review', 'completed', 'archived'];
+    }
+
     match /projects/{projectId} {
       allow read:   if isAuth() && (isOwner(resource.data.uid) || isManagerOrAbove());
-      allow create: if isAuth() && isOwner(request.resource.data.uid);
-      // Managers+ can update any field.
+      // Status must be one of the canonical values on every new document.
+      allow create: if isAuth() && isOwner(request.resource.data.uid)
+                       && isValidStatus(request.resource.data.status);
+      // Managers+ can update any field; if they change status it must be canonical.
       // Engineers (owners) can update basic fields AND can transition status within
       // ['draft','in-progress','review'], but cannot touch priority, dueDate, or
       // move status to/from 'completed'/'archived'.
+      // The status allowlist is only checked when status is in the affected keys,
+      // preserving backward-compat with legacy 'complete' documents on non-status
+      // updates.
       allow update: if isAuth() && (
-        isManagerOrAbove()
+        (
+          isManagerOrAbove()
+          // Status allowlist: only canonical values may be written when status changes
+          && (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+            || isValidStatus(request.resource.data.status)
+          )
+          // Review decision allowlist: only valid values may be written
+          && (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reviewDecision'])
+            || request.resource.data.reviewDecision in ['approved', 'rejected', 'cancelled', 'needs-rework']
+          )
+        )
         || (
           isOwner(resource.data.uid)
+          // Engineers cannot write planning or review/audit fields
           && !request.resource.data.diff(resource.data)
                 .affectedKeys()
-                .hasAny(['priority', 'dueDate'])
+                .hasAny([
+                  'priority', 'dueDate',
+                  'reviewDecision', 'reviewComment', 'reviewedBy', 'reviewedAt',
+                  'completedAt', 'completedBy', 'archivedAt', 'archivedBy'
+                ])
           && (
             !request.resource.data.diff(resource.data)
                   .affectedKeys()
@@ -180,6 +215,14 @@ service cloud.firestore {
         allow create: if isProjectOwner(projectId);
         allow update: if isProjectOwner(projectId);
         allow delete: if isProjectOwner(projectId);
+      }
+
+      // Audit trail — append-only; no client updates or deletes ever permitted
+      match /auditTrail/{eventId} {
+        allow read:   if isAuth() && (isProjectOwner(projectId) || isManagerOrAbove());
+        allow create: if isManagerOrAbove();
+        allow update: if false;
+        allow delete: if false;
       }
     }
   }

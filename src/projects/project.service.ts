@@ -10,11 +10,12 @@ import {
   where,
   serverTimestamp,
   Timestamp,
+  writeBatch,
   type FieldValue,
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { FAIProject, CreateProjectInput, UpdateProjectInput } from './project.types'
-import { ENGINEER_ALLOWED_STATUSES } from './project.types'
+import { ENGINEER_ALLOWED_STATUSES, VALID_DECISIONS_FOR_STATUS } from './project.types'
 import type { UserRole } from '../auth/AuthTypes'
 import { requestDriveToken, deleteFileFromDrive, deleteProjectFolderFromDrive } from '../lib/googleDrive'
 
@@ -163,9 +164,12 @@ export async function updateProject(
   const isManager = callerRole === 'admin' || callerRole === 'super_admin' || callerRole === 'manager'
 
   // Status — engineers get limited transitions; managers get full workflow
+  let currentStatus: string | undefined
+  let needsAuditEvent = false
+
   if (data.status !== undefined) {
     const currentSnap = await getDoc(doc(firestore, 'projects', projectId))
-    const currentStatus = (currentSnap.data() as FAIProject | undefined)?.status
+    currentStatus = (currentSnap.data() as FAIProject | undefined)?.status
 
     if (currentStatus !== data.status) {
       if (!isManager) {
@@ -175,6 +179,27 @@ export async function updateProject(
         if (currentStatus === 'completed' || currentStatus === 'archived') {
           throw new Error(`Cannot change status of a ${currentStatus} project.`)
         }
+      }
+
+      // Review decision gate — required when Manager moves a project out of 'review'
+      if (isManager && currentStatus === 'review' && data.status !== 'review') {
+        if (!data.reviewDecision) {
+          throw new Error('A review decision is required when moving a project out of Review.')
+        }
+        if (!data.reviewComment || data.reviewComment.trim().length < 5) {
+          throw new Error('A review comment of at least 5 characters is required.')
+        }
+        const validDecisions = VALID_DECISIONS_FOR_STATUS[data.status]
+        if (!validDecisions || !validDecisions.includes(data.reviewDecision)) {
+          throw new Error(
+            `Decision "${data.reviewDecision}" is not valid for status "${data.status}".`
+          )
+        }
+        patch.reviewDecision = data.reviewDecision
+        patch.reviewComment  = data.reviewComment.trim()
+        patch.reviewedBy     = uid
+        patch.reviewedAt     = serverTimestamp()
+        needsAuditEvent = true
       }
     }
 
@@ -207,7 +232,26 @@ export async function updateProject(
   }
 
   try {
-    await updateDoc(doc(firestore, 'projects', projectId), patch)
+    if (needsAuditEvent && data.reviewDecision) {
+      // Atomic: update project + append audit event in one batch
+      const batch = writeBatch(firestore)
+      batch.update(doc(firestore, 'projects', projectId), patch)
+      const auditRef = doc(collection(firestore, 'projects', projectId, 'auditTrail'))
+      batch.set(auditRef, {
+        eventType:   'review_decision',
+        fromStatus:  currentStatus ?? 'review',
+        toStatus:    data.status,
+        decision:    data.reviewDecision,
+        comment:     (data.reviewComment ?? '').trim(),
+        changedBy:   uid,
+        changedAt:   serverTimestamp(),
+        role:        callerRole,
+        projectId,
+      })
+      await batch.commit()
+    } else {
+      await updateDoc(doc(firestore, 'projects', projectId), patch)
+    }
     console.log('[PROJECT] Update success:', projectId)
   } catch (err) {
     const e = err as { code?: string; message?: string }

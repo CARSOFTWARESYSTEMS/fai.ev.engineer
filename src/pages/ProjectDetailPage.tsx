@@ -33,6 +33,7 @@ import {
   fmtTimestamp,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
+  REVIEW_DECISION_LABELS,
 } from '../projects/project.types'
 import {
   getPriorityBadgeClass,
@@ -361,6 +362,34 @@ export function ProjectDetailPage() {
                 ))}
               </div>
             </div>
+
+            {/* Review Decision */}
+            {project.reviewDecision && (
+              <div className="card p-5">
+                <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">
+                  Last Review Decision
+                </h2>
+                <div className="flex flex-col gap-2">
+                  <span className={`self-start text-xs font-semibold px-2.5 py-1 rounded-full
+                    ${project.reviewDecision === 'approved'
+                      ? 'bg-success/10 text-success'
+                      : project.reviewDecision === 'needs-rework'
+                        ? 'bg-warning/10 text-warning'
+                        : 'bg-error/10 text-error'}`}>
+                    {REVIEW_DECISION_LABELS[project.reviewDecision]}
+                  </span>
+                  {project.reviewComment && (
+                    <p className="text-xs text-text-secondary leading-relaxed italic">
+                      "{project.reviewComment}"
+                    </p>
+                  )}
+                  <p className="text-xs text-text-secondary">
+                    {project.reviewedBy && `by ${project.reviewedBy}`}
+                    {project.reviewedAt ? ` · ${fmtTimestamp(project.reviewedAt)}` : ''}
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Drawing PDF */}
             <div className="card p-5">
