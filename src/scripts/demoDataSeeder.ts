@@ -571,13 +571,10 @@ export async function seedDemoProjects(
  * Returns the number of projects deleted.
  */
 export async function deleteDemoProjects(uid: string): Promise<number> {
-  const projectsSnap = await getDocs(
-    query(
-      collection(firestore, 'projects'),
-      where('isDemoData', '==', true),
-      where('uid', '==', uid),
-    )
+  const allSnap = await getDocs(
+    query(collection(firestore, 'projects'), where('uid', '==', uid))
   )
+  const projectsSnap = { docs: allSnap.docs.filter(d => d.data().isDemoData === true) }
 
   const SUBCOLLECTIONS = ['balloons', 'features', 'form1', 'form2Rows', 'form3Results', 'auditTrail']
   let deleted = 0
@@ -608,17 +605,14 @@ export async function deleteDemoProjects(uid: string): Promise<number> {
  * Exports all demo projects for the given user as a JSON file download.
  */
 export async function exportDemoDataset(uid: string): Promise<void> {
-  const projectsSnap = await getDocs(
-    query(
-      collection(firestore, 'projects'),
-      where('isDemoData', '==', true),
-      where('uid', '==', uid),
-    )
+  const allSnap = await getDocs(
+    query(collection(firestore, 'projects'), where('uid', '==', uid))
   )
+  const demoDocs = allSnap.docs.filter(d => d.data().isDemoData === true)
 
   const dataset: Record<string, unknown>[] = []
 
-  for (const projectDoc of projectsSnap.docs) {
+  for (const projectDoc of demoDocs) {
     const projectId = projectDoc.id
     const entry: Record<string, unknown> = { ...projectDoc.data() }
 
@@ -648,14 +642,11 @@ export async function exportDemoDataset(uid: string): Promise<void> {
  */
 export async function getDemoProjectSummary(uid: string): Promise<{ count: number; names: string[] }> {
   const snap = await getDocs(
-    query(
-      collection(firestore, 'projects'),
-      where('isDemoData', '==', true),
-      where('uid', '==', uid),
-    )
+    query(collection(firestore, 'projects'), where('uid', '==', uid))
   )
+  const demoDocs = snap.docs.filter(d => d.data().isDemoData === true)
   return {
-    count: snap.size,
-    names: snap.docs.map(d => (d.data() as { projectName: string }).projectName),
+    count: demoDocs.length,
+    names: demoDocs.map(d => (d.data() as { projectName: string }).projectName),
   }
 }

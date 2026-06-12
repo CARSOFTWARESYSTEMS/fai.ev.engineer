@@ -2463,7 +2463,7 @@ export function DeveloperSettingsPage() {
     { id: 'developers',     label: 'Developer Access', icon: Users,     visible: isDeveloper    },
     { id: 'configurations', label: 'Configurations',   icon: Settings2, visible: isDeveloper    },
     { id: 'users',          label: 'Product Users',    icon: UserCog,   visible: isProductAdmin },
-    { id: 'demo',           label: 'Demo Data',        icon: Database,  visible: isProductAdmin },
+    { id: 'demo',           label: 'Demo Data',        icon: Database,  visible: isProductAdmin || isDeveloper },
   ]
   const visibleTabs = TABS.filter(t => t.visible)
 
@@ -2554,7 +2554,7 @@ export function DeveloperSettingsPage() {
             isBootstrap={isBootstrap}
           />
         )}
-        {activeTab === 'demo'           && isProductAdmin && (
+        {activeTab === 'demo'           && (isProductAdmin || isDeveloper) && (
           <DemoDataTab
             uid={firebaseUser?.uid ?? ''}
             productKey={productKey}
