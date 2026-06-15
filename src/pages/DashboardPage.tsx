@@ -21,6 +21,7 @@ import {
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { UserAvatarMenu } from '../components/ui/UserAvatarMenu'
+import { OrganizationSwitcher } from '../components/ui/OrganizationSwitcher'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 import { BetaTestingBanner } from '../components/ui/BetaTestingBanner'
 import { BetaWatermark } from '../components/ui/BetaWatermark'
@@ -258,8 +259,11 @@ export function DashboardPage() {
               <span className="hidden sm:block text-text-secondary text-sm ml-1">/ Dashboard</span>
             </div>
 
-            {/* Right: avatar dropdown */}
-            <UserAvatarMenu />
+            {/* Right: org switcher + avatar dropdown */}
+            <div className="flex items-center gap-2">
+              <OrganizationSwitcher />
+              <UserAvatarMenu />
+            </div>
           </div>
         </div>
       </header>

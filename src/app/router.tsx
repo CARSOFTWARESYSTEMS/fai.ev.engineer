@@ -14,6 +14,7 @@ import { RoadmapPage } from '../pages/RoadmapPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { DeveloperSettingsPage } from '../pages/DeveloperSettingsPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
+import { BootstrapRoute } from '../auth/BootstrapRoute'
 import { CNCMachiningPage } from '../pages/fortius/CNCMachiningPage'
 import { CNCMillingPage } from '../pages/fortius/CNCMillingPage'
 import { CNCTurningPage } from '../pages/fortius/CNCTurningPage'
@@ -21,6 +22,15 @@ import { AerospaceComponentsPage } from '../pages/fortius/AerospaceComponentsPag
 import { AutomotiveComponentsPage } from '../pages/fortius/AutomotiveComponentsPage'
 import { JigsFixturesPage } from '../pages/fortius/JigsFixturesPage'
 import { PressToolsPage } from '../pages/fortius/PressToolsPage'
+// ─── Phase 1.5 — Partner + Organization placeholders ─────────────────────────
+import { PartnerPage } from '../pages/PartnerPage'
+import { PartnerOrganizationsPage } from '../pages/PartnerOrganizationsPage'
+import { PartnerRequestsPage } from '../pages/PartnerRequestsPage'
+import { PartnerSettingsPage } from '../pages/PartnerSettingsPage'
+import { OrganizationPage } from '../pages/OrganizationPage'
+import { OrganizationTeamPage } from '../pages/OrganizationTeamPage'
+import { OrganizationProjectsPage } from '../pages/OrganizationProjectsPage'
+import { OrganizationSettingsPage } from '../pages/OrganizationSettingsPage'
 
 export const router = createBrowserRouter([
   // ─── Public ───────────────────────────────────────────────────────────────
@@ -76,6 +86,42 @@ export const router = createBrowserRouter([
   {
     path: '/developer-settings',
     element: <ProtectedRoute><DeveloperSettingsPage /></ProtectedRoute>,
+  },
+
+  // ─── Partner (Phase 1.5 — bootstrap only) ─────────────────────────────────
+  {
+    path: '/partner',
+    element: <BootstrapRoute><PartnerPage /></BootstrapRoute>,
+  },
+  {
+    path: '/partner/organizations',
+    element: <BootstrapRoute><PartnerOrganizationsPage /></BootstrapRoute>,
+  },
+  {
+    path: '/partner/requests',
+    element: <BootstrapRoute><PartnerRequestsPage /></BootstrapRoute>,
+  },
+  {
+    path: '/partner/settings',
+    element: <BootstrapRoute><PartnerSettingsPage /></BootstrapRoute>,
+  },
+
+  // ─── Organization (Phase 1.5 — bootstrap only) ────────────────────────────
+  {
+    path: '/organization',
+    element: <BootstrapRoute><OrganizationPage /></BootstrapRoute>,
+  },
+  {
+    path: '/organization/team',
+    element: <BootstrapRoute><OrganizationTeamPage /></BootstrapRoute>,
+  },
+  {
+    path: '/organization/projects',
+    element: <BootstrapRoute><OrganizationProjectsPage /></BootstrapRoute>,
+  },
+  {
+    path: '/organization/settings',
+    element: <BootstrapRoute><OrganizationSettingsPage /></BootstrapRoute>,
   },
 
   // ─── 404 ──────────────────────────────────────────────────────────────────

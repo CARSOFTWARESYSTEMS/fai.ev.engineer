@@ -10,9 +10,10 @@ import {
   Shield,
   ChevronDown,
   Code2,
+  Network,
 } from 'lucide-react'
 import { useAuth } from '../../auth/hooks/useAuth'
-import { useDeveloperAccess } from '../../services/useDeveloperAccess'
+import { useAccessHelpers } from '../../lib/accessHelpers'
 
 export function UserAvatarMenu() {
   const { user, firebaseUser, signOut } = useAuth()
@@ -20,7 +21,7 @@ export function UserAvatarMenu() {
   const [open, setOpen] = useState(false)
   const containerRef    = useRef<HTMLDivElement>(null)
 
-  const { isDeveloper } = useDeveloperAccess()
+  const { canViewDeveloperSettings, canViewPartner, canViewOrganization } = useAccessHelpers()
 
   const displayName = user?.displayName || firebaseUser?.displayName || 'User'
   const photoURL    = user?.photoURL    || firebaseUser?.photoURL
@@ -181,7 +182,40 @@ export function UserAvatarMenu() {
             )}
           </div>
 
-          {isDeveloper && (
+          {(canViewPartner || canViewOrganization) && (
+            <div className="border-t border-border py-1" role="group">
+              {canViewOrganization && (
+                <Link
+                  to="/organization"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-gray-50 transition-colors"
+                  role="menuitem"
+                >
+                  <Building2 className="w-4 h-4 text-text-secondary shrink-0" />
+                  Organization
+                  <span className="ml-auto text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                    Phase 2
+                  </span>
+                </Link>
+              )}
+              {canViewPartner && (
+                <Link
+                  to="/partner"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-gray-50 transition-colors"
+                  role="menuitem"
+                >
+                  <Network className="w-4 h-4 text-text-secondary shrink-0" />
+                  Partner
+                  <span className="ml-auto text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                    Phase 2
+                  </span>
+                </Link>
+              )}
+            </div>
+          )}
+
+          {canViewDeveloperSettings && (
             <div className="border-t border-border py-1" role="group">
               <Link
                 to="/developer-settings"
