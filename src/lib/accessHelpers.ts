@@ -1,14 +1,16 @@
 /**
- * Access Helpers — Phase 1.5
+ * Access Helpers — Phase 2
  *
  * Centralised permission flags for UI visibility.
- * No Firestore reads. No role migration.
  *
- * Phase 1.5: Partner and Organization menus are visible to bootstrap
- * developers only (for validation). Phase 2 will replace isBootstrap
- * with real partner/org membership queries.
+ * canViewPartner (Phase 2): Platform developers AND real partnerAdmins from Firestore.
+ *   Bootstrap developers are always included via isDeveloper.
+ *
+ * canViewOrganization (Phase 1.5 still): bootstrap-only until org membership
+ *   collection is wired up in Phase 3.
  */
 import { useDeveloperAccess } from '../services/useDeveloperAccess'
+import { usePartnerAccess } from '../services/partnerAccessService'
 
 export interface AccessHelpers {
   canViewDeveloperSettings: boolean
@@ -18,19 +20,20 @@ export interface AccessHelpers {
 }
 
 export function useAccessHelpers(): AccessHelpers {
-  const { isDeveloper, isBootstrap, isLoading } = useDeveloperAccess()
+  const { isDeveloper, isBootstrap, isLoading: devLoading } = useDeveloperAccess()
+  const { isPartnerAdminUser, isLoading: partnerLoading }   = usePartnerAccess()
 
   return {
     canViewDeveloperSettings: isDeveloper,
 
-    // Phase 1.5: bootstrap-only to allow UI validation without real partner records.
-    // Phase 2: replace with `partnerAdmins/{uid}` Firestore check.
-    canViewPartner: isBootstrap,
+    // Phase 2: platform developers + real partnerAdmin records.
+    // Bootstrap accounts are covered by isDeveloper.
+    canViewPartner: isDeveloper || isPartnerAdminUser,
 
-    // Phase 1.5: bootstrap-only to allow UI validation without org membership.
-    // Phase 2: replace with `organizationMembers` collection query.
+    // Phase 1.5: bootstrap-only until org membership is implemented (Phase 3).
+    // Phase 3: replace with organizationMembers query.
     canViewOrganization: isBootstrap,
 
-    isLoading,
+    isLoading: devLoading || partnerLoading,
   }
 }

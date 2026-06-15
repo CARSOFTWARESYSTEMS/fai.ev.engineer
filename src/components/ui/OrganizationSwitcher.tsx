@@ -11,6 +11,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Building2, ChevronDown, CheckCircle2 } from 'lucide-react'
 import { useBranding } from '../../hooks/useBranding'
 import { useAccessHelpers } from '../../lib/accessHelpers'
+import { useCurrentPartner } from '../../services/partnerAccessService'
 
 interface OrgOption {
   id:   string
@@ -23,8 +24,9 @@ const DEMO_ORGS: OrgOption[] = [
 ]
 
 export function OrganizationSwitcher() {
-  const { branding }          = useBranding()
-  const { canViewOrganization } = useAccessHelpers()
+  const { branding }              = useBranding()
+  const { canViewOrganization }   = useAccessHelpers()
+  const { partner }               = useCurrentPartner()
   const [open, setOpen]  = useState(false)
   const [selected, setSelected] = useState<OrgOption>(DEMO_ORGS[0])
   const ref              = useRef<HTMLDivElement>(null)
@@ -74,7 +76,7 @@ export function OrganizationSwitcher() {
               Partner
             </p>
             <p className="text-xs font-medium text-text-primary truncate">
-              {branding.businessName}
+              {partner?.name ?? branding.businessName}
             </p>
           </div>
 

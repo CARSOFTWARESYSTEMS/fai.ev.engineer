@@ -15,6 +15,7 @@ import { NotFoundPage } from '../pages/NotFoundPage'
 import { DeveloperSettingsPage } from '../pages/DeveloperSettingsPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
 import { BootstrapRoute } from '../auth/BootstrapRoute'
+import { PartnerRoute } from '../auth/PartnerRoute'
 import { CNCMachiningPage } from '../pages/fortius/CNCMachiningPage'
 import { CNCMillingPage } from '../pages/fortius/CNCMillingPage'
 import { CNCTurningPage } from '../pages/fortius/CNCTurningPage'
@@ -88,22 +89,22 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute><DeveloperSettingsPage /></ProtectedRoute>,
   },
 
-  // ─── Partner (Phase 1.5 — bootstrap only) ─────────────────────────────────
+  // ─── Partner (Phase 2 — developer + partnerAdmin access) ─────────────────
   {
     path: '/partner',
-    element: <BootstrapRoute><PartnerPage /></BootstrapRoute>,
+    element: <PartnerRoute><PartnerPage /></PartnerRoute>,
   },
   {
     path: '/partner/organizations',
-    element: <BootstrapRoute><PartnerOrganizationsPage /></BootstrapRoute>,
+    element: <PartnerRoute><PartnerOrganizationsPage /></PartnerRoute>,
   },
   {
     path: '/partner/requests',
-    element: <BootstrapRoute><PartnerRequestsPage /></BootstrapRoute>,
+    element: <PartnerRoute><PartnerRequestsPage /></PartnerRoute>,
   },
   {
     path: '/partner/settings',
-    element: <BootstrapRoute><PartnerSettingsPage /></BootstrapRoute>,
+    element: <PartnerRoute><PartnerSettingsPage /></PartnerRoute>,
   },
 
   // ─── Organization (Phase 1.5 — bootstrap only) ────────────────────────────

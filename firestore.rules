@@ -37,6 +37,19 @@ service cloud.firestore {
         get(/databases/$(database)/documents/projects/$(projectId)).data.uid == uid();
     }
 
+    // ── Partner admin helper ──────────────────────────────────────────────────
+
+    // True if the authenticated user is an active Partner Admin for the given partnerId.
+    // Reads partnerAdmins/{uid} — costs one extra read per partner document access.
+    function isPartnerAdminForPartner(partnerId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/partnerAdmins/$(uid())) &&
+        get(/databases/$(database)/documents/partnerAdmins/$(uid()))
+          .data.get('status', '') == 'active' &&
+        partnerId in get(/databases/$(database)/documents/partnerAdmins/$(uid()))
+          .data.get('partnerIds', []);
+    }
+
     // ── Developer access helpers ──────────────────────────────────────────────
 
     function isBootstrapDeveloper() {
@@ -119,6 +132,33 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if false;
       allow delete: if false;
+    }
+
+    // ── partners/{partnerId} ─────────────────────────────────────────────────
+    // Partner records are read by: Platform Developers, Platform Admins, and
+    // the Partner Admin for that specific partner.
+    // Only Platform Developers/Admins can create or update partners.
+    // Partners are never hard-deleted; use enabled:false to disable.
+    match /partners/{partnerId} {
+      allow read:   if isDeveloper() || isAdmin() || isPartnerAdminForPartner(partnerId);
+      allow create: if isDeveloper()
+                       && request.resource.data.get('enabled', true) is bool
+                       && request.resource.data.get('name', '') != '';
+      allow update: if isDeveloper();
+      allow delete: if false;
+    }
+
+    // ── partnerAdmins/{uid} ───────────────────────────────────────────────────
+    // Stores which partners a user administers.
+    // A user can read their own record (to discover which partners they manage).
+    // Only Platform Developers/Admins can create/update/delete these records.
+    match /partnerAdmins/{adminUid} {
+      allow read:   if isDeveloper() || isAdmin() || (isAuth() && uid() == adminUid);
+      allow create: if isDeveloper()
+                       && request.resource.data.get('uid', '') == adminUid
+                       && request.resource.data.get('status', '') in ['active', 'deactivated'];
+      allow update: if isDeveloper();
+      allow delete: if isDeveloper();
     }
 
     // ── brandings/{brandingId} ───────────────────────────────────────────────
