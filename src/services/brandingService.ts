@@ -16,20 +16,22 @@ import { firestore } from '../firebase/firestore'
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface BrandingPreset {
-  brandingId:    string
-  businessName:  string
-  businessCode:  string
-  logoUrl?:      string
-  website?:      string
-  supportEmail?: string
-  supportPhone?: string
-  whatsappNumber?: string
-  poweredByText: string
-  poweredByUrl:  string
-  enabled:       boolean
-  createdAt:     Timestamp | null
-  updatedAt:     Timestamp | null
-  createdBy:     string
+  brandingId:               string
+  businessName:             string
+  businessCode:             string
+  logoUrl?:                 string
+  website?:                 string
+  supportEmail?:            string
+  supportPhone?:            string
+  whatsappNumber?:          string
+  technicalSupportNumber?:  string
+  poweredByText:            string
+  poweredByUrl:             string
+  domains:                  string[]
+  enabled:                  boolean
+  createdAt:                Timestamp | null
+  updatedAt:                Timestamp | null
+  createdBy:                string
 }
 
 export interface ActiveBrandingConfig {
@@ -45,6 +47,7 @@ export const DEFAULT_BRANDING: Omit<BrandingPreset, 'brandingId' | 'createdAt' |
   businessCode:  'itelematics',
   poweredByText: 'powered by EV.ENGINEER',
   poweredByUrl:  'https://ev.engineer',
+  domains:       [],
   enabled:       true,
 }
 
@@ -162,4 +165,80 @@ export async function getActiveBrandingId(): Promise<string | null> {
   const snap = await getDoc(ref)
   if (!snap.exists()) return null
   return (snap.data() as ActiveBrandingConfig).activeBrandingId ?? null
+}
+
+// ─── Default branding seeds ───────────────────────────────────────────────────
+
+const SEED_BRANDINGS: Omit<BrandingPreset, 'brandingId' | 'createdAt' | 'updatedAt'>[] = [
+  {
+    businessName:            'FAI Engineer',
+    businessCode:            'fai',
+    website:                 'https://fai.ev.engineer',
+    supportEmail:            'info@itelematics.com',
+    supportPhone:            '+918880423666',
+    whatsappNumber:          '918880423666',
+    technicalSupportNumber:  '919108206147',
+    poweredByText:           'EV.ENGINEER',
+    poweredByUrl:            'https://ev.engineer',
+    domains:                 ['fai.ev.engineer'],
+    enabled:                 true,
+    createdBy:               'seed',
+  },
+  {
+    businessName:            'iFab Tech',
+    businessCode:            'ifab',
+    website:                 'https://fai.ifab.tech',
+    supportEmail:            'sri@ifab.tech',
+    supportPhone:            '+447714296479',
+    whatsappNumber:          '447714296479',
+    technicalSupportNumber:  '919108206147',
+    poweredByText:           'EV.ENGINEER',
+    poweredByUrl:            'https://ev.engineer',
+    domains:                 ['fai.ifab.tech'],
+    enabled:                 true,
+    createdBy:               'seed',
+  },
+]
+
+export interface SeedBrandingResult {
+  seeded:  string[]
+  updated: string[]
+  errors:  string[]
+}
+
+// Upserts the two default partner brandings (FAI + iFab).
+// Matches existing docs by businessCode; creates new docs if missing.
+export async function seedDefaultBrandings(calledBy: string): Promise<SeedBrandingResult> {
+  const snap = await getDocs(collection(firestore, 'brandings'))
+  const existing = snap.docs.map(d => ({
+    id:   d.id,
+    code: (d.data() as BrandingPreset).businessCode,
+  }))
+
+  const result: SeedBrandingResult = { seeded: [], updated: [], errors: [] }
+
+  for (const seed of SEED_BRANDINGS) {
+    const match = existing.find(e => e.code === seed.businessCode)
+    try {
+      if (match) {
+        await updateDoc(doc(firestore, 'brandings', match.id), {
+          ...seed,
+          updatedAt: serverTimestamp(),
+        })
+        result.updated.push(seed.businessName)
+      } else {
+        await addDoc(collection(firestore, 'brandings'), {
+          ...seed,
+          createdBy: calledBy,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        })
+        result.seeded.push(seed.businessName)
+      }
+    } catch (err) {
+      result.errors.push(`${seed.businessName}: ${(err as Error).message}`)
+    }
+  }
+
+  return result
 }

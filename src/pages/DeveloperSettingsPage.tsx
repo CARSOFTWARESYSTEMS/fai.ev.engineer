@@ -61,6 +61,7 @@ import {
   deleteBrandingPreset,
   setActiveBranding,
   restoreDefaultBranding,
+  seedDefaultBrandings,
   type BrandingPreset,
 } from '../services/brandingService'
 
@@ -1059,27 +1060,218 @@ function WatermarkConfigPanel() {
   )
 }
 
+// ─── Domain manager (reusable sub-component for branding form) ───────────────
+
+function isValidHostname(value: string): boolean {
+  return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$/.test(value)
+}
+
+function DomainManager({
+  domains,
+  onChange,
+}: {
+  domains: string[]
+  onChange: (domains: string[]) => void
+}) {
+  const [input,    setInput]    = useState('')
+  const [inputErr, setInputErr] = useState('')
+
+  const handleAdd = () => {
+    const val = input.trim().toLowerCase()
+    if (!val) return
+    if (!isValidHostname(val)) {
+      setInputErr('Invalid hostname format (e.g. fai.ifab.tech)')
+      return
+    }
+    if (domains.includes(val)) {
+      setInputErr('Domain already added.')
+      return
+    }
+    onChange([...domains, val])
+    setInput('')
+    setInputErr('')
+  }
+
+  const handleRemove = (d: string) => onChange(domains.filter(x => x !== d))
+
+  return (
+    <div>
+      <label className="text-xs font-medium text-text-secondary mb-1.5 block">
+        Domains
+        <span className="ml-1 text-[10px] text-text-secondary font-normal">
+          — branding auto-loads when hostname matches
+        </span>
+      </label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={e => { setInput(e.target.value); setInputErr('') }}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          placeholder="fai.ifab.tech"
+          className="flex-1 px-3 py-2 text-sm border border-border rounded-lg font-mono
+            focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
+        />
+        <button
+          type="button"
+          onClick={handleAdd}
+          className="px-3 py-2 text-sm font-semibold bg-primary text-white rounded-lg
+            hover:bg-primary/90 transition-colors shrink-0"
+        >
+          Add
+        </button>
+      </div>
+      {inputErr && <p className="text-xs text-error mt-1">{inputErr}</p>}
+      {domains.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {domains.map(d => (
+            <span
+              key={d}
+              className="inline-flex items-center gap-1.5 text-xs font-mono bg-primary-light
+                text-primary px-2.5 py-1 rounded-full border border-primary/20"
+            >
+              {d}
+              <button
+                type="button"
+                onClick={() => handleRemove(d)}
+                className="text-primary/60 hover:text-error transition-colors leading-none"
+                aria-label={`Remove ${d}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {domains.length === 0 && (
+        <p className="text-[11px] text-text-secondary mt-1.5 italic">
+          No domains — branding will not auto-load for any hostname.
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── Seed default brandings panel ────────────────────────────────────────────
+
+function SeedBrandingsPanel() {
+  const { firebaseUser } = useAuth()
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ seeded: string[]; updated: string[]; errors: string[] } | null>(null)
+
+  const handleSeed = async () => {
+    setStatus('running')
+    setResult(null)
+    try {
+      const r = await seedDefaultBrandings(firebaseUser?.email ?? 'developer')
+      setResult(r)
+      setStatus(r.errors.length > 0 ? 'error' : 'done')
+    } catch (err) {
+      setResult({ seeded: [], updated: [], errors: [(err as Error).message || 'Unexpected error.'] })
+      setStatus('error')
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-xs text-text-secondary">
+        Creates or updates the two default partner brandings (<code className="text-[11px] bg-gray-100 px-1 py-0.5 rounded">fai</code> and <code className="text-[11px] bg-gray-100 px-1 py-0.5 rounded">ifab</code>) with
+        correct domain mappings and contact details. Safe to run repeatedly — matches by <code className="text-[11px] bg-gray-100 px-1 py-0.5 rounded">businessCode</code>.
+      </p>
+
+      <div className="rounded-xl border border-border overflow-hidden">
+        <div className="px-4 py-2 bg-gray-50 border-b border-border">
+          <p className="text-[11px] font-semibold text-text-secondary uppercase tracking-wide">Brandings to seed</p>
+        </div>
+        <div className="divide-y divide-border">
+          {[
+            { code: 'fai',  name: 'FAI Engineer',  domain: 'fai.ev.engineer',  email: 'info@itelematics.com',  wa: '918880423666' },
+            { code: 'ifab', name: 'iFab Tech',     domain: 'fai.ifab.tech',    email: 'sri@ifab.tech',         wa: '447714296479' },
+          ].map(b => (
+            <div key={b.code} className="flex items-start gap-3 px-4 py-3">
+              <code className="text-xs font-mono text-primary bg-primary-light px-1.5 py-0.5 rounded shrink-0 mt-0.5">{b.code}</code>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-text-primary">{b.name}</p>
+                <p className="text-[11px] text-text-secondary">{b.domain} · {b.email} · wa:{b.wa}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {result && (
+        <div className="flex flex-col gap-1">
+          {result.seeded.map(name => (
+            <div key={name} className="flex items-center gap-2 text-sm text-success">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span className="text-xs"><span className="font-semibold">{name}</span> — created</span>
+            </div>
+          ))}
+          {result.updated.map(name => (
+            <div key={name} className="flex items-center gap-2 text-sm text-primary">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span className="text-xs"><span className="font-semibold">{name}</span> — updated</span>
+            </div>
+          ))}
+          {result.errors.map((msg, i) => (
+            <div key={i} className="flex items-start gap-2 text-sm text-error">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span className="text-xs">{msg}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-1 border-t border-border">
+        <p className="text-[11px] text-text-secondary flex-1">
+          Tech support number <code className="text-[10px] bg-gray-100 px-1 py-0.5 rounded">+919108206147</code> applied to both.
+        </p>
+        <button
+          onClick={handleSeed}
+          disabled={status === 'running'}
+          className="inline-flex items-center gap-2 text-sm font-semibold
+            px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg
+            transition-colors disabled:opacity-50 shrink-0"
+        >
+          {status === 'running'
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <Database className="w-4 h-4" />}
+          Seed Brandings
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Branding settings panel ──────────────────────────────────────────────────
 
 type BrandingFormState = {
-  businessName:          string
-  businessCode:          string
-  poweredByText:         string
-  poweredByUrl:          string
-  website:               string
-  supportEmail:          string
-  enabled:               boolean
+  businessName:           string
+  businessCode:           string
+  poweredByText:          string
+  poweredByUrl:           string
+  website:                string
+  supportEmail:           string
+  supportPhone:           string
+  whatsappNumber:         string
+  technicalSupportNumber: string
+  domains:                string[]
+  enabled:                boolean
   businessCodeCustomized: boolean
 }
 
 const EMPTY_BRANDING_FORM: BrandingFormState = {
-  businessName:          '',
-  businessCode:          '',
-  poweredByText:         'powered by EV.ENGINEER',
-  poweredByUrl:          'https://ev.engineer',
-  website:               '',
-  supportEmail:          '',
-  enabled:               true,
+  businessName:           '',
+  businessCode:           '',
+  poweredByText:          'EV.ENGINEER',
+  poweredByUrl:           'https://ev.engineer',
+  website:                '',
+  supportEmail:           '',
+  supportPhone:           '',
+  whatsappNumber:         '',
+  technicalSupportNumber: '',
+  domains:                [],
+  enabled:                true,
   businessCodeCustomized: false,
 }
 
@@ -1115,13 +1307,17 @@ function BrandingSettingsPanel() {
   const openEdit = (preset: BrandingPreset) => {
     setEditingPreset(preset)
     setForm({
-      businessName:          preset.businessName,
-      businessCode:          preset.businessCode,
-      poweredByText:         preset.poweredByText,
-      poweredByUrl:          preset.poweredByUrl,
-      website:               preset.website ?? '',
-      supportEmail:          preset.supportEmail ?? '',
-      enabled:               preset.enabled,
+      businessName:           preset.businessName,
+      businessCode:           preset.businessCode,
+      poweredByText:          preset.poweredByText,
+      poweredByUrl:           preset.poweredByUrl,
+      website:                preset.website               ?? '',
+      supportEmail:           preset.supportEmail          ?? '',
+      supportPhone:           preset.supportPhone          ?? '',
+      whatsappNumber:         preset.whatsappNumber        ?? '',
+      technicalSupportNumber: preset.technicalSupportNumber ?? '',
+      domains:                preset.domains               ?? [],
+      enabled:                preset.enabled,
       businessCodeCustomized: true,
     })
     setFormOpen(true)
@@ -1161,14 +1357,18 @@ function BrandingSettingsPanel() {
     try {
       const email = firebaseUser?.email ?? 'developer'
       const data = {
-        businessName:  form.businessName.trim(),
-        businessCode:  form.businessCode.trim(),
-        poweredByText: form.poweredByText.trim(),
-        poweredByUrl:  form.poweredByUrl.trim(),
-        website:       form.website.trim(),
-        supportEmail:  form.supportEmail.trim(),
-        enabled:       form.enabled,
-        createdBy:     email,
+        businessName:           form.businessName.trim(),
+        businessCode:           form.businessCode.trim(),
+        poweredByText:          form.poweredByText.trim(),
+        poweredByUrl:           form.poweredByUrl.trim(),
+        website:                form.website.trim(),
+        supportEmail:           form.supportEmail.trim(),
+        supportPhone:           form.supportPhone.trim(),
+        whatsappNumber:         form.whatsappNumber.trim(),
+        technicalSupportNumber: form.technicalSupportNumber.trim(),
+        domains:                form.domains,
+        enabled:                form.enabled,
+        createdBy:              email,
       }
       if (editingPreset) {
         await updateBrandingPreset(editingPreset.brandingId, data)
@@ -1383,7 +1583,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Business Name *</label>
               <input type="text" value={form.businessName}
                 onChange={e => handleNameChange(e.target.value)}
-                placeholder="iTelematics Software Private Limited"
+                placeholder="iFab Tech"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1391,7 +1591,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Business Code *</label>
               <input type="text" value={form.businessCode}
                 onChange={e => handleCodeChange(e.target.value)}
-                placeholder="itelematics"
+                placeholder="ifab"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1399,7 +1599,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">"Powered By" Text *</label>
               <input type="text" value={form.poweredByText}
                 onChange={e => setForm(f => ({ ...f, poweredByText: e.target.value }))}
-                placeholder="powered by EV.ENGINEER"
+                placeholder="EV.ENGINEER"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1415,7 +1615,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Website</label>
               <input type="url" value={form.website}
                 onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
-                placeholder="https://example.com"
+                placeholder="https://fai.ifab.tech"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1423,11 +1623,43 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Support Email</label>
               <input type="email" value={form.supportEmail}
                 onChange={e => setForm(f => ({ ...f, supportEmail: e.target.value }))}
-                placeholder="support@example.com"
+                placeholder="sri@ifab.tech"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">Support Phone</label>
+              <input type="tel" value={form.supportPhone}
+                onChange={e => setForm(f => ({ ...f, supportPhone: e.target.value }))}
+                placeholder="+447714296479"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-text-secondary mb-1 block">WhatsApp Number</label>
+              <input type="tel" value={form.whatsappNumber}
+                onChange={e => setForm(f => ({ ...f, whatsappNumber: e.target.value }))}
+                placeholder="447714296479"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+              <p className="text-[10px] text-text-secondary mt-0.5">Digits only, no + prefix (e.g. 447714296479)</p>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-text-secondary mb-1 block">Technical Support Number</label>
+              <input type="tel" value={form.technicalSupportNumber}
+                onChange={e => setForm(f => ({ ...f, technicalSupportNumber: e.target.value }))}
+                placeholder="919108206147"
+                className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
+              <p className="text-[10px] text-text-secondary mt-0.5">Global tech support number — shown alongside sales contact</p>
+            </div>
           </div>
+
+          {/* Domain management */}
+          <DomainManager
+            domains={form.domains}
+            onChange={domains => setForm(f => ({ ...f, domains }))}
+          />
 
           <div className="flex items-center gap-2">
             <button onClick={() => setForm(f => ({ ...f, enabled: !f.enabled }))}>
@@ -1653,6 +1885,17 @@ function ConfigurationsTab() {
         disabled
       >
         <div />
+      </CollapsibleCard>
+
+      <CollapsibleCard
+        title="Seed Default Brandings"
+        subtitle="Create or update FAI Engineer and iFab Tech branding presets with domain mappings"
+        icon={Database}
+        iconBg="bg-green-50"
+        iconColor="text-green-600"
+        defaultOpen={false}
+      >
+        <SeedBrandingsPanel />
       </CollapsibleCard>
 
       <CollapsibleCard

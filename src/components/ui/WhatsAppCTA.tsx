@@ -1,24 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Phone, ChevronDown } from 'lucide-react'
+import { useBranding } from '../../hooks/useBranding'
 
 const WHATSAPP_TEXT = encodeURIComponent('FAI.EV.ENGINEER - FAI Reports')
+const WA_GREEN      = '#25D366'
 
-const numbers = [
-  { display: '+91 88804 23666', number: '918880423666', role: 'Sales & Marketing' },
-  { display: '+44 7714 296479', number: '447714296479', role: 'Sales & Marketing' },
-  { display: '+91 91082 06147', number: '919108206147', role: 'Technical Support' },
-]
-
-// WhatsApp brand green
-const WA_GREEN = '#25D366'
-
-// Pages where the WhatsApp widget must not appear
 const HIDDEN_PATHS = new Set(['/Fortius'])
 
 export function WhatsAppCTA() {
-  const [open, setOpen] = useState(false)
+  const [open,     setOpen]     = useState(false)
   const [pathname, setPathname] = useState(window.location.pathname)
   const ref = useRef<HTMLDivElement>(null)
+  const { branding } = useBranding()
 
   // Track client-side navigation (React Router uses History API push/replace)
   useEffect(() => {
@@ -27,7 +20,7 @@ export function WhatsAppCTA() {
     const origPush    = window.history.pushState.bind(window.history)
     const origReplace = window.history.replaceState.bind(window.history)
 
-    window.history.pushState = (...args) => { origPush(...args);    sync() }
+    window.history.pushState    = (...args) => { origPush(...args);    sync() }
     window.history.replaceState = (...args) => { origReplace(...args); sync() }
 
     window.addEventListener('popstate', sync)
@@ -41,9 +34,7 @@ export function WhatsAppCTA() {
   // Close panel when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
     if (open) document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -51,19 +42,33 @@ export function WhatsAppCTA() {
 
   if (HIDDEN_PATHS.has(pathname) || /^\/projects\/[^/]+\/pdf/.test(pathname)) return null
 
+  // Build the contact list from branding:
+  //   - partner sales/marketing number (whatsappNumber)
+  //   - global technical support (technicalSupportNumber), shown only if different
+  const contacts: { number: string; display: string; role: string }[] = []
+
+  if (branding.whatsappNumber) {
+    const clean = branding.whatsappNumber.replace(/\D/g, '')
+    contacts.push({ number: clean, display: `+${clean}`, role: 'Sales & Marketing' })
+  }
+  if (branding.technicalSupportNumber) {
+    const clean = branding.technicalSupportNumber.replace(/\D/g, '')
+    if (!contacts.some(c => c.number === clean)) {
+      contacts.push({ number: clean, display: `+${clean}`, role: 'Technical Support' })
+    }
+  }
+
   return (
     <div
       ref={ref}
       className="fixed bottom-5 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-6 z-50 flex flex-col items-end"
       style={{ minWidth: 0 }}
     >
-      {/* Expanded panel — appears above the button */}
+      {/* Expanded panel */}
       {open && (
         <div
-          className="mb-3 w-[320px] sm:w-[360px] bg-white rounded-2xl shadow-2xl border border-border overflow-hidden animate-in"
-          style={{
-            animation: 'waSlideUp 0.2s ease-out',
-          }}
+          className="mb-3 w-[320px] sm:w-[360px] bg-white rounded-2xl shadow-2xl border border-border overflow-hidden"
+          style={{ animation: 'waSlideUp 0.2s ease-out' }}
         >
           {/* Panel header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-border"
@@ -72,7 +77,7 @@ export function WhatsAppCTA() {
               <WhatsAppIcon size={22} color="white" />
               <div>
                 <p className="text-white font-semibold text-sm leading-none">Chat on WhatsApp</p>
-                <p className="text-white/80 text-xs mt-0.5">FAI.EV.ENGINEER — FAI Reports</p>
+                <p className="text-white/80 text-xs mt-0.5">{branding.businessName}</p>
               </div>
             </div>
             <button
@@ -86,7 +91,7 @@ export function WhatsAppCTA() {
 
           {/* Number list */}
           <div className="divide-y divide-border">
-            {numbers.map((n) => (
+            {contacts.map((n) => (
               <div key={n.number} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors">
                 <div>
                   <p className="text-sm font-semibold text-text-primary font-mono tracking-wide">
@@ -95,7 +100,6 @@ export function WhatsAppCTA() {
                   <p className="text-xs text-text-secondary mt-0.5">{n.role}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Call button */}
                   <a
                     href={`tel:+${n.number}`}
                     className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"
@@ -103,7 +107,6 @@ export function WhatsAppCTA() {
                   >
                     <Phone className="w-3.5 h-3.5 text-text-secondary" />
                   </a>
-                  {/* WhatsApp button */}
                   <a
                     href={`https://wa.me/${n.number}?text=${WHATSAPP_TEXT}`}
                     target="_blank"
@@ -134,8 +137,8 @@ export function WhatsAppCTA() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full shadow-2xl text-white font-semibold text-sm transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95"
         style={{
-          background: WA_GREEN,
-          boxShadow: `0 4px 24px 0 rgba(37,211,102,0.45)`,
+          background:  WA_GREEN,
+          boxShadow:   `0 4px 24px 0 rgba(37,211,102,0.45)`,
         }}
         aria-label="Contact us on WhatsApp"
       >
@@ -157,7 +160,6 @@ export function WhatsAppCTA() {
   )
 }
 
-// Inline WhatsApp SVG logo (no external dependency)
 function WhatsAppIcon({ size = 20, color = 'currentColor' }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={color} xmlns="http://www.w3.org/2000/svg">

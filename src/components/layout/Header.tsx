@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
+import { useBranding } from '../../hooks/useBranding'
 
 type NavLink =
   | { label: string; href: string; type: 'anchor' }
@@ -17,24 +18,38 @@ const navLinks: NavLink[] = [
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const navigate = useNavigate()
+  const { branding } = useBranding()
+
+  const initial = branding.businessName.charAt(0).toUpperCase()
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
-          {/* Logo + sub-brand */}
+          {/* Logo + brand */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-              <span className="text-white font-bold text-sm">F</span>
-            </div>
+            {branding.logoUrl ? (
+              <img src={branding.logoUrl} alt={branding.businessName} className="w-8 h-8 rounded-md object-contain" />
+            ) : (
+              <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
+                <span className="text-white font-bold text-sm">{initial}</span>
+              </div>
+            )}
             <div className="flex flex-col leading-none">
               <span className="text-base font-bold text-text-primary tracking-tight">
-                FAI Engineer
+                {branding.businessName}
               </span>
               <span className="text-[10px] font-medium text-text-secondary tracking-wide">
-                by{' '}
-                <a href="https://ev.engineer" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">EV.ENGINEER</a>
+                powered by{' '}
+                <a
+                  href={branding.poweredByUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline hover:text-primary transition-colors"
+                >
+                  {branding.poweredByText}
+                </a>
               </span>
             </div>
           </Link>

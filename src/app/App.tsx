@@ -1,6 +1,7 @@
 import { RouterProvider } from 'react-router-dom'
 import { EVEngineerAuthProvider } from '../auth/EVEngineerAuthProvider'
 import { ProductConfigProvider } from '../config/ProductConfigProvider'
+import { BrandingProvider } from '../hooks/useBranding'
 import { WhatsAppCTA } from '../components/ui/WhatsAppCTA'
 import { router } from './router'
 
@@ -9,8 +10,11 @@ export function App() {
     <EVEngineerAuthProvider>
       {/* ProductConfigProvider sits inside auth so it can read user.organizationCode */}
       <ProductConfigProvider>
-        <RouterProvider router={router} />
-        <WhatsAppCTA />
+        {/* BrandingProvider resolves domain-based branding once for the whole app */}
+        <BrandingProvider>
+          <RouterProvider router={router} />
+          <WhatsAppCTA />
+        </BrandingProvider>
       </ProductConfigProvider>
     </EVEngineerAuthProvider>
   )

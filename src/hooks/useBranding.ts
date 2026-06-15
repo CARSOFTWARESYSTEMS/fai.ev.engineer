@@ -1,37 +1,20 @@
-import { useEffect, useState } from 'react'
-import { subscribeToActiveBranding, type BrandingPreset } from '../services/brandingService'
+import { createContext, useContext, useEffect, useState, type ReactNode, createElement } from 'react'
+import { getCurrentHostname, subscribeDomainBranding } from '../services/domainBrandingService'
+import type { BrandingPreset } from '../services/brandingService'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ResolvedBranding {
-  businessName:   string
-  businessCode:   string
-  logoUrl?:       string
-  poweredByText:  string
-  poweredByUrl:   string
-  supportEmail?:  string
-  supportPhone?:  string
-  whatsappNumber?: string
-}
-
-export const FALLBACK_BRANDING: ResolvedBranding = {
-  businessName:  'FAI Engineer',
-  businessCode:  'fai',
-  logoUrl:       undefined,
-  poweredByText: 'powered by EV.ENGINEER',
-  poweredByUrl:  'https://ev.engineer',
-}
-
-function resolvePreset(preset: BrandingPreset | null): ResolvedBranding {
-  if (!preset) return FALLBACK_BRANDING
-  return {
-    businessName:   preset.businessName  || FALLBACK_BRANDING.businessName,
-    businessCode:   preset.businessCode  || FALLBACK_BRANDING.businessCode,
-    logoUrl:        preset.logoUrl,
-    poweredByText:  preset.poweredByText || FALLBACK_BRANDING.poweredByText,
-    poweredByUrl:   preset.poweredByUrl  || FALLBACK_BRANDING.poweredByUrl,
-    supportEmail:   preset.supportEmail,
-    supportPhone:   preset.supportPhone,
-    whatsappNumber: preset.whatsappNumber,
-  }
+  businessName:            string
+  businessCode:            string
+  logoUrl?:                string
+  website?:                string
+  poweredByText:           string
+  poweredByUrl:            string
+  supportEmail?:           string
+  supportPhone?:           string
+  whatsappNumber?:         string
+  technicalSupportNumber?: string
 }
 
 export interface UseBrandingResult {
@@ -40,19 +23,70 @@ export interface UseBrandingResult {
   isFallback: boolean
 }
 
-export function useBranding(): UseBrandingResult {
+// ─── Fallback ─────────────────────────────────────────────────────────────────
+
+export const FALLBACK_BRANDING: ResolvedBranding = {
+  businessName:           'FAI Engineer',
+  businessCode:           'fai',
+  poweredByText:          'EV.ENGINEER',
+  poweredByUrl:           'https://ev.engineer',
+  supportEmail:           'info@itelematics.com',
+  supportPhone:           '+918880423666',
+  whatsappNumber:         '918880423666',
+  technicalSupportNumber: '919108206147',
+}
+
+// ─── Context ──────────────────────────────────────────────────────────────────
+
+const BrandingContext = createContext<UseBrandingResult>({
+  branding:   FALLBACK_BRANDING,
+  loading:    true,
+  isFallback: true,
+})
+
+// ─── Resolver ─────────────────────────────────────────────────────────────────
+
+function resolvePreset(preset: BrandingPreset): ResolvedBranding {
+  return {
+    businessName:           preset.businessName            || FALLBACK_BRANDING.businessName,
+    businessCode:           preset.businessCode            || FALLBACK_BRANDING.businessCode,
+    logoUrl:                preset.logoUrl,
+    website:                preset.website,
+    poweredByText:          preset.poweredByText           || FALLBACK_BRANDING.poweredByText,
+    poweredByUrl:           preset.poweredByUrl            || FALLBACK_BRANDING.poweredByUrl,
+    supportEmail:           preset.supportEmail,
+    supportPhone:           preset.supportPhone,
+    whatsappNumber:         preset.whatsappNumber,
+    technicalSupportNumber: preset.technicalSupportNumber,
+  }
+}
+
+// ─── Provider — one Firestore subscription for the whole app ─────────────────
+
+export function BrandingProvider({ children }: { children: ReactNode }) {
   const [branding,   setBranding]   = useState<ResolvedBranding>(FALLBACK_BRANDING)
   const [loading,    setLoading]    = useState(true)
   const [isFallback, setIsFallback] = useState(true)
 
   useEffect(() => {
-    const unsub = subscribeToActiveBranding(preset => {
-      setBranding(resolvePreset(preset))
-      setIsFallback(preset === null)
+    const hostname = getCurrentHostname()
+    return subscribeDomainBranding(hostname, preset => {
+      if (preset) {
+        setBranding(resolvePreset(preset))
+        setIsFallback(false)
+      } else {
+        setBranding(FALLBACK_BRANDING)
+        setIsFallback(true)
+      }
       setLoading(false)
     })
-    return unsub
   }, [])
 
-  return { branding, loading, isFallback }
+  return createElement(BrandingContext.Provider, { value: { branding, loading, isFallback } }, children)
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
+export function useBranding(): UseBrandingResult {
+  return useContext(BrandingContext)
 }
