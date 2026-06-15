@@ -1080,7 +1080,7 @@ function DomainManager({
     const val = input.trim().toLowerCase()
     if (!val) return
     if (!isValidHostname(val)) {
-      setInputErr('Invalid hostname format (e.g. fai.ifab.tech)')
+      setInputErr('Invalid hostname format (e.g. fai.ev.engineer)')
       return
     }
     if (domains.includes(val)) {
@@ -1108,7 +1108,7 @@ function DomainManager({
           value={input}
           onChange={e => { setInput(e.target.value); setInputErr('') }}
           onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          placeholder="fai.ifab.tech"
+          placeholder="fai.ev.engineer"
           className="flex-1 px-3 py-2 text-sm border border-border rounded-lg font-mono
             focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white"
         />
