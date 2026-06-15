@@ -6,8 +6,8 @@ export function getCurrentHostname(): string {
   return window.location.hostname
 }
 
-// Subscribes to the brandings collection and returns the first enabled preset
-// whose `domains` array contains the given hostname. Returns null if none match.
+// Subscribes to the brandings collection and returns the first preset whose
+// `domains` array contains the given hostname. Returns null if none match.
 // Uses a single `array-contains` query (no composite index required).
 export function subscribeDomainBranding(
   hostname: string,
@@ -24,7 +24,7 @@ export function subscribeDomainBranding(
     q,
     snap => {
       hasResolved = true
-      const match = snap.docs.find(d => (d.data() as BrandingPreset).enabled !== false)
+      const match = snap.docs[0]
       if (!match) { callback(null); return }
       callback({ brandingId: match.id, ...(match.data() as Omit<BrandingPreset, 'brandingId'>) })
     },

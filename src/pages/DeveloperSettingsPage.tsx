@@ -55,11 +55,9 @@ import {
 } from '../services/watermarkService'
 import {
   subscribeToBrandingPresets,
-  subscribeToActiveBranding,
   createBrandingPreset,
   updateBrandingPreset,
   deleteBrandingPreset,
-  setActiveBranding,
   restoreDefaultBranding,
   seedDefaultBrandings,
   type BrandingPreset,
@@ -1256,7 +1254,6 @@ type BrandingFormState = {
   whatsappNumber:         string
   technicalSupportNumber: string
   domains:                string[]
-  enabled:                boolean
   businessCodeCustomized: boolean
 }
 
@@ -1271,7 +1268,6 @@ const EMPTY_BRANDING_FORM: BrandingFormState = {
   whatsappNumber:         '',
   technicalSupportNumber: '',
   domains:                [],
-  enabled:                true,
   businessCodeCustomized: false,
 }
 
@@ -1282,7 +1278,6 @@ function suggestBrandingCode(name: string): string {
 function BrandingSettingsPanel() {
   const { firebaseUser } = useAuth()
   const [presets, setPresets]               = useState<BrandingPreset[]>([])
-  const [activeBrandingId, setActiveBrandingId] = useState<string | null>(null)
   const [form, setForm]                     = useState<BrandingFormState>(EMPTY_BRANDING_FORM)
   const [editingPreset, setEditingPreset]   = useState<BrandingPreset | null>(null)
   const [formOpen, setFormOpen]             = useState(false)
@@ -1291,9 +1286,7 @@ function BrandingSettingsPanel() {
   const [feedback, setFeedback]             = useState('')
 
   useEffect(() => {
-    const unsub1 = subscribeToBrandingPresets(setPresets)
-    const unsub2 = subscribeToActiveBranding(preset => setActiveBrandingId(preset?.brandingId ?? null))
-    return () => { unsub1(); unsub2() }
+    return subscribeToBrandingPresets(setPresets)
   }, [])
 
   const openAdd = () => {
@@ -1317,7 +1310,6 @@ function BrandingSettingsPanel() {
       whatsappNumber:         preset.whatsappNumber        ?? '',
       technicalSupportNumber: preset.technicalSupportNumber ?? '',
       domains:                preset.domains               ?? [],
-      enabled:                preset.enabled,
       businessCodeCustomized: true,
     })
     setFormOpen(true)
@@ -1367,7 +1359,6 @@ function BrandingSettingsPanel() {
         whatsappNumber:         form.whatsappNumber.trim(),
         technicalSupportNumber: form.technicalSupportNumber.trim(),
         domains:                form.domains,
-        enabled:                form.enabled,
         createdBy:              email,
       }
       if (editingPreset) {
@@ -1384,30 +1375,9 @@ function BrandingSettingsPanel() {
     }
   }
 
-  const handleSetActive = async (brandingId: string) => {
-    try {
-      await setActiveBranding(brandingId, firebaseUser?.email ?? 'developer')
-    } catch (err) {
-      setFeedback((err as Error).message || 'Failed to set active branding.')
-      setSaveStatus('error')
-    }
-  }
-
-  const handleClearActive = async () => {
-    try {
-      await setActiveBranding(null, firebaseUser?.email ?? 'developer')
-    } catch (err) {
-      setFeedback((err as Error).message || 'Failed to deactivate branding.')
-      setSaveStatus('error')
-    }
-  }
-
   const handleDelete = async (brandingId: string) => {
     try {
       await deleteBrandingPreset(brandingId)
-      if (activeBrandingId === brandingId) {
-        await setActiveBranding(null, firebaseUser?.email ?? 'developer')
-      }
       setDeleteConfirmId(null)
     } catch (err) {
       setFeedback((err as Error).message || 'Failed to delete preset.')
@@ -1421,7 +1391,7 @@ function BrandingSettingsPanel() {
     try {
       await restoreDefaultBranding(firebaseUser?.email ?? 'developer')
       setSaveStatus('saved')
-      setFeedback('Default branding restored and set as active.')
+      setFeedback('Default branding restored.')
       setTimeout(() => { setSaveStatus('idle'); setFeedback('') }, 4000)
     } catch (err) {
       setSaveStatus('error')
@@ -1431,19 +1401,19 @@ function BrandingSettingsPanel() {
 
   const isBusy = saveStatus === 'saving'
 
-  // Preview: show the form draft when editing, otherwise the active preset
+  // Preview: show the form draft when editing only
   const previewBranding = formOpen
-    ? { businessName: form.businessName || 'Business Name', poweredByText: form.poweredByText || 'powered by EV.ENGINEER', poweredByUrl: form.poweredByUrl || '#' }
-    : presets.find(p => p.brandingId === activeBrandingId) ?? null
+    ? { businessName: form.businessName || 'Business Name', poweredByText: form.poweredByText || 'EV.ENGINEER', poweredByUrl: form.poweredByUrl || '#' }
+    : null
 
   return (
     <div className="flex flex-col gap-4">
 
-      {/* Header preview */}
+      {/* Header preview (draft only) */}
       {previewBranding && (
         <div>
           <p className="text-xs font-semibold text-text-secondary uppercase tracking-wide mb-2">
-            Header Preview{formOpen ? ' (draft)' : ' (active)'}
+            Header Preview (draft)
           </p>
           <div className="flex items-center gap-2.5 px-4 py-3 bg-white border border-border rounded-xl">
             <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center shrink-0">
@@ -1463,14 +1433,6 @@ function BrandingSettingsPanel() {
         </div>
       )}
 
-      {/* No active branding warning */}
-      {!activeBrandingId && !formOpen && (
-        <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm">
-          <AlertTriangle className="w-4 h-4 shrink-0" />
-          No active branding set — app headers are showing fallback name "FAI Engineer".
-        </div>
-      )}
-
       {/* Preset list */}
       {presets.length > 0 && (
         <div className="rounded-xl border border-border overflow-hidden">
@@ -1484,8 +1446,7 @@ function BrandingSettingsPanel() {
           </div>
           <div className="divide-y divide-border">
             {presets.map(preset => {
-              const isActive   = preset.brandingId === activeBrandingId
-              const isDeleting = deleteConfirmId   === preset.brandingId
+              const isDeleting = deleteConfirmId === preset.brandingId
               return (
                 <div key={preset.brandingId} className="px-4 py-3">
                   {isDeleting ? (
@@ -1512,35 +1473,15 @@ function BrandingSettingsPanel() {
                           <span className="font-mono text-[10px] bg-primary-light text-primary px-1.5 py-0.5 rounded-full">
                             {preset.businessCode}
                           </span>
-                          {isActive && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
-                              bg-success/10 text-success border border-success/20">
-                              active
-                            </span>
-                          )}
-                          {!preset.enabled && (
-                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
-                              bg-gray-100 text-text-secondary border border-border">
-                              disabled
-                            </span>
-                          )}
                         </div>
                         <p className="text-xs text-text-secondary">{preset.poweredByText}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                        {!isActive ? (
-                          <button onClick={() => handleSetActive(preset.brandingId)}
-                            className="text-xs font-semibold text-primary border border-primary/30
-                              bg-primary-light hover:bg-primary/10 px-2.5 py-1.5 rounded-lg transition-colors">
-                            Set Active
-                          </button>
-                        ) : (
-                          <button onClick={handleClearActive}
-                            className="text-xs font-medium text-text-secondary border border-border
-                              hover:border-error/40 hover:text-error px-2.5 py-1.5 rounded-lg transition-colors">
-                            Deactivate
-                          </button>
+                        {preset.domains.length > 0 && (
+                          <p className="text-[10px] text-text-secondary mt-0.5 font-mono">
+                            {preset.domains.join(', ')}
+                          </p>
                         )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button onClick={() => openEdit(preset)}
                           className="text-xs font-medium text-text-secondary border border-border
                             hover:text-primary hover:border-primary/30 px-2.5 py-1.5 rounded-lg transition-colors">
@@ -1661,15 +1602,6 @@ function BrandingSettingsPanel() {
             onChange={domains => setForm(f => ({ ...f, domains }))}
           />
 
-          <div className="flex items-center gap-2">
-            <button onClick={() => setForm(f => ({ ...f, enabled: !f.enabled }))}>
-              {form.enabled
-                ? <ToggleRight className="w-6 h-6 text-primary" />
-                : <ToggleLeft  className="w-6 h-6 text-text-secondary" />}
-            </button>
-            <span className="text-sm text-text-secondary">{form.enabled ? 'Enabled' : 'Disabled'}</span>
-          </div>
-
           {feedback && saveStatus === 'error' && (
             <FeedbackBanner type="error" message={feedback} />
           )}
@@ -1726,7 +1658,6 @@ function BrandingSettingsPanel() {
 const RESTORABLE_CONFIGS = [
   { path: 'appConfig/betaBanner',    description: 'Beta banner title, message, severity, and visibility' },
   { path: 'appConfig/watermark',     description: 'Watermark text, opacity, variant, and enabled flag' },
-  { path: 'appConfig/activeBranding', description: 'Active branding pointer + default iTelematics preset in brandings/' },
 ]
 
 function RestoreConfigsPanel({ onSuccess }: { onSuccess?: () => void }) {

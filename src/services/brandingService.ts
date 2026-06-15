@@ -4,9 +4,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
-  getDoc,
   getDocs,
-  setDoc,
   onSnapshot,
   serverTimestamp,
   type Timestamp,
@@ -28,16 +26,9 @@ export interface BrandingPreset {
   poweredByText:            string
   poweredByUrl:             string
   domains:                  string[]
-  enabled:                  boolean
   createdAt:                Timestamp | null
   updatedAt:                Timestamp | null
   createdBy:                string
-}
-
-export interface ActiveBrandingConfig {
-  activeBrandingId: string | null
-  updatedAt:        Timestamp | null
-  updatedBy:        string
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
@@ -48,7 +39,6 @@ export const DEFAULT_BRANDING: Omit<BrandingPreset, 'brandingId' | 'createdAt' |
   poweredByText: 'powered by EV.ENGINEER',
   poweredByUrl:  'https://ev.engineer',
   domains:       [],
-  enabled:       true,
 }
 
 // ─── Branding presets CRUD ─────────────────────────────────────────────────────
@@ -93,52 +83,8 @@ export async function deleteBrandingPreset(brandingId: string): Promise<void> {
   await deleteDoc(doc(firestore, 'brandings', brandingId))
 }
 
-// ─── Active branding (appConfig/activeBranding) ────────────────────────────────
-
-export async function setActiveBranding(brandingId: string | null, updatedBy: string): Promise<void> {
-  const ref = doc(firestore, 'appConfig', 'activeBranding')
-  await setDoc(ref, { activeBrandingId: brandingId, updatedAt: serverTimestamp(), updatedBy })
-}
-
-// Subscribes to appConfig/activeBranding, then resolves the actual preset document.
-// Fires callback with null if no active branding is set or if it cannot be resolved.
-export function subscribeToActiveBranding(
-  callback: (branding: BrandingPreset | null) => void,
-): () => void {
-  let innerUnsub: (() => void) | null = null
-
-  const outerUnsub = onSnapshot(
-    doc(firestore, 'appConfig', 'activeBranding'),
-    snap => {
-      if (innerUnsub) { innerUnsub(); innerUnsub = null }
-
-      if (!snap.exists()) { callback(null); return }
-
-      const { activeBrandingId } = snap.data() as ActiveBrandingConfig
-      if (!activeBrandingId)    { callback(null); return }
-
-      innerUnsub = onSnapshot(
-        doc(firestore, 'brandings', activeBrandingId),
-        brandingSnap => {
-          if (!brandingSnap.exists()) { callback(null); return }
-          callback({ brandingId: brandingSnap.id, ...(brandingSnap.data() as Omit<BrandingPreset, 'brandingId'>) })
-        },
-        () => callback(null),
-      )
-    },
-    () => callback(null),
-  )
-
-  return () => {
-    outerUnsub()
-    if (innerUnsub) innerUnsub()
-  }
-}
-
-// Creates the default iTelematics branding preset (if not already present)
-// and sets it as the active branding.
+// Upserts the default iTelematics branding preset (creates if missing, updates if found).
 export async function restoreDefaultBranding(updatedBy: string): Promise<void> {
-  // Check if the default branding already exists by businessCode
   const snap = await getDocs(collection(firestore, 'brandings'))
   let existingId: string | null = null
 
@@ -148,23 +94,11 @@ export async function restoreDefaultBranding(updatedBy: string): Promise<void> {
     }
   })
 
-  let brandingId: string
   if (existingId) {
-    brandingId = existingId
     await updateBrandingPreset(existingId, { ...DEFAULT_BRANDING })
   } else {
-    brandingId = await createBrandingPreset({ ...DEFAULT_BRANDING, createdBy: updatedBy })
+    await createBrandingPreset({ ...DEFAULT_BRANDING, createdBy: updatedBy })
   }
-
-  await setActiveBranding(brandingId, updatedBy)
-}
-
-// Returns current active branding ID (one-shot read)
-export async function getActiveBrandingId(): Promise<string | null> {
-  const ref  = doc(firestore, 'appConfig', 'activeBranding')
-  const snap = await getDoc(ref)
-  if (!snap.exists()) return null
-  return (snap.data() as ActiveBrandingConfig).activeBrandingId ?? null
 }
 
 // ─── Default branding seeds ───────────────────────────────────────────────────
@@ -181,7 +115,6 @@ const SEED_BRANDINGS: Omit<BrandingPreset, 'brandingId' | 'createdAt' | 'updated
     poweredByText:           'EV.ENGINEER',
     poweredByUrl:            'https://ev.engineer',
     domains:                 ['fai.ev.engineer'],
-    enabled:                 true,
     createdBy:               'seed',
   },
   {
@@ -195,7 +128,6 @@ const SEED_BRANDINGS: Omit<BrandingPreset, 'brandingId' | 'createdAt' | 'updated
     poweredByText:           'EV.ENGINEER',
     poweredByUrl:            'https://ev.engineer',
     domains:                 ['fai.ifab.tech'],
-    enabled:                 true,
     createdBy:               'seed',
   },
 ]
