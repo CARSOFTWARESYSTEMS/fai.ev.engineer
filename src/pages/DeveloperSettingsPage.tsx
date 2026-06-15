@@ -1796,8 +1796,8 @@ function ConfigurationsTab() {
       </CollapsibleCard>
 
       <CollapsibleCard
-        title="Branding Settings"
-        subtitle="Active partner branding — business name and powered-by link in all app headers"
+        title="Platform Branding Templates"
+        subtitle="Default and starter branding templates. Production branding is managed per Partner in the Partner Admin tab."
         icon={Palette}
         iconBg="bg-purple-50"
         iconColor="text-purple-600"

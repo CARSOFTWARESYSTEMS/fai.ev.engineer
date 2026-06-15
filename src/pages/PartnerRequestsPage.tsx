@@ -6,6 +6,7 @@ const PARTNER_SUB_NAV = [
   { label: 'Organizations', to: '/partner/organizations' },
   { label: 'Requests',      to: '/partner/requests' },
   { label: 'Settings',      to: '/partner/settings' },
+  { label: 'Branding',      to: '/partner/branding' },
 ]
 
 export function PartnerRequestsPage() {

@@ -18,6 +18,7 @@ const PARTNER_SUB_NAV = [
   { label: 'Organizations', to: '/partner/organizations', icon: Building2 },
   { label: 'Requests',      to: '/partner/requests',      icon: ClipboardList },
   { label: 'Settings',      to: '/partner/settings',      icon: Settings2 },
+  { label: 'Branding',      to: '/partner/branding',      icon: null },
 ]
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────

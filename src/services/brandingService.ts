@@ -26,6 +26,7 @@ export interface BrandingPreset {
   poweredByText:            string
   poweredByUrl:             string
   domains:                  string[]
+  ownedByPartnerId?:        string   // Partner that owns this branding preset
   createdAt:                Timestamp | null
   updatedAt:                Timestamp | null
   createdBy:                string
@@ -57,6 +58,21 @@ export function subscribeToBrandingPresets(
       snap.docs.map(d => ({ brandingId: d.id, ...(d.data() as Omit<BrandingPreset, 'brandingId'>) }))
     ),
     () => callback([]),
+  )
+}
+
+// Subscribe to a single branding preset by ID.
+export function subscribeToBrandingById(
+  brandingId: string,
+  callback: (preset: BrandingPreset | null) => void,
+): () => void {
+  return onSnapshot(
+    doc(firestore, 'brandings', brandingId),
+    snap => {
+      if (!snap.exists()) { callback(null); return }
+      callback({ brandingId: snap.id, ...(snap.data() as Omit<BrandingPreset, 'brandingId'>) })
+    },
+    () => callback(null),
   )
 }
 

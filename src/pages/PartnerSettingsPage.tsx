@@ -4,6 +4,7 @@ import {
   SlidersHorizontal, Building2,
   ChevronRight, Loader2, AlertTriangle, CheckCircle2, Save,
   Globe, Mail, Phone, Hash, ToggleLeft, ToggleRight, Handshake,
+  Palette, ArrowRight,
 } from 'lucide-react'
 import { useBranding } from '../hooks/useBranding'
 import { useDeveloperAccess } from '../services/useDeveloperAccess'
@@ -18,6 +19,7 @@ const PARTNER_SUB_NAV = [
   { label: 'Organizations', to: '/partner/organizations' },
   { label: 'Requests',      to: '/partner/requests' },
   { label: 'Settings',      to: '/partner/settings' },
+  { label: 'Branding',      to: '/partner/branding' },
 ]
 
 // ─── Form state ────────────────────────────────────────────────────────────────
@@ -27,8 +29,6 @@ interface PartnerForm {
   website:      string
   supportEmail: string
   supportPhone: string
-  domainsText:  string   // newline-separated in the textarea
-  brandingId:   string
   enabled:      boolean
 }
 
@@ -38,8 +38,6 @@ function partnerToForm(p: Partner): PartnerForm {
     website:      p.website      ?? '',
     supportEmail: p.supportEmail ?? '',
     supportPhone: p.supportPhone ?? '',
-    domainsText:  p.domains.join('\n'),
-    brandingId:   p.brandingId   ?? '',
     enabled:      p.enabled,
   }
 }
@@ -84,6 +82,37 @@ function FeedbackBanner({ type, message }: { type: 'success' | 'error'; message:
   )
 }
 
+// ─── Branding CTA ─────────────────────────────────────────────────────────────
+
+function BrandingCta({ brandingId }: { brandingId?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-4 rounded-xl border border-primary/20
+      bg-primary-light">
+      <div className="flex items-center gap-3">
+        <Palette className="w-5 h-5 text-primary shrink-0" />
+        <div>
+          <p className="text-sm font-semibold text-primary">
+            {brandingId ? 'Manage partner branding' : 'No branding linked yet'}
+          </p>
+          <p className="text-xs text-text-secondary mt-0.5">
+            {brandingId
+              ? 'Edit brand identity, domain routing and contact info in the Branding tab.'
+              : 'Create or link a branding preset to this partner in the Branding tab.'}
+          </p>
+        </div>
+      </div>
+      <Link
+        to="/partner/branding"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-white
+          text-xs font-semibold hover:bg-primary/90 transition-colors shrink-0"
+      >
+        Branding
+        <ArrowRight className="w-3.5 h-3.5" />
+      </Link>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function PartnerSettingsPage() {
@@ -119,8 +148,6 @@ export function PartnerSettingsPage() {
         website:      form.website.trim()      || undefined,
         supportEmail: form.supportEmail.trim() || undefined,
         supportPhone: form.supportPhone.trim() || undefined,
-        domains:      form.domainsText.split('\n').map(d => d.trim()).filter(Boolean),
-        brandingId:   form.brandingId.trim()   || undefined,
         enabled:      form.enabled,
       })
       showFeedback('success', 'Partner settings saved.')
@@ -218,14 +245,14 @@ export function PartnerSettingsPage() {
         )}
 
         {!isLoading && partner && form && (
-          <div className="max-w-2xl">
+          <div className="max-w-2xl flex flex-col gap-5">
 
             {/* Page title */}
-            <div className="mb-6">
+            <div>
               <h1 className="text-xl font-bold text-text-primary">Partner Settings</h1>
               <p className="text-sm text-text-secondary mt-1">
                 {canEdit
-                  ? 'Edit partner profile and configuration. Partner Admin view is read-only.'
+                  ? 'Edit partner profile. Domain and branding config are in the Branding tab.'
                   : 'Your partner profile and configuration. Contact the platform team to make changes.'}
               </p>
               {isPartnerAdminUser && !isDeveloper && (
@@ -236,7 +263,10 @@ export function PartnerSettingsPage() {
               )}
             </div>
 
-            {feedback && <div className="mb-4"><FeedbackBanner type={feedback.type} message={feedback.message} /></div>}
+            {feedback && <FeedbackBanner type={feedback.type} message={feedback.message} />}
+
+            {/* Branding CTA */}
+            <BrandingCta brandingId={partner.brandingId} />
 
             {canEdit ? (
               /* ── Editable form ─────────────────────────────────────────── */
@@ -258,7 +288,7 @@ export function PartnerSettingsPage() {
                   />
                 </div>
 
-                {/* Partner Code (read-only even for developers — immutable) */}
+                {/* Partner Code (immutable) */}
                 <div>
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
                     Partner Code <span className="text-[10px] font-normal text-text-secondary">(immutable)</span>
@@ -323,36 +353,6 @@ export function PartnerSettingsPage() {
                   </div>
                 </div>
 
-                {/* Domains */}
-                <div>
-                  <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                    Domains <span className="text-[10px] font-normal text-text-secondary">(one per line)</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={form.domainsText}
-                    onChange={e => setForm(f => f && { ...f, domainsText: e.target.value })}
-                    placeholder={'fai.ifab.tech\nev.ifab.tech'}
-                    className="w-full px-3 py-2.5 rounded-xl border border-border bg-white text-sm font-mono
-                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition resize-none"
-                  />
-                </div>
-
-                {/* Branding ID */}
-                <div>
-                  <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                    Branding ID <span className="text-[10px] font-normal text-text-secondary">(brandings/{`{id}`})</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={form.brandingId}
-                    onChange={e => setForm(f => f && { ...f, brandingId: e.target.value })}
-                    placeholder="Leave blank for default branding"
-                    className="w-full px-3 py-2.5 rounded-xl border border-border bg-white text-sm font-mono
-                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                  />
-                </div>
-
                 {/* Enabled toggle */}
                 <div>
                   <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-2">
@@ -406,28 +406,12 @@ export function PartnerSettingsPage() {
             ) : (
               /* ── Read-only view (Partner Admin) ────────────────────────── */
               <div className="flex flex-col gap-4">
-                <ReadField label="Partner Name"   value={partner.name}          icon={Building2} />
-                <ReadField label="Partner Code"   value={partner.code}          icon={Hash}      />
-                <ReadField label="Website"        value={partner.website ?? ''}        icon={Globe}     />
-                <ReadField label="Support Email"  value={partner.supportEmail ?? ''}   icon={Mail}      />
-                <ReadField label="Support Phone"  value={partner.supportPhone ?? ''}   icon={Phone}     />
-                <div>
-                  <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                    Domains
-                  </label>
-                  <div className="px-3 py-2.5 rounded-xl border border-border bg-gray-50/60">
-                    {partner.domains.length > 0
-                      ? partner.domains.map(d => (
-                          <div key={d} className="flex items-center gap-2 py-0.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-success" />
-                            <span className="text-sm font-mono text-text-primary">{d}</span>
-                          </div>
-                        ))
-                      : <span className="text-sm text-text-secondary italic">No domains configured.</span>
-                    }
-                  </div>
-                </div>
-                <ReadField label="Status" value={partner.enabled ? 'Active' : 'Disabled'} />
+                <ReadField label="Partner Name"   value={partner.name}                  icon={Building2} />
+                <ReadField label="Partner Code"   value={partner.code}                  icon={Hash}      />
+                <ReadField label="Website"        value={partner.website      ?? ''}    icon={Globe}     />
+                <ReadField label="Support Email"  value={partner.supportEmail ?? ''}    icon={Mail}      />
+                <ReadField label="Support Phone"  value={partner.supportPhone ?? ''}    icon={Phone}     />
+                <ReadField label="Status"         value={partner.enabled ? 'Active' : 'Disabled'} />
               </div>
             )}
           </div>

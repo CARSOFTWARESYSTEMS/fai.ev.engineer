@@ -28,6 +28,7 @@ import { PartnerPage } from '../pages/PartnerPage'
 import { PartnerOrganizationsPage } from '../pages/PartnerOrganizationsPage'
 import { PartnerRequestsPage } from '../pages/PartnerRequestsPage'
 import { PartnerSettingsPage } from '../pages/PartnerSettingsPage'
+import { PartnerBrandingPage } from '../pages/PartnerBrandingPage'
 import { OrganizationPage } from '../pages/OrganizationPage'
 import { OrganizationTeamPage } from '../pages/OrganizationTeamPage'
 import { OrganizationProjectsPage } from '../pages/OrganizationProjectsPage'
@@ -105,6 +106,10 @@ export const router = createBrowserRouter([
   {
     path: '/partner/settings',
     element: <PartnerRoute><PartnerSettingsPage /></PartnerRoute>,
+  },
+  {
+    path: '/partner/branding',
+    element: <PartnerRoute><PartnerBrandingPage /></PartnerRoute>,
   },
 
   // ─── Organization (Phase 1.5 — bootstrap only) ────────────────────────────
