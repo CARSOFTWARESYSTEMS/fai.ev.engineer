@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Phone, ChevronDown } from 'lucide-react'
 import { useBranding } from '../../hooks/useBranding'
 
-const WHATSAPP_TEXT = encodeURIComponent('FAI.EV.ENGINEER - FAI Reports')
-const WA_GREEN      = '#25D366'
+const WA_GREEN = '#25D366'
 
 const HIDDEN_PATHS = new Set(['/Fortius'])
 
@@ -12,6 +11,7 @@ export function WhatsAppCTA() {
   const [pathname, setPathname] = useState(window.location.pathname)
   const ref = useRef<HTMLDivElement>(null)
   const { branding } = useBranding()
+  const whatsappText = encodeURIComponent(`${branding.businessName} - FAI Reports`)
 
   // Track client-side navigation (React Router uses History API push/replace)
   useEffect(() => {
@@ -108,7 +108,7 @@ export function WhatsAppCTA() {
                     <Phone className="w-3.5 h-3.5 text-text-secondary" />
                   </a>
                   <a
-                    href={`https://wa.me/${n.number}?text=${WHATSAPP_TEXT}`}
+                    href={`https://wa.me/${n.number}?text=${whatsappText}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-full transition-opacity hover:opacity-90"
@@ -126,7 +126,10 @@ export function WhatsAppCTA() {
           {/* Footer note */}
           <div className="px-5 py-3 bg-gray-50 border-t border-border">
             <p className="text-[11px] text-text-secondary text-center leading-relaxed">
-              Prefilled message: <span className="font-semibold text-text-primary">FAI.EV.ENGINEER - FAI Reports</span>
+              Prefilled message:{' '}
+              <span className="font-semibold text-text-primary">
+                {branding.businessName} - FAI Reports
+              </span>
             </p>
           </div>
         </div>

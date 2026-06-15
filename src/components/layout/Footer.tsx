@@ -2,8 +2,6 @@ import { Link } from 'react-router-dom'
 import { MessageCircle, Mail, Phone, Globe } from 'lucide-react'
 import { useBranding } from '../../hooks/useBranding'
 
-const WHATSAPP_TEXT = encodeURIComponent('FAI.EV.ENGINEER - FAI Reports')
-
 const footerSections = [
   {
     heading: 'Product',
@@ -44,6 +42,7 @@ export function Footer() {
   const waNumber      = branding.whatsappNumber
   const techNumber    = branding.technicalSupportNumber
   const website       = branding.website
+  const whatsappText  = encodeURIComponent(`${branding.businessName} - FAI Reports`)
 
   const resourceLinks = [
     { label: 'Documentation', href: '#' },
@@ -125,12 +124,14 @@ export function Footer() {
                     <ContactRow
                       number={waNumber}
                       label="Sales & Marketing"
+                      whatsappText={whatsappText}
                     />
                   )}
                   {techNumber && techNumber !== waNumber && (
                     <ContactRow
                       number={techNumber}
                       label="Technical Support"
+                      whatsappText={whatsappText}
                     />
                   )}
                 </div>
@@ -234,13 +235,13 @@ export function Footer() {
   )
 }
 
-function ContactRow({ number, label }: { number: string; label: string }) {
+function ContactRow({ number, label, whatsappText }: { number: string; label: string; whatsappText: string }) {
   const clean   = number.replace(/\D/g, '')
   const display = `+${clean}`
   return (
     <div className="flex items-center gap-2">
       <a
-        href={`https://wa.me/${clean}?text=${WHATSAPP_TEXT}`}
+        href={`https://wa.me/${clean}?text=${whatsappText}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-[#25D366] transition-colors group"
