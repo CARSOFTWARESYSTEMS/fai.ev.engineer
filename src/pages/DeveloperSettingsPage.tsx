@@ -1583,7 +1583,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Business Name *</label>
               <input type="text" value={form.businessName}
                 onChange={e => handleNameChange(e.target.value)}
-                placeholder="iFab Tech"
+                placeholder="iTelematics Software Private Limited"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1591,7 +1591,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Business Code *</label>
               <input type="text" value={form.businessCode}
                 onChange={e => handleCodeChange(e.target.value)}
-                placeholder="ifab"
+                placeholder="itelematics"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1615,7 +1615,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Website</label>
               <input type="url" value={form.website}
                 onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
-                placeholder="https://fai.ifab.tech"
+                placeholder="https://itelematics.com"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1623,7 +1623,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Support Email</label>
               <input type="email" value={form.supportEmail}
                 onChange={e => setForm(f => ({ ...f, supportEmail: e.target.value }))}
-                placeholder="sri@ifab.tech"
+                placeholder="info@itelematics.com"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1631,7 +1631,7 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">Support Phone</label>
               <input type="tel" value={form.supportPhone}
                 onChange={e => setForm(f => ({ ...f, supportPhone: e.target.value }))}
-                placeholder="+447714296479"
+                placeholder="+919108206147"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
             </div>
@@ -1639,10 +1639,10 @@ function BrandingSettingsPanel() {
               <label className="text-xs font-medium text-text-secondary mb-1 block">WhatsApp Number</label>
               <input type="tel" value={form.whatsappNumber}
                 onChange={e => setForm(f => ({ ...f, whatsappNumber: e.target.value }))}
-                placeholder="447714296479"
+                placeholder="919108206147"
                 className="w-full px-3 py-2 text-sm border border-border rounded-lg font-mono
                   focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white" />
-              <p className="text-[10px] text-text-secondary mt-0.5">Digits only, no + prefix (e.g. 447714296479)</p>
+              <p className="text-[10px] text-text-secondary mt-0.5">Digits only, no + prefix (e.g. 919108206147)</p>
             </div>
             <div className="sm:col-span-2">
               <label className="text-xs font-medium text-text-secondary mb-1 block">Technical Support Number</label>

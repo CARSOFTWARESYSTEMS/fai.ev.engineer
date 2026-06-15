@@ -135,6 +135,16 @@ export function WhatsAppCTA() {
         </div>
       )}
 
+      {/* Powered-by attribution */}
+      <a
+        href={branding.poweredByUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mb-2 text-[10px] text-text-secondary hover:text-text-primary transition-colors"
+      >
+        powered by {branding.poweredByText}
+      </a>
+
       {/* Main CTA button */}
       <button
         onClick={() => setOpen(!open)}
