@@ -18,13 +18,23 @@ export function subscribeDomainBranding(
     where('domains', 'array-contains', hostname),
   )
 
+  let hasResolved = false
+
   return onSnapshot(
     q,
     snap => {
+      hasResolved = true
       const match = snap.docs.find(d => (d.data() as BrandingPreset).enabled !== false)
       if (!match) { callback(null); return }
       callback({ brandingId: match.id, ...(match.data() as Omit<BrandingPreset, 'brandingId'>) })
     },
-    () => callback(null),
+    _err => {
+      // First-time failure (e.g. unauthenticated on cold load) → fall back.
+      // Subsequent failures (e.g. logout revokes auth) → keep last known branding.
+      if (!hasResolved) {
+        hasResolved = true
+        callback(null)
+      }
+    },
   )
 }

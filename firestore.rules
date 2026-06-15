@@ -122,8 +122,11 @@ service cloud.firestore {
     }
 
     // ── brandings/{brandingId} ───────────────────────────────────────────────
+    // Public read: branding is display-only config (names, contact info, powered-by).
+    // It must load before authentication (landing page) and persist after logout.
+    // Writes remain developer-only.
     match /brandings/{brandingId} {
-      allow read:   if isAuth();
+      allow read:   if true;
       allow create: if isDeveloper()
                        && request.resource.data.get('createdBy', '') == request.auth.token.email;
       allow update: if isDeveloper();

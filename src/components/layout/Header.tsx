@@ -27,19 +27,21 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
 
-          {/* Logo + brand */}
-          <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            {branding.logoUrl ? (
-              <img src={branding.logoUrl} alt={branding.businessName} className="w-8 h-8 rounded-md object-contain" />
-            ) : (
-              <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
-                <span className="text-white font-bold text-sm">{initial}</span>
-              </div>
-            )}
+          {/* Logo + brand — split into two sibling elements so the powered-by <a> is never nested inside a <Link> */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Link to="/" className="flex items-center gap-1.5 shrink-0">
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt={branding.businessName} className="w-8 h-8 rounded-md object-contain" />
+              ) : (
+                <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">{initial}</span>
+                </div>
+              )}
+            </Link>
             <div className="flex flex-col leading-none">
-              <span className="text-base font-bold text-text-primary tracking-tight">
+              <Link to="/" className="text-base font-bold text-text-primary tracking-tight hover:text-primary transition-colors">
                 {branding.businessName}
-              </span>
+              </Link>
               <span className="text-[10px] font-medium text-text-secondary tracking-wide">
                 powered by{' '}
                 <a
@@ -52,7 +54,7 @@ export function Header() {
                 </a>
               </span>
             </div>
-          </Link>
+          </div>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-0.5">
