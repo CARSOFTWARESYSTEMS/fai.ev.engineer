@@ -15,15 +15,12 @@ const navLinks: NavLink[] = [
   { label: 'FAQ',         sectionId: 'faq',          type: 'anchor' },
 ]
 
-function scrollToSection(sectionId: string, afterScroll?: () => void) {
-  afterScroll?.()
-  // Use requestAnimationFrame so mobile-menu close rerenders before we scroll
+function scrollToSection(sectionId: string, afterClose?: () => void) {
+  afterClose?.()
+  // scrollIntoView works on any scroll container (including overflow-x-hidden wrappers).
+  // scroll-margin-top on each section provides the sticky-header offset.
   requestAnimationFrame(() => {
-    const el = document.getElementById(sectionId)
-    if (!el) return
-    const headerHeight = 72
-    const top = el.getBoundingClientRect().top + window.scrollY - headerHeight
-    window.scrollTo({ top, behavior: 'smooth' })
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 }
 

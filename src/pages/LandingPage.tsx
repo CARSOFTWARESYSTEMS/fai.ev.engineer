@@ -728,7 +728,7 @@ export function LandingPage() {
         {/* Features */}
         <section
           id="features"
-          className="relative py-24 px-4 overflow-hidden"
+          className="relative py-24 px-4 overflow-hidden scroll-mt-20"
           style={{ background: 'linear-gradient(180deg, #eef2ff 0%, #f8fafc 60%, #f1f5f9 100%)' }}
         >
           {/* Subtle dot grid */}
@@ -784,7 +784,7 @@ export function LandingPage() {
         </section>
 
         {/* How It Works */}
-        <section id="how-it-works" className="py-24 px-4 bg-white">
+        <section id="how-it-works" className="py-24 px-4 bg-white scroll-mt-20">
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-16">
               <span className="inline-block text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 mb-5">
@@ -960,7 +960,7 @@ export function LandingPage() {
         {/* Pricing */}
         <section
           id="pricing"
-          className="relative py-24 px-4 overflow-hidden"
+          className="relative py-24 px-4 overflow-hidden scroll-mt-20"
           style={{ background: 'linear-gradient(180deg, #f1f5f9 0%, #e8eef7 100%)' }}
         >
           <div
@@ -1093,7 +1093,7 @@ export function LandingPage() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="py-20 px-4 bg-background">
+        <section id="faq" className="py-20 px-4 bg-background scroll-mt-20">
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-14">
               <h2 className="section-title">Frequently Asked Questions</h2>

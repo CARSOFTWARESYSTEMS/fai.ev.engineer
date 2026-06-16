@@ -12,7 +12,6 @@ import {
   ArrowRight,
   RefreshCw,
   AlertTriangle,
-  CheckCircle2,
   CalendarClock,
   ChevronDown,
   X,
@@ -91,24 +90,6 @@ function FilterSelect({ value, onChange, children }: {
   )
 }
 
-// ─── Sprint status ────────────────────────────────────────────────────────────
-
-const sprintStatus = [
-  { label: 'Public marketing website',        done: true  },
-  { label: 'Google Sign-In + Firestore',       done: true  },
-  { label: 'Complete Profile + Edit Profile',  done: true  },
-  { label: 'Product Key + Org Feature Config', done: true  },
-  { label: 'Project creation + metadata',      done: true  },
-  { label: 'Project list + detail view',       done: true  },
-  { label: 'Edit + delete projects',           done: true  },
-  { label: 'PDF upload + Google Drive',        done: true  },
-  { label: 'Priority + Due Date fields',       done: true  },
-  { label: 'Dashboard optimization',           done: true  },
-  { label: 'Kanban view',                      done: true  },
-  { label: 'Balloon Tool',                     done: false },
-  { label: 'Feature Table',                    done: false },
-  { label: 'AS9102 Form 3 Export',             done: false },
-]
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -576,21 +557,6 @@ export function DashboardPage() {
           </div>
         )}
 
-        {/* ── 5. Sprint Progress ───────────────────────────────────────────── */}
-        <div className="card p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircle2 className="w-4 h-4 text-success" />
-            <h2 className="font-semibold text-text-primary">Sprint Progress</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {sprintStatus.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 text-sm">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${item.done ? 'bg-success' : 'bg-border'}`} />
-                <span className={item.done ? 'text-text-primary' : 'text-text-secondary'}>{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
 
       </main>
 

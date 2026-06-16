@@ -3,7 +3,7 @@ import {
   Phone, Mail, MessageCircle, ChevronDown, ChevronRight,
   Search, Users, AlertCircle, Loader2, UserX,
   Building2, Clock, Globe, Trash2, FolderOpen, Folder,
-  FileText, ExternalLink,
+  FileText, ExternalLink, ArrowRight,
 } from 'lucide-react'
 import {
   subscribeAllUsers,
@@ -63,10 +63,7 @@ function ProjectStatusBadge({ status }: { status: string }) {
 
 function Avatar({ user }: { user: DirectoryUser }) {
   const initials = (user.displayName || user.email || '?')
-    .split(' ')
-    .slice(0, 2)
-    .map(s => s[0]?.toUpperCase() ?? '')
-    .join('')
+    .split(' ').slice(0, 2).map(s => s[0]?.toUpperCase() ?? '').join('')
   return (
     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
       <span className="text-xs font-bold text-primary">{initials || '?'}</span>
@@ -74,46 +71,67 @@ function Avatar({ user }: { user: DirectoryUser }) {
   )
 }
 
-// ─── Project Delete Confirm ───────────────────────────────────────────────────
+// ─── Shared: Step-2 Name Confirm Modal ────────────────────────────────────────
+// Reused for both user and project delete. Admin must type the exact name.
 
-function ProjectDeleteModal({
-  project,
+function NameConfirmModal({
+  title,
+  expectedName,
+  inputLabel,
+  queueLabel,
   onConfirm,
   onCancel,
   deleting,
 }: {
-  project:   FAIProject
-  onConfirm: () => void
-  onCancel:  () => void
-  deleting:  boolean
+  title:        string
+  expectedName: string
+  inputLabel:   string
+  queueLabel?:  string   // e.g. "Deleting 2 of 6 users"
+  onConfirm:    () => void
+  onCancel:     () => void
+  deleting:     boolean
 }) {
+  const [value, setValue] = useState('')
+  const matches = value.trim() === expectedName.trim()
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6">
-        <div className="flex items-center gap-3 mb-4">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
             <Trash2 className="w-5 h-5 text-red-600" />
           </div>
-          <div>
-            <h2 className="text-base font-bold text-text-primary">Delete project?</h2>
-            <p className="text-xs text-text-secondary mt-0.5">This removes the Firestore record only.</p>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-text-primary">{title}</h2>
+            {queueLabel && (
+              <p className="text-xs text-text-secondary mt-0.5">{queueLabel}</p>
+            )}
           </div>
         </div>
 
-        <div className="bg-slate-50 border border-border rounded-xl px-4 py-3 mb-4 text-sm">
-          <p className="font-semibold text-text-primary truncate">{project.projectName || '(Untitled)'}</p>
-          {project.partNumber && (
-            <p className="text-xs text-text-secondary font-mono mt-0.5">{project.partNumber}</p>
-          )}
-        </div>
+        {/* Instruction */}
+        <p className="text-sm text-text-secondary mb-1">
+          {inputLabel} <strong className="text-text-primary break-all">"{expectedName}"</strong> to confirm:
+        </p>
+        <input
+          autoFocus
+          type="text"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && matches && !deleting) onConfirm() }}
+          placeholder={expectedName}
+          className={[
+            'w-full mt-1 mb-4 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors focus:outline-none',
+            matches
+              ? 'border-red-400 bg-red-50/40 text-red-700 focus:ring-2 focus:ring-red-200'
+              : 'border-border focus:ring-2 focus:ring-primary/20',
+          ].join(' ')}
+        />
 
-        <div
-          className="text-xs rounded-lg border px-3 py-2.5 mb-5"
-          style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}
-        >
-          <p className="text-amber-700">
-            <strong>Note:</strong> Sub-collections (balloons, features, forms) and Google Drive files are <strong>not</strong> deleted — use Firebase Console to clean those up if needed.
-          </p>
+        {/* Match hint */}
+        <div className={`text-xs mb-5 transition-opacity ${value.length > 0 && !matches ? 'opacity-100' : 'opacity-0'}`}>
+          <span className="text-red-500">Name does not match — check spelling and capitalization.</span>
         </div>
 
         <div className="flex gap-3">
@@ -126,8 +144,8 @@ function ProjectDeleteModal({
           </button>
           <button
             onClick={onConfirm}
-            disabled={deleting}
-            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            disabled={!matches || deleting}
+            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {deleting
               ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
@@ -139,13 +157,104 @@ function ProjectDeleteModal({
   )
 }
 
+// ─── Step-1: User Delete Info Modal ──────────────────────────────────────────
+// Shows who will be deleted + warning. "Proceed →" advances to name confirm.
+
+function UserDeleteInfoModal({
+  users,
+  onProceed,
+  onCancel,
+}: {
+  users:     DirectoryUser[]
+  onProceed: () => void
+  onCancel:  () => void
+}) {
+  const isBulk = users.length > 1
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+            <Trash2 className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-text-primary">
+              {isBulk ? `Delete ${users.length} users?` : 'Delete user?'}
+            </h2>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Step 1 of 2 — review before confirming
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 max-h-44 overflow-y-auto space-y-2">
+          {users.map(u => (
+            <div key={u.uid} className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <span className="text-[11px] font-bold text-red-600">
+                  {(u.displayName || u.email || '?')[0].toUpperCase()}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-text-primary leading-tight truncate">
+                  {u.displayName || '(No name)'}
+                </p>
+                <p className="text-xs text-text-secondary truncate">{u.email}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="text-xs rounded-lg border px-3 py-2.5 mb-5 space-y-1"
+          style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}
+        >
+          <p className="font-semibold text-amber-700">What will be deleted:</p>
+          <ul className="text-amber-700 list-disc list-inside space-y-0.5">
+            <li>Firestore user profile</li>
+            <li>Partner admin record (if any)</li>
+          </ul>
+          <p className="font-semibold text-amber-700 mt-1">What is preserved:</p>
+          <ul className="text-amber-700 list-disc list-inside space-y-0.5">
+            <li>All projects and drawing data</li>
+            <li>Google sign-in account (Firebase Auth)</li>
+          </ul>
+          {isBulk && (
+            <p className="text-amber-600 mt-1 font-medium">
+              You will confirm each user by name — one at a time.
+            </p>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onProceed}
+            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            Proceed <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Project Sub-panel ────────────────────────────────────────────────────────
 
 function ProjectSubPanel({ uid }: { uid: string }) {
-  const [projects,       setProjects]       = useState<FAIProject[] | null>(null)
-  const [loading,        setLoading]        = useState(true)
-  const [confirmProject, setConfirmProject] = useState<FAIProject | null>(null)
-  const [deletingProj,   setDeletingProj]   = useState(false)
+  const [projects,           setProjects]           = useState<FAIProject[] | null>(null)
+  const [loading,            setLoading]            = useState(true)
+  // Step 1: info modal
+  const [infoProject,        setInfoProject]        = useState<FAIProject | null>(null)
+  // Step 2: name-confirm modal
+  const [nameConfirmProject, setNameConfirmProject] = useState<FAIProject | null>(null)
+  const [deletingProj,       setDeletingProj]       = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -156,17 +265,27 @@ function ProjectSubPanel({ uid }: { uid: string }) {
     return () => { cancelled = true }
   }, [uid])
 
+  function openDeleteFlow(p: FAIProject) {
+    setInfoProject(p)
+  }
+
+  function proceedToNameConfirm() {
+    if (!infoProject) return
+    setNameConfirmProject(infoProject)
+    setInfoProject(null)
+  }
+
   async function handleDeleteProject() {
-    if (!confirmProject) return
+    if (!nameConfirmProject) return
     setDeletingProj(true)
     try {
-      await deleteProjectData(confirmProject.projectId)
-      setProjects(prev => prev?.filter(p => p.projectId !== confirmProject.projectId) ?? null)
+      await deleteProjectData(nameConfirmProject.projectId)
+      setProjects(prev => prev?.filter(p => p.projectId !== nameConfirmProject.projectId) ?? null)
     } catch (err) {
       console.error('Project delete failed:', err)
     } finally {
       setDeletingProj(false)
-      setConfirmProject(null)
+      setNameConfirmProject(null)
     }
   }
 
@@ -190,14 +309,66 @@ function ProjectSubPanel({ uid }: { uid: string }) {
 
   return (
     <>
-      {confirmProject && (
-        <ProjectDeleteModal
-          project={confirmProject}
+      {/* Project Step 1 — info */}
+      {infoProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-text-primary">Delete project?</h2>
+                <p className="text-xs text-text-secondary mt-0.5">Step 1 of 2 — review before confirming</p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-border rounded-xl px-4 py-3 mb-4">
+              <p className="font-semibold text-text-primary truncate">{infoProject.projectName || '(Untitled)'}</p>
+              {infoProject.partNumber && (
+                <p className="text-xs text-text-secondary font-mono mt-0.5">{infoProject.partNumber}</p>
+              )}
+            </div>
+
+            <div
+              className="text-xs rounded-lg border px-3 py-2.5 mb-5"
+              style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}
+            >
+              <p className="text-amber-700">
+                <strong>Note:</strong> This removes the Firestore project record. Sub-collections (balloons, features, forms) and Google Drive files are <strong>not</strong> deleted automatically.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setInfoProject(null)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={proceedToNameConfirm}
+                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                Proceed <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Step 2 — type name */}
+      {nameConfirmProject && (
+        <NameConfirmModal
+          title="Type project name to confirm"
+          expectedName={nameConfirmProject.projectName || '(Untitled)'}
+          inputLabel="Type the project name"
           onConfirm={handleDeleteProject}
-          onCancel={() => setConfirmProject(null)}
+          onCancel={() => setNameConfirmProject(null)}
           deleting={deletingProj}
         />
       )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
@@ -225,13 +396,10 @@ function ProjectSubPanel({ uid }: { uid: string }) {
                     ? `${p.drawingNumber}${p.drawingRevision ? ` Rev ${p.drawingRevision}` : ''}`
                     : '—'}
                 </td>
-                <td className="py-2 px-4">
-                  <ProjectStatusBadge status={p.status} />
-                </td>
+                <td className="py-2 px-4"><ProjectStatusBadge status={p.status} /></td>
                 <td className="py-2 px-4 text-text-secondary whitespace-nowrap">{fmtDate(p.updatedAt)}</td>
                 <td className="py-2 px-4">
                   <div className="flex items-center gap-1">
-                    {/* PDF / Drive link */}
                     {p.googleDriveViewUrl ? (
                       <a
                         href={p.googleDriveViewUrl}
@@ -243,16 +411,12 @@ function ProjectSubPanel({ uid }: { uid: string }) {
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     ) : (
-                      <span
-                        title="No PDF uploaded"
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/40 text-text-secondary/25 cursor-not-allowed"
-                      >
+                      <span title="No PDF uploaded" className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/40 text-text-secondary/25 cursor-not-allowed">
                         <ExternalLink className="w-3.5 h-3.5" />
                       </span>
                     )}
-                    {/* Delete project */}
                     <button
-                      onClick={() => setConfirmProject(p)}
+                      onClick={() => openDeleteFlow(p)}
                       title="Delete project"
                       className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
                     >
@@ -279,14 +443,12 @@ function SummaryCards({ users }: { users: DirectoryUser[] }) {
   const domains   = [...grouped.keys()].filter(k => k !== LEGACY_DOMAIN)
   const legacy    = grouped.get(LEGACY_DOMAIN)?.length ?? 0
   const missingPh = users.filter(u => !u.mobileNumber?.trim()).length
-
   const cards = [
-    { label: 'Total Users',      value: users.length,   color: 'text-primary'      },
-    { label: 'Known Domains',    value: domains.length, color: 'text-emerald-600'  },
-    { label: 'Legacy / Unknown', value: legacy,         color: 'text-amber-600'    },
-    { label: 'Missing Phone',    value: missingPh,      color: 'text-red-600'      },
+    { label: 'Total Users',      value: users.length,   color: 'text-primary'     },
+    { label: 'Known Domains',    value: domains.length, color: 'text-emerald-600' },
+    { label: 'Legacy / Unknown', value: legacy,         color: 'text-amber-600'   },
+    { label: 'Missing Phone',    value: missingPh,      color: 'text-red-600'     },
   ]
-
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       {cards.map(c => (
@@ -344,135 +506,33 @@ function ContactActions({ user }: { user: DirectoryUser }) {
   )
 }
 
-// ─── Delete Confirmation Modal ────────────────────────────────────────────────
-
-function DeleteConfirmModal({
-  users,
-  onConfirm,
-  onCancel,
-  deleting,
-}: {
-  users:     DirectoryUser[]
-  onConfirm: () => void
-  onCancel:  () => void
-  deleting:  boolean
-}) {
-  const isBulk = users.length > 1
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
-            <Trash2 className="w-5 h-5 text-red-600" />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-text-primary">
-              {isBulk ? `Delete ${users.length} users?` : 'Delete user?'}
-            </h2>
-            <p className="text-xs text-text-secondary mt-0.5">This action cannot be undone.</p>
-          </div>
-        </div>
-
-        <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 max-h-44 overflow-y-auto space-y-2">
-          {users.map(u => (
-            <div key={u.uid} className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <span className="text-[11px] font-bold text-red-600">
-                  {(u.displayName || u.email || '?')[0].toUpperCase()}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-text-primary leading-tight truncate">
-                  {u.displayName || '(No name)'}
-                </p>
-                <p className="text-xs text-text-secondary truncate">{u.email}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="text-xs rounded-lg border px-3 py-2.5 mb-5 space-y-1"
-          style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}
-        >
-          <p className="font-semibold text-amber-700">What will be deleted:</p>
-          <ul className="text-amber-700 list-disc list-inside space-y-0.5">
-            <li>Firestore user profile</li>
-            <li>Partner admin record (if any)</li>
-          </ul>
-          <p className="font-semibold text-amber-700 mt-1">What is preserved:</p>
-          <ul className="text-amber-700 list-disc list-inside space-y-0.5">
-            <li>All projects and drawing data</li>
-            <li>Google sign-in account (Firebase Auth)</li>
-          </ul>
-        </div>
-
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={deleting}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={deleting}
-            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-          >
-            {deleting
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
-              : <><Trash2 className="w-4 h-4" /> Delete</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── User Row (desktop table) ─────────────────────────────────────────────────
 
 function UserRow({
-  user,
-  selected,
-  onToggle,
-  onDelete,
+  user, selected, onToggle, onDelete,
 }: {
-  user:     DirectoryUser
-  selected: boolean
-  onToggle: () => void
-  onDelete: () => void
+  user: DirectoryUser; selected: boolean; onToggle: () => void; onDelete: () => void
 }) {
   const [projectsOpen, setProjectsOpen] = useState(false)
-
   return (
     <>
       <tr className={`border-b border-border/50 transition-colors ${selected ? 'bg-red-50/40' : projectsOpen ? 'bg-primary/5' : 'hover:bg-background/50'}`}>
         <td className="py-3 pl-4 pr-2 w-8">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggle}
-            className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer"
-          />
+          <input type="checkbox" checked={selected} onChange={onToggle}
+            className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer" />
         </td>
         <td className="py-3 px-4">
           <div className="flex items-center gap-2.5 min-w-0">
             <Avatar user={user} />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-text-primary truncate">
-                {user.displayName || '(No name)'}
-              </p>
+              <p className="text-sm font-medium text-text-primary truncate">{user.displayName || '(No name)'}</p>
               {!user.profileCompleted && (
                 <span className="text-[10px] text-amber-600 font-medium">Profile incomplete</span>
               )}
             </div>
           </div>
         </td>
-        <td className="py-3 px-4 text-sm text-text-secondary truncate max-w-[160px]">
-          {user.email}
-        </td>
+        <td className="py-3 px-4 text-sm text-text-secondary truncate max-w-[160px]">{user.email}</td>
         <td className="py-3 px-4 text-sm text-text-secondary font-mono">
           {user.mobileNumber?.trim() || <span className="text-text-secondary/40 not-italic font-sans">—</span>}
         </td>
@@ -484,9 +544,7 @@ function UserRow({
             {user.role}
           </span>
         </td>
-        <td className="py-3 px-4 text-xs text-text-secondary whitespace-nowrap">
-          {fmtDate(user.lastLoginAt)}
-        </td>
+        <td className="py-3 px-4 text-xs text-text-secondary whitespace-nowrap">{fmtDate(user.lastLoginAt)}</td>
         <td className="py-3 px-4">
           <div className="flex items-center gap-1">
             <ContactActions user={user} />
@@ -500,9 +558,7 @@ function UserRow({
                   : 'border-border/70 text-text-secondary/60 hover:text-primary hover:border-primary/40 hover:bg-primary/5',
               ].join(' ')}
             >
-              {projectsOpen
-                ? <FolderOpen className="w-3.5 h-3.5" />
-                : <Folder className="w-3.5 h-3.5" />}
+              {projectsOpen ? <FolderOpen className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
             </button>
             <button
               onClick={onDelete}
@@ -514,8 +570,6 @@ function UserRow({
           </div>
         </td>
       </tr>
-
-      {/* Project sub-row */}
       {projectsOpen && (
         <tr className="border-b border-border/50">
           <td />
@@ -539,29 +593,18 @@ function UserRow({
 // ─── User Card (mobile) ───────────────────────────────────────────────────────
 
 function UserCard({
-  user,
-  selected,
-  onToggle,
-  onDelete,
+  user, selected, onToggle, onDelete,
 }: {
-  user:     DirectoryUser
-  selected: boolean
-  onToggle: () => void
-  onDelete: () => void
+  user: DirectoryUser; selected: boolean; onToggle: () => void; onDelete: () => void
 }) {
   const [projectsOpen, setProjectsOpen] = useState(false)
-
   return (
     <div className={`border rounded-xl shadow-sm transition-colors ${selected ? 'bg-red-50/40 border-red-200' : 'bg-white border-border'}`}>
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={onToggle}
-              className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer shrink-0"
-            />
+            <input type="checkbox" checked={selected} onChange={onToggle}
+              className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer shrink-0" />
             <Avatar user={user} />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-text-primary truncate">{user.displayName || '(No name)'}</p>
@@ -575,20 +618,17 @@ function UserCard({
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           {user.mobileNumber?.trim() && (
             <div className="flex items-center gap-1 text-text-secondary">
-              <Phone className="w-3 h-3 shrink-0" />
-              <span className="font-mono truncate">{user.mobileNumber}</span>
+              <Phone className="w-3 h-3 shrink-0" /><span className="font-mono truncate">{user.mobileNumber}</span>
             </div>
           )}
           {user.organizationName && (
             <div className="flex items-center gap-1 text-text-secondary">
-              <Building2 className="w-3 h-3 shrink-0" />
-              <span className="truncate">{user.organizationName}</span>
+              <Building2 className="w-3 h-3 shrink-0" /><span className="truncate">{user.organizationName}</span>
             </div>
           )}
           {user.lastLoginAt && (
             <div className="flex items-center gap-1 text-text-secondary">
-              <Clock className="w-3 h-3 shrink-0" />
-              <span>{fmtDate(user.lastLoginAt)}</span>
+              <Clock className="w-3 h-3 shrink-0" /><span>{fmtDate(user.lastLoginAt)}</span>
             </div>
           )}
         </div>
@@ -611,14 +651,11 @@ function UserCard({
               onClick={onDelete}
               className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete
+              <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>
           </div>
         </div>
       </div>
-
-      {/* Mobile project panel */}
       {projectsOpen && (
         <div className="border-t border-border bg-slate-50/60">
           <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40">
@@ -635,26 +672,17 @@ function UserCard({
 // ─── Domain Group ─────────────────────────────────────────────────────────────
 
 function DomainGroup({
-  domain,
-  users,
-  defaultOpen,
-  selectedUids,
-  onToggleUser,
-  onToggleAll,
-  onRequestDelete,
+  domain, users, defaultOpen, selectedUids, onToggleUser, onToggleAll, onRequestDelete,
 }: {
-  domain:          string
-  users:           DirectoryUser[]
-  defaultOpen:     boolean
-  selectedUids:    Set<string>
-  onToggleUser:    (uid: string) => void
-  onToggleAll:     (uids: string[], allSelected: boolean) => void
+  domain: string; users: DirectoryUser[]; defaultOpen: boolean
+  selectedUids: Set<string>
+  onToggleUser: (uid: string) => void
+  onToggleAll: (uids: string[], allSelected: boolean) => void
   onRequestDelete: (users: DirectoryUser[]) => void
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const label    = domainDisplayLabel(domain)
   const isLegacy = domain === LEGACY_DOMAIN
-
   const uids         = users.map(u => u.uid)
   const selectedHere = uids.filter(id => selectedUids.has(id))
   const allSelected  = selectedHere.length === users.length && users.length > 0
@@ -665,36 +693,26 @@ function DomainGroup({
       <div className="flex items-center bg-white hover:bg-background/50 transition-colors">
         <div className="pl-4 pr-2 py-3 shrink-0" onClick={e => e.stopPropagation()}>
           <input
-            type="checkbox"
-            checked={allSelected}
+            type="checkbox" checked={allSelected}
             ref={el => { if (el) el.indeterminate = someSelected }}
             onChange={() => onToggleAll(uids, allSelected)}
             className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
             title={allSelected ? 'Deselect all in group' : 'Select all in group'}
           />
         </div>
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="flex-1 flex items-center justify-between px-3 py-3"
-        >
+        <button onClick={() => setOpen(o => !o)} className="flex-1 flex items-center justify-between px-3 py-3">
           <div className="flex items-center gap-2.5">
             <Globe className={`w-4 h-4 ${isLegacy ? 'text-text-secondary/50' : 'text-primary'}`} />
-            <span className={`text-sm font-semibold ${isLegacy ? 'text-text-secondary' : 'text-text-primary'}`}>
-              {label}
-            </span>
+            <span className={`text-sm font-semibold ${isLegacy ? 'text-text-secondary' : 'text-text-primary'}`}>{label}</span>
             <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
               {users.length} {users.length === 1 ? 'user' : 'users'}
             </span>
           </div>
           <div className="flex items-center gap-2">
             {selectedHere.length > 0 && (
-              <span className="text-xs text-red-600 font-medium">
-                {selectedHere.length} selected
-              </span>
+              <span className="text-xs text-red-600 font-medium">{selectedHere.length} selected</span>
             )}
-            {open
-              ? <ChevronDown className="w-4 h-4 text-text-secondary" />
-              : <ChevronRight className="w-4 h-4 text-text-secondary" />}
+            {open ? <ChevronDown className="w-4 h-4 text-text-secondary" /> : <ChevronRight className="w-4 h-4 text-text-secondary" />}
           </div>
         </button>
       </div>
@@ -716,7 +734,6 @@ function DomainGroup({
 
       {open && (
         <div className="border-t border-border">
-          {/* Desktop table */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -733,9 +750,7 @@ function DomainGroup({
               </thead>
               <tbody>
                 {users.map(u => (
-                  <UserRow
-                    key={u.uid}
-                    user={u}
+                  <UserRow key={u.uid} user={u}
                     selected={selectedUids.has(u.uid)}
                     onToggle={() => onToggleUser(u.uid)}
                     onDelete={() => onRequestDelete([u])}
@@ -744,12 +759,9 @@ function DomainGroup({
               </tbody>
             </table>
           </div>
-          {/* Mobile cards */}
           <div className="sm:hidden p-3 space-y-2">
             {users.map(u => (
-              <UserCard
-                key={u.uid}
-                user={u}
+              <UserCard key={u.uid} user={u}
                 selected={selectedUids.has(u.uid)}
                 onToggle={() => onToggleUser(u.uid)}
                 onDelete={() => onRequestDelete([u])}
@@ -774,15 +786,20 @@ export function ContactsTab() {
   const [roleFilter,   setRoleFilter]   = useState<UserRole | 'all'>('all')
   const [domainFilter, setDomainFilter] = useState<string>('all')
   const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set())
-  const [confirmUsers, setConfirmUsers] = useState<DirectoryUser[] | null>(null)
-  const [deleting,     setDeleting]     = useState(false)
+
+  // ── Delete flow state ──────────────────────────────────────────────────────
+  // Step 1: info modal — show who is being deleted + warning
+  const [infoUsers,  setInfoUsers]  = useState<DirectoryUser[] | null>(null)
+  // Step 2: name-confirm queue — process one user at a time
+  const [nameQueue,  setNameQueue]  = useState<DirectoryUser[]>([])
+  const [currentUser, setCurrentUser] = useState<DirectoryUser | null>(null)
+  const [deleting,   setDeleting]   = useState(false)
+  const [doneCount,  setDoneCount]  = useState(0)   // how many in this bulk run we've deleted so far
 
   useEffect(() => {
     setLoading(true)
     const unsub = subscribeAllUsers(users => {
-      setAllUsers(users)
-      setLoading(false)
-      setError(false)
+      setAllUsers(users); setLoading(false); setError(false)
     })
     return unsub
   }, [])
@@ -800,9 +817,9 @@ export function ContactsTab() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return allUsers.filter(u => {
-      if (roleFilter   !== 'all' && u.role !== roleFilter)                                         return false
-      if (domainFilter !== 'all' && (u.signupDomain || LEGACY_DOMAIN) !== domainFilter)            return false
-      if (!q)                                                                                       return true
+      if (roleFilter   !== 'all' && u.role !== roleFilter)                              return false
+      if (domainFilter !== 'all' && (u.signupDomain || LEGACY_DOMAIN) !== domainFilter) return false
+      if (!q) return true
       return (
         u.displayName?.toLowerCase().includes(q) ||
         u.email?.toLowerCase().includes(q) ||
@@ -825,32 +842,54 @@ export function ContactsTab() {
   const onToggleAll = useCallback((uids: string[], allSelected: boolean) => {
     setSelectedUids(prev => {
       const next = new Set(prev)
-      if (allSelected) {
-        uids.forEach(id => next.delete(id))
-      } else {
-        uids.forEach(id => next.add(id))
-      }
+      if (allSelected) { uids.forEach(id => next.delete(id)) }
+      else             { uids.forEach(id => next.add(id))    }
       return next
     })
   }, [])
 
-  const handleConfirmDelete = useCallback(async () => {
-    if (!confirmUsers) return
+  // Called when trash is clicked (single or group bulk)
+  function requestDelete(users: DirectoryUser[]) {
+    setDoneCount(0)
+    setInfoUsers(users)
+  }
+
+  // Step 1 → Step 2: advance from info modal to first name-confirm
+  function proceedToNameConfirm() {
+    if (!infoUsers) return
+    const [first, ...rest] = infoUsers
+    setInfoUsers(null)
+    setCurrentUser(first)
+    setNameQueue(rest)
+  }
+
+  // Step 2 confirm: delete current user, then advance queue
+  async function handleDeleteCurrent() {
+    if (!currentUser) return
     setDeleting(true)
     try {
-      await Promise.all(confirmUsers.map(u => deleteUserData(u.uid)))
-      setSelectedUids(prev => {
-        const next = new Set(prev)
-        confirmUsers.forEach(u => next.delete(u.uid))
-        return next
-      })
+      await deleteUserData(currentUser.uid)
+      setDoneCount(n => n + 1)
+      setSelectedUids(prev => { const next = new Set(prev); next.delete(currentUser.uid); return next })
     } catch (err) {
       console.error('Delete failed:', err)
     } finally {
       setDeleting(false)
-      setConfirmUsers(null)
+      if (nameQueue.length > 0) {
+        const [next, ...rest] = nameQueue
+        setCurrentUser(next)
+        setNameQueue(rest)
+      } else {
+        setCurrentUser(null)
+      }
     }
-  }, [confirmUsers])
+  }
+
+  function cancelDelete() {
+    setInfoUsers(null)
+    setCurrentUser(null)
+    setNameQueue([])
+  }
 
   if (loading) {
     return (
@@ -859,7 +898,6 @@ export function ContactsTab() {
       </div>
     )
   }
-
   if (error) {
     return (
       <div className="flex items-center justify-center py-16 gap-3 text-error">
@@ -869,50 +907,56 @@ export function ContactsTab() {
     )
   }
 
+  const totalInRun = doneCount + (currentUser ? 1 : 0) + nameQueue.length
+
   return (
     <>
-      {confirmUsers && (
-        <DeleteConfirmModal
-          users={confirmUsers}
-          onConfirm={handleConfirmDelete}
-          onCancel={() => setConfirmUsers(null)}
+      {/* User Step 1 — info modal */}
+      {infoUsers && (
+        <UserDeleteInfoModal
+          users={infoUsers}
+          onProceed={proceedToNameConfirm}
+          onCancel={cancelDelete}
+        />
+      )}
+
+      {/* User Step 2 — name confirm (one at a time) */}
+      {currentUser && (
+        <NameConfirmModal
+          title="Type the user's name to confirm"
+          expectedName={currentUser.displayName || currentUser.email || ''}
+          inputLabel="Type the name"
+          queueLabel={
+            totalInRun > 1
+              ? `Deleting ${doneCount + 1} of ${totalInRun} users`
+              : undefined
+          }
+          onConfirm={handleDeleteCurrent}
+          onCancel={cancelDelete}
           deleting={deleting}
         />
       )}
 
       <div className="space-y-6">
-
         <SummaryCards users={allUsers} />
 
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
             <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+              type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search by name, email, phone, or org…"
               className="input-field pl-9 text-sm w-full"
             />
           </div>
-          <select
-            value={roleFilter}
-            onChange={e => setRoleFilter(e.target.value as UserRole | 'all')}
-            className="input-field text-sm w-full sm:w-44"
-          >
-            {ROLE_OPTIONS.map(r => (
-              <option key={r} value={r}>{r === 'all' ? 'All Roles' : r}</option>
-            ))}
+          <select value={roleFilter} onChange={e => setRoleFilter(e.target.value as UserRole | 'all')}
+            className="input-field text-sm w-full sm:w-44">
+            {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r === 'all' ? 'All Roles' : r}</option>)}
           </select>
-          <select
-            value={domainFilter}
-            onChange={e => setDomainFilter(e.target.value)}
-            className="input-field text-sm w-full sm:w-56"
-          >
+          <select value={domainFilter} onChange={e => setDomainFilter(e.target.value)}
+            className="input-field text-sm w-full sm:w-56">
             <option value="all">All Domains</option>
-            {availableDomains.map(d => (
-              <option key={d} value={d}>{domainDisplayLabel(d)}</option>
-            ))}
+            {availableDomains.map(d => <option key={d} value={d}>{domainDisplayLabel(d)}</option>)}
           </select>
         </div>
 
@@ -927,7 +971,7 @@ export function ContactsTab() {
           </div>
           {selectedUids.size > 0 && (
             <button
-              onClick={() => setConfirmUsers(allUsers.filter(u => selectedUids.has(u.uid)))}
+              onClick={() => requestDelete(allUsers.filter(u => selectedUids.has(u.uid)))}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -944,15 +988,11 @@ export function ContactsTab() {
         ) : (
           <div>
             {[...grouped.entries()].map(([domain, users], idx) => (
-              <DomainGroup
-                key={domain}
-                domain={domain}
-                users={users}
-                defaultOpen={idx === 0}
+              <DomainGroup key={domain} domain={domain} users={users} defaultOpen={idx === 0}
                 selectedUids={selectedUids}
                 onToggleUser={onToggleUser}
                 onToggleAll={onToggleAll}
-                onRequestDelete={setConfirmUsers}
+                onRequestDelete={requestDelete}
               />
             ))}
           </div>
