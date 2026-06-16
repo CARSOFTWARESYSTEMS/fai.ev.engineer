@@ -1,4 +1,4 @@
-import { collection, onSnapshot, doc, deleteDoc, getDoc } from 'firebase/firestore'
+import { collection, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { UserRecord } from './roleManagementService'
 
@@ -90,10 +90,27 @@ export async function deleteUserData(uid: string): Promise<void> {
   }
 }
 
+// ─── Disable user (soft — marks status disabled, does NOT delete) ─────────────
+
+export async function disableUserData(uid: string): Promise<void> {
+  await updateDoc(doc(firestore, 'users', uid), {
+    status: 'disabled',
+    disabledAt: new Date().toISOString(),
+  })
+}
+
 // ─── Delete project (Firestore document only — Drive files not touched) ──────
 
 export async function deleteProjectData(projectId: string): Promise<void> {
   await deleteDoc(doc(firestore, 'projects', projectId))
+}
+
+// ─── Archive project (soft — sets status:'archived', does NOT delete) ────────
+
+export async function archiveProjectData(projectId: string): Promise<void> {
+  await updateDoc(doc(firestore, 'projects', projectId), {
+    status: 'archived',
+  })
 }
 
 // ─── Real-time subscription ───────────────────────────────────────────────────

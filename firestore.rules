@@ -100,6 +100,7 @@ service cloud.firestore {
           'role', 'signupDomain', 'signupHostname', 'signupBrandingId', 'signupPartnerCode', 'signupPartnerName'
         ]))
         || isAdmin()
+        || isDeveloper()
       );
       allow delete: if isAdmin() || isDeveloper();
     }
@@ -243,6 +244,8 @@ service cloud.firestore {
             )
           )
         )
+        // TODO: restrict once testing is complete — developers get full update for archive/disable tools
+        || isDeveloper()
       );
       // TODO: restrict to isManagerOrAbove() once testing is complete — remove isDeveloper().
       allow delete: if isManagerOrAbove() || isOwner(resource.data.uid) || isDeveloper();

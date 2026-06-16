@@ -3,7 +3,7 @@ import {
   Phone, Mail, MessageCircle, ChevronDown, ChevronRight,
   Search, Users, AlertCircle, Loader2, UserX,
   Building2, Clock, Globe, Trash2, FolderOpen, Folder,
-  FileText, ExternalLink, ArrowRight,
+  FileText, ExternalLink, ArrowRight, EyeOff,
 } from 'lucide-react'
 import {
   subscribeAllUsers,
@@ -11,7 +11,9 @@ import {
   buildContactLinks,
   domainDisplayLabel,
   deleteUserData,
+  disableUserData,
   deleteProjectData,
+  archiveProjectData,
   LEGACY_DOMAIN,
   type DirectoryUser,
 } from '../../services/userDirectoryService'
@@ -163,11 +165,15 @@ function NameConfirmModal({
 function UserDeleteInfoModal({
   users,
   onProceed,
+  onDisableHide,
   onCancel,
+  disablingHide,
 }: {
-  users:     DirectoryUser[]
-  onProceed: () => void
-  onCancel:  () => void
+  users:          DirectoryUser[]
+  onProceed:      () => void
+  onDisableHide:  () => void
+  onCancel:       () => void
+  disablingHide:  boolean
 }) {
   const isBulk = users.length > 1
   return (
@@ -226,16 +232,27 @@ function UserDeleteInfoModal({
           )}
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors"
+            disabled={disablingHide}
+            className="flex-1 px-3 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
+            onClick={onDisableHide}
+            disabled={disablingHide}
+            className="flex-1 px-3 py-2.5 text-sm font-semibold text-amber-700 border border-amber-300 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+          >
+            {disablingHide
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Disabling…</>
+              : <><EyeOff className="w-4 h-4" /> Disable &amp; Hide</>}
+          </button>
+          <button
             onClick={onProceed}
-            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+            disabled={disablingHide}
+            className="flex-1 px-3 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
           >
             Proceed <ArrowRight className="w-4 h-4" />
           </button>
@@ -255,6 +272,7 @@ function ProjectSubPanel({ uid }: { uid: string }) {
   // Step 2: name-confirm modal
   const [nameConfirmProject, setNameConfirmProject] = useState<FAIProject | null>(null)
   const [deletingProj,       setDeletingProj]       = useState(false)
+  const [archivingProj,      setArchivingProj]      = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -273,6 +291,22 @@ function ProjectSubPanel({ uid }: { uid: string }) {
     if (!infoProject) return
     setNameConfirmProject(infoProject)
     setInfoProject(null)
+  }
+
+  async function handleArchiveProject() {
+    if (!infoProject) return
+    setArchivingProj(true)
+    try {
+      await archiveProjectData(infoProject.projectId)
+      setProjects(prev => prev?.map(p =>
+        p.projectId === infoProject.projectId ? { ...p, status: 'archived' } : p
+      ) ?? null)
+    } catch (err) {
+      console.error('Project archive failed:', err)
+    } finally {
+      setArchivingProj(false)
+      setInfoProject(null)
+    }
   }
 
   async function handleDeleteProject() {
@@ -339,16 +373,27 @@ function ProjectSubPanel({ uid }: { uid: string }) {
               </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <button
                 onClick={() => setInfoProject(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors"
+                disabled={archivingProj}
+                className="flex-1 px-3 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
+                onClick={handleArchiveProject}
+                disabled={archivingProj}
+                className="flex-1 px-3 py-2.5 text-sm font-semibold text-amber-700 border border-amber-300 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {archivingProj
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Archiving…</>
+                  : <><EyeOff className="w-4 h-4" /> Disable &amp; Hide</>}
+              </button>
+              <button
                 onClick={proceedToNameConfirm}
-                className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors flex items-center justify-center gap-2"
+                disabled={archivingProj}
+                className="flex-1 px-3 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
               >
                 Proceed <ArrowRight className="w-4 h-4" />
               </button>
@@ -789,7 +834,8 @@ export function ContactsTab() {
 
   // ── Delete flow state ──────────────────────────────────────────────────────
   // Step 1: info modal — show who is being deleted + warning
-  const [infoUsers,  setInfoUsers]  = useState<DirectoryUser[] | null>(null)
+  const [infoUsers,     setInfoUsers]     = useState<DirectoryUser[] | null>(null)
+  const [disablingUsers, setDisablingUsers] = useState(false)
   // Step 2: name-confirm queue — process one user at a time
   const [nameQueue,  setNameQueue]  = useState<DirectoryUser[]>([])
   const [currentUser, setCurrentUser] = useState<DirectoryUser | null>(null)
@@ -854,6 +900,27 @@ export function ContactsTab() {
     setInfoUsers(users)
   }
 
+  // "Disable & Hide" — sets status:disabled on each user without deleting
+  async function handleDisableHideUsers() {
+    if (!infoUsers) return
+    setDisablingUsers(true)
+    try {
+      for (const u of infoUsers) {
+        await disableUserData(u.uid)
+      }
+      setSelectedUids(prev => {
+        const next = new Set(prev)
+        infoUsers.forEach(u => next.delete(u.uid))
+        return next
+      })
+    } catch (err) {
+      console.error('Disable failed:', err)
+    } finally {
+      setDisablingUsers(false)
+      setInfoUsers(null)
+    }
+  }
+
   // Step 1 → Step 2: advance from info modal to first name-confirm
   function proceedToNameConfirm() {
     if (!infoUsers) return
@@ -916,7 +983,9 @@ export function ContactsTab() {
         <UserDeleteInfoModal
           users={infoUsers}
           onProceed={proceedToNameConfirm}
+          onDisableHide={handleDisableHideUsers}
           onCancel={cancelDelete}
+          disablingHide={disablingUsers}
         />
       )}
 
