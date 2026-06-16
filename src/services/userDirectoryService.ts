@@ -1,4 +1,4 @@
-import { collection, onSnapshot } from 'firebase/firestore'
+import { collection, onSnapshot, doc, deleteDoc, getDoc } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { UserRecord } from './roleManagementService'
 
@@ -75,6 +75,19 @@ export function groupUsersBySignupDomain(
       return bUsers.length - aUsers.length
     })
   )
+}
+
+// ─── Delete user data ─────────────────────────────────────────────────────────
+
+export async function deleteUserData(uid: string): Promise<void> {
+  await deleteDoc(doc(firestore, 'users', uid))
+
+  // Remove partner-admin record if one exists
+  const paRef  = doc(firestore, 'partnerAdmins', uid)
+  const paSnap = await getDoc(paRef)
+  if (paSnap.exists()) {
+    await deleteDoc(paRef)
+  }
 }
 
 // ─── Real-time subscription ───────────────────────────────────────────────────

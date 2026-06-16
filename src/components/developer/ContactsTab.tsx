@@ -1,14 +1,15 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   Phone, Mail, MessageCircle, ChevronDown, ChevronRight,
   Search, Users, AlertCircle, Loader2, UserX,
-  Building2, Clock, Globe,
+  Building2, Clock, Globe, Trash2,
 } from 'lucide-react'
 import {
   subscribeAllUsers,
   groupUsersBySignupDomain,
   buildContactLinks,
   domainDisplayLabel,
+  deleteUserData,
   LEGACY_DOMAIN,
   type DirectoryUser,
 } from '../../services/userDirectoryService'
@@ -54,16 +55,16 @@ function Avatar({ user }: { user: DirectoryUser }) {
 // ─── Summary Cards ────────────────────────────────────────────────────────────
 
 function SummaryCards({ users }: { users: DirectoryUser[] }) {
-  const grouped    = groupUsersBySignupDomain(users)
-  const domains    = [...grouped.keys()].filter(k => k !== LEGACY_DOMAIN)
-  const legacy     = grouped.get(LEGACY_DOMAIN)?.length ?? 0
-  const missingPh  = users.filter(u => !u.mobileNumber?.trim()).length
+  const grouped   = groupUsersBySignupDomain(users)
+  const domains   = [...grouped.keys()].filter(k => k !== LEGACY_DOMAIN)
+  const legacy    = grouped.get(LEGACY_DOMAIN)?.length ?? 0
+  const missingPh = users.filter(u => !u.mobileNumber?.trim()).length
 
   const cards = [
-    { label: 'Total Users',      value: users.length,         color: 'text-primary'  },
-    { label: 'Known Domains',    value: domains.length,       color: 'text-emerald-600' },
-    { label: 'Legacy / Unknown', value: legacy,               color: 'text-amber-600' },
-    { label: 'Missing Phone',    value: missingPh,            color: 'text-red-600'  },
+    { label: 'Total Users',      value: users.length,   color: 'text-primary'      },
+    { label: 'Known Domains',    value: domains.length, color: 'text-emerald-600'  },
+    { label: 'Legacy / Unknown', value: legacy,         color: 'text-amber-600'    },
+    { label: 'Missing Phone',    value: missingPh,      color: 'text-red-600'      },
   ]
 
   return (
@@ -123,11 +124,118 @@ function ContactActions({ user }: { user: DirectoryUser }) {
   )
 }
 
+// ─── Delete Confirmation Modal ────────────────────────────────────────────────
+
+function DeleteConfirmModal({
+  users,
+  onConfirm,
+  onCancel,
+  deleting,
+}: {
+  users:     DirectoryUser[]
+  onConfirm: () => void
+  onCancel:  () => void
+  deleting:  boolean
+}) {
+  const isBulk = users.length > 1
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+            <Trash2 className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-text-primary">
+              {isBulk ? `Delete ${users.length} users?` : 'Delete user?'}
+            </h2>
+            <p className="text-xs text-text-secondary mt-0.5">This action cannot be undone.</p>
+          </div>
+        </div>
+
+        {/* Users list */}
+        <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 max-h-44 overflow-y-auto space-y-2">
+          {users.map(u => (
+            <div key={u.uid} className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                <span className="text-[11px] font-bold text-red-600">
+                  {(u.displayName || u.email || '?')[0].toUpperCase()}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-text-primary leading-tight truncate">
+                  {u.displayName || '(No name)'}
+                </p>
+                <p className="text-xs text-text-secondary truncate">{u.email}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* What gets deleted */}
+        <div className="text-xs rounded-lg border px-3 py-2.5 mb-5 space-y-1"
+          style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}>
+          <p className="font-semibold text-amber-700">What will be deleted:</p>
+          <ul className="text-amber-700 list-disc list-inside space-y-0.5">
+            <li>Firestore user profile</li>
+            <li>Partner admin record (if any)</li>
+          </ul>
+          <p className="font-semibold text-amber-700 mt-1">What is preserved:</p>
+          <ul className="text-amber-700 list-disc list-inside space-y-0.5">
+            <li>All projects and drawing data</li>
+            <li>Google sign-in account (Auth only)</li>
+          </ul>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={deleting}
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={deleting}
+            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {deleting
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
+              : <><Trash2 className="w-4 h-4" /> Delete</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── User Row (desktop table) ─────────────────────────────────────────────────
 
-function UserRow({ user }: { user: DirectoryUser }) {
+function UserRow({
+  user,
+  selected,
+  onToggle,
+  onDelete,
+}: {
+  user:     DirectoryUser
+  selected: boolean
+  onToggle: () => void
+  onDelete: () => void
+}) {
   return (
-    <tr className="border-b border-border/50 hover:bg-background/50 transition-colors">
+    <tr className={`border-b border-border/50 transition-colors ${selected ? 'bg-red-50/40' : 'hover:bg-background/50'}`}>
+      <td className="py-3 pl-4 pr-2 w-8">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer"
+        />
+      </td>
       <td className="py-3 px-4">
         <div className="flex items-center gap-2.5 min-w-0">
           <Avatar user={user} />
@@ -159,7 +267,16 @@ function UserRow({ user }: { user: DirectoryUser }) {
         {fmtDate(user.lastLoginAt)}
       </td>
       <td className="py-3 px-4">
-        <ContactActions user={user} />
+        <div className="flex items-center gap-1">
+          <ContactActions user={user} />
+          <button
+            onClick={onDelete}
+            title={`Delete ${user.displayName || user.email}`}
+            className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors ml-1"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </td>
     </tr>
   )
@@ -167,11 +284,27 @@ function UserRow({ user }: { user: DirectoryUser }) {
 
 // ─── User Card (mobile) ───────────────────────────────────────────────────────
 
-function UserCard({ user }: { user: DirectoryUser }) {
+function UserCard({
+  user,
+  selected,
+  onToggle,
+  onDelete,
+}: {
+  user:     DirectoryUser
+  selected: boolean
+  onToggle: () => void
+  onDelete: () => void
+}) {
   return (
-    <div className="bg-white border border-border rounded-xl p-4 shadow-sm space-y-3">
+    <div className={`border rounded-xl p-4 shadow-sm space-y-3 transition-colors ${selected ? 'bg-red-50/40 border-red-200' : 'bg-white border-border'}`}>
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer shrink-0"
+          />
           <Avatar user={user} />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-text-primary truncate">{user.displayName || '(No name)'}</p>
@@ -203,8 +336,14 @@ function UserCard({ user }: { user: DirectoryUser }) {
         )}
       </div>
       <div className="flex items-center justify-between pt-1 border-t border-border/50">
-        <span className="text-xs text-text-secondary">Quick contact</span>
         <ContactActions user={user} />
+        <button
+          onClick={onDelete}
+          className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Delete
+        </button>
       </div>
     </div>
   )
@@ -216,34 +355,91 @@ function DomainGroup({
   domain,
   users,
   defaultOpen,
+  selectedUids,
+  onToggleUser,
+  onToggleAll,
+  onRequestDelete,
 }: {
-  domain:      string
-  users:       DirectoryUser[]
-  defaultOpen: boolean
+  domain:          string
+  users:           DirectoryUser[]
+  defaultOpen:     boolean
+  selectedUids:    Set<string>
+  onToggleUser:    (uid: string) => void
+  onToggleAll:     (uids: string[], allSelected: boolean) => void
+  onRequestDelete: (users: DirectoryUser[]) => void
 }) {
   const [open, setOpen] = useState(defaultOpen)
-  const label = domainDisplayLabel(domain)
+  const label    = domainDisplayLabel(domain)
   const isLegacy = domain === LEGACY_DOMAIN
+
+  const uids         = users.map(u => u.uid)
+  const selectedHere = uids.filter(id => selectedUids.has(id))
+  const allSelected  = selectedHere.length === users.length && users.length > 0
+  const someSelected = selectedHere.length > 0 && !allSelected
 
   return (
     <div className="border border-border rounded-xl overflow-hidden mb-3">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-background/50 transition-colors"
-      >
-        <div className="flex items-center gap-2.5">
-          <Globe className={`w-4 h-4 ${isLegacy ? 'text-text-secondary/50' : 'text-primary'}`} />
-          <span className={`text-sm font-semibold ${isLegacy ? 'text-text-secondary' : 'text-text-primary'}`}>
-            {label}
-          </span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-            {users.length} {users.length === 1 ? 'user' : 'users'}
-          </span>
+      {/* Group header */}
+      <div className="flex items-center bg-white hover:bg-background/50 transition-colors">
+        {/* Select-all checkbox */}
+        <div
+          className="pl-4 pr-2 py-3 shrink-0"
+          onClick={e => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={allSelected}
+            ref={el => { if (el) el.indeterminate = someSelected }}
+            onChange={() => onToggleAll(uids, allSelected)}
+            className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+            title={allSelected ? 'Deselect all in group' : 'Select all in group'}
+          />
         </div>
-        {open
-          ? <ChevronDown className="w-4 h-4 text-text-secondary" />
-          : <ChevronRight className="w-4 h-4 text-text-secondary" />}
-      </button>
+
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex-1 flex items-center justify-between px-3 py-3"
+        >
+          <div className="flex items-center gap-2.5">
+            <Globe className={`w-4 h-4 ${isLegacy ? 'text-text-secondary/50' : 'text-primary'}`} />
+            <span className={`text-sm font-semibold ${isLegacy ? 'text-text-secondary' : 'text-text-primary'}`}>
+              {label}
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              {users.length} {users.length === 1 ? 'user' : 'users'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedHere.length > 0 && (
+              <span className="text-xs text-red-600 font-medium">
+                {selectedHere.length} selected
+              </span>
+            )}
+            {open
+              ? <ChevronDown className="w-4 h-4 text-text-secondary" />
+              : <ChevronRight className="w-4 h-4 text-text-secondary" />}
+          </div>
+        </button>
+      </div>
+
+      {/* Bulk delete bar — shown when anything in this group is selected */}
+      {selectedHere.length > 0 && (
+        <div className="flex items-center justify-between px-4 py-2 bg-red-50 border-t border-red-100">
+          <span className="text-xs text-red-700 font-medium">
+            {selectedHere.length} user{selectedHere.length > 1 ? 's' : ''} selected in this group
+          </span>
+          <button
+            onClick={() => {
+              const toDelete = users.filter(u => selectedUids.has(u.uid))
+              onRequestDelete(toDelete)
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete {selectedHere.length > 1 ? `${selectedHere.length} users` : 'user'}
+          </button>
+        </div>
+      )}
 
       {open && (
         <div className="border-t border-border">
@@ -252,6 +448,7 @@ function DomainGroup({
             <table className="w-full">
               <thead>
                 <tr className="bg-background text-xs text-text-secondary uppercase tracking-wide">
+                  <th className="py-2 pl-4 pr-2 w-8"></th>
                   <th className="py-2 px-4 text-left font-semibold">Name</th>
                   <th className="py-2 px-4 text-left font-semibold">Email</th>
                   <th className="py-2 px-4 text-left font-semibold">Phone</th>
@@ -262,13 +459,29 @@ function DomainGroup({
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => <UserRow key={u.uid} user={u} />)}
+                {users.map(u => (
+                  <UserRow
+                    key={u.uid}
+                    user={u}
+                    selected={selectedUids.has(u.uid)}
+                    onToggle={() => onToggleUser(u.uid)}
+                    onDelete={() => onRequestDelete([u])}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
           {/* Mobile cards */}
           <div className="sm:hidden p-3 space-y-2">
-            {users.map(u => <UserCard key={u.uid} user={u} />)}
+            {users.map(u => (
+              <UserCard
+                key={u.uid}
+                user={u}
+                selected={selectedUids.has(u.uid)}
+                onToggle={() => onToggleUser(u.uid)}
+                onDelete={() => onRequestDelete([u])}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -281,12 +494,15 @@ function DomainGroup({
 const ROLE_OPTIONS: Array<UserRole | 'all'> = ['all', 'engineer', 'manager', 'admin', 'super_admin', 'user']
 
 export function ContactsTab() {
-  const [allUsers, setAllUsers] = useState<DirectoryUser[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [error,    setError]    = useState(false)
-  const [search,   setSearch]   = useState('')
+  const [allUsers,     setAllUsers]     = useState<DirectoryUser[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [error,        setError]        = useState(false)
+  const [search,       setSearch]       = useState('')
   const [roleFilter,   setRoleFilter]   = useState<UserRole | 'all'>('all')
   const [domainFilter, setDomainFilter] = useState<string>('all')
+  const [selectedUids, setSelectedUids] = useState<Set<string>>(new Set())
+  const [confirmUsers, setConfirmUsers] = useState<DirectoryUser[] | null>(null)
+  const [deleting,     setDeleting]     = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -298,7 +514,6 @@ export function ContactsTab() {
     return unsub
   }, [])
 
-  // Available domains for filter dropdown
   const availableDomains = useMemo(() => {
     const set = new Set<string>()
     for (const u of allUsers) set.add(u.signupDomain || LEGACY_DOMAIN)
@@ -309,13 +524,12 @@ export function ContactsTab() {
     })
   }, [allUsers])
 
-  // Filter users
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return allUsers.filter(u => {
-      if (roleFilter !== 'all' && u.role !== roleFilter) return false
-      if (domainFilter !== 'all' && (u.signupDomain || LEGACY_DOMAIN) !== domainFilter) return false
-      if (!q) return true
+      if (roleFilter   !== 'all' && u.role !== roleFilter)                                         return false
+      if (domainFilter !== 'all' && (u.signupDomain || LEGACY_DOMAIN) !== domainFilter)            return false
+      if (!q)                                                                                       return true
       return (
         u.displayName?.toLowerCase().includes(q) ||
         u.email?.toLowerCase().includes(q) ||
@@ -326,6 +540,44 @@ export function ContactsTab() {
   }, [allUsers, search, roleFilter, domainFilter])
 
   const grouped = useMemo(() => groupUsersBySignupDomain(filtered), [filtered])
+
+  const onToggleUser = useCallback((uid: string) => {
+    setSelectedUids(prev => {
+      const next = new Set(prev)
+      if (next.has(uid)) next.delete(uid); else next.add(uid)
+      return next
+    })
+  }, [])
+
+  const onToggleAll = useCallback((uids: string[], allSelected: boolean) => {
+    setSelectedUids(prev => {
+      const next = new Set(prev)
+      if (allSelected) {
+        uids.forEach(id => next.delete(id))
+      } else {
+        uids.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }, [])
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!confirmUsers) return
+    setDeleting(true)
+    try {
+      await Promise.all(confirmUsers.map(u => deleteUserData(u.uid)))
+      setSelectedUids(prev => {
+        const next = new Set(prev)
+        confirmUsers.forEach(u => next.delete(u.uid))
+        return next
+      })
+    } catch (err) {
+      console.error('Delete failed:', err)
+    } finally {
+      setDeleting(false)
+      setConfirmUsers(null)
+    }
+  }, [confirmUsers])
 
   if (loading) {
     return (
@@ -345,72 +597,100 @@ export function ContactsTab() {
   }
 
   return (
-    <div className="space-y-6">
-
-      {/* Summary cards */}
-      <SummaryCards users={allUsers} />
-
-      {/* Search + filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, email, phone, or org…"
-            className="input-field pl-9 text-sm w-full"
-          />
-        </div>
-        <select
-          value={roleFilter}
-          onChange={e => setRoleFilter(e.target.value as UserRole | 'all')}
-          className="input-field text-sm w-full sm:w-44"
-        >
-          {ROLE_OPTIONS.map(r => (
-            <option key={r} value={r}>{r === 'all' ? 'All Roles' : r}</option>
-          ))}
-        </select>
-        <select
-          value={domainFilter}
-          onChange={e => setDomainFilter(e.target.value)}
-          className="input-field text-sm w-full sm:w-56"
-        >
-          <option value="all">All Domains</option>
-          {availableDomains.map(d => (
-            <option key={d} value={d}>{domainDisplayLabel(d)}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Results count */}
-      <div className="flex items-center gap-2 text-sm text-text-secondary">
-        <Users className="w-4 h-4" />
-        <span>
-          {filtered.length === allUsers.length
-            ? `${allUsers.length} users across ${grouped.size} ${grouped.size === 1 ? 'domain' : 'domains'}`
-            : `${filtered.length} of ${allUsers.length} users`}
-        </span>
-      </div>
-
-      {/* Grouped user list */}
-      {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-secondary">
-          <UserX className="w-10 h-10 opacity-30" />
-          <p className="text-sm">No users match your filters.</p>
-        </div>
-      ) : (
-        <div>
-          {[...grouped.entries()].map(([domain, users], idx) => (
-            <DomainGroup
-              key={domain}
-              domain={domain}
-              users={users}
-              defaultOpen={idx === 0}
-            />
-          ))}
-        </div>
+    <>
+      {confirmUsers && (
+        <DeleteConfirmModal
+          users={confirmUsers}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setConfirmUsers(null)}
+          deleting={deleting}
+        />
       )}
-    </div>
+
+      <div className="space-y-6">
+
+        <SummaryCards users={allUsers} />
+
+        {/* Search + filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, email, phone, or org…"
+              className="input-field pl-9 text-sm w-full"
+            />
+          </div>
+          <select
+            value={roleFilter}
+            onChange={e => setRoleFilter(e.target.value as UserRole | 'all')}
+            className="input-field text-sm w-full sm:w-44"
+          >
+            {ROLE_OPTIONS.map(r => (
+              <option key={r} value={r}>{r === 'all' ? 'All Roles' : r}</option>
+            ))}
+          </select>
+          <select
+            value={domainFilter}
+            onChange={e => setDomainFilter(e.target.value)}
+            className="input-field text-sm w-full sm:w-56"
+          >
+            <option value="all">All Domains</option>
+            {availableDomains.map(d => (
+              <option key={d} value={d}>{domainDisplayLabel(d)}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Results count + global selected count */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-text-secondary">
+            <Users className="w-4 h-4" />
+            <span>
+              {filtered.length === allUsers.length
+                ? `${allUsers.length} users across ${grouped.size} ${grouped.size === 1 ? 'domain' : 'domains'}`
+                : `${filtered.length} of ${allUsers.length} users`}
+            </span>
+          </div>
+          {selectedUids.size > 0 && (
+            <button
+              onClick={() => {
+                const toDelete = allUsers.filter(u => selectedUids.has(u.uid))
+                setConfirmUsers(toDelete)
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete {selectedUids.size} selected
+            </button>
+          )}
+        </div>
+
+        {/* Grouped user list */}
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-secondary">
+            <UserX className="w-10 h-10 opacity-30" />
+            <p className="text-sm">No users match your filters.</p>
+          </div>
+        ) : (
+          <div>
+            {[...grouped.entries()].map(([domain, users], idx) => (
+              <DomainGroup
+                key={domain}
+                domain={domain}
+                users={users}
+                defaultOpen={idx === 0}
+                selectedUids={selectedUids}
+                onToggleUser={onToggleUser}
+                onToggleAll={onToggleAll}
+                onRequestDelete={setConfirmUsers}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   )
 }

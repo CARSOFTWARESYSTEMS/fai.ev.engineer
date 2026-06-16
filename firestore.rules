@@ -101,7 +101,7 @@ service cloud.firestore {
         ]))
         || isAdmin()
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isDeveloper();
     }
 
     // ── developerConfig/{email} ───────────────────────────────────────────────
