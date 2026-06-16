@@ -3112,7 +3112,7 @@ export function DeveloperSettingsPage() {
 
       {/* Header */}
       <header className="bg-white border-b border-border sticky top-0 z-40">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <Link
@@ -3151,7 +3151,7 @@ export function DeveloperSettingsPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
 
         {/* Page title */}
         <div className="mb-6">

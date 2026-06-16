@@ -345,25 +345,19 @@ function ProductMockup() {
           filter: 'blur(48px)',
         }}
       />
-      {/* Outer glassmorphism depth ring */}
+      {/* Outer ring */}
       <div
         className="absolute -inset-3 rounded-3xl pointer-events-none"
         aria-hidden="true"
         style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-        }}
-      />
-      {/* Inner depth ring */}
-      <div
-        className="absolute -inset-1.5 rounded-2xl pointer-events-none"
-        aria-hidden="true"
-        style={{
-          border: '1px solid rgba(99,149,255,0.18)',
+          border: '1px solid rgba(99,149,255,0.22)',
         }}
       />
       {/* Browser chrome frame */}
-      <div className="relative rounded-xl sm:rounded-2xl shadow-2xl shadow-primary/50 border border-white/20 overflow-hidden">
+      <div
+        className="relative rounded-xl sm:rounded-2xl shadow-2xl shadow-primary/50 overflow-hidden"
+        style={{ border: '2px solid rgba(255,255,255,0.55)' }}
+      >
         {/* Browser top bar */}
         <div className="bg-gray-100 border-b border-border px-4 py-3 flex items-center gap-3">
           <div className="flex gap-1.5">
@@ -701,23 +695,25 @@ export function LandingPage() {
           {/* ── Industry badge row ────────────────────────────────────────── */}
           <div
             className="relative z-10 max-w-4xl mx-auto mt-10 pt-8"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}
+            style={{ borderTop: '1px solid rgba(255,255,255,0.12)' }}
           >
             <p
-              className="text-center text-xs font-semibold uppercase tracking-widest mb-5"
-              style={{ color: '#475569' }}
+              className="text-center text-xs font-bold uppercase tracking-widest mb-6"
+              style={{ color: '#64748b' }}
             >
               Built for
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3 pb-10">
+            {/* Extra bottom padding pushes badges well above the fade */}
+            <div className="flex flex-wrap items-center justify-center gap-3 pb-24">
               {industries.map((ind) => (
                 <div
                   key={ind.label}
-                  className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
+                  className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 hover:scale-105 cursor-default"
                   style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    color: '#cbd5e1',
+                    background: 'rgba(255,255,255,0.10)',
+                    border: '1px solid rgba(255,255,255,0.22)',
+                    color: '#e2e8f0',
+                    backdropFilter: 'blur(8px)',
                   }}
                 >
                   <span style={{ color: '#60a5fa' }}>{ind.icon}</span>
@@ -727,14 +723,6 @@ export function LandingPage() {
             </div>
           </div>
 
-          {/* Bottom fade to next section */}
-          <div
-            className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none select-none"
-            aria-hidden="true"
-            style={{
-              background: 'linear-gradient(to bottom, transparent, #f8fafc)',
-            }}
-          />
         </section>
 
         {/* Features */}
@@ -921,82 +909,129 @@ export function LandingPage() {
         </section>
 
         {/* Who Benefits from FAI Engineer */}
-        <section className="py-20 px-4 bg-background">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-14">
+        <section className="py-24 px-4 bg-white">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <span className="inline-block text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 mb-5">
+                Built For
+              </span>
               <h2 className="section-title">Who Benefits from FAI Engineer?</h2>
               <p className="section-subtitle max-w-2xl mx-auto">
                 Designed for organizations that create, manufacture, inspect, and validate engineered products across quality inspection workflows.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {whoBenefits.map((item) => (
-                <div key={item.title} className="card p-6 hover:shadow-md transition-shadow">
-                  <div className="w-12 h-12 bg-primary-light rounded-xl flex items-center justify-center mb-4">
-                    {item.icon}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {whoBenefits.map((item, idx) => {
+                const accents = [
+                  { border: '#3b82f6', bg: 'rgba(59,130,246,0.07)', icon: 'rgba(59,130,246,0.15)' },
+                  { border: '#8b5cf6', bg: 'rgba(139,92,246,0.06)', icon: 'rgba(139,92,246,0.13)' },
+                  { border: '#0ea5e9', bg: 'rgba(14,165,233,0.06)', icon: 'rgba(14,165,233,0.13)' },
+                  { border: '#f59e0b', bg: 'rgba(245,158,11,0.06)', icon: 'rgba(245,158,11,0.13)' },
+                  { border: '#10b981', bg: 'rgba(16,185,129,0.06)', icon: 'rgba(16,185,129,0.13)' },
+                  { border: '#f43f5e', bg: 'rgba(244,63,94,0.06)', icon: 'rgba(244,63,94,0.13)' },
+                ]
+                const a = accents[idx % accents.length]
+                return (
+                  <div
+                    key={item.title}
+                    className="group relative rounded-2xl p-6 border border-slate-200/60 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden"
+                    style={{ background: a.bg }}
+                  >
+                    {/* Left accent bar */}
+                    <div
+                      className="absolute left-0 top-6 bottom-6 w-1 rounded-r-full"
+                      style={{ background: a.border }}
+                    />
+                    <div
+                      className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 ml-3"
+                      style={{ background: a.icon }}
+                    >
+                      {item.icon}
+                    </div>
+                    <h3 className="font-semibold text-text-primary mb-2 ml-3">{item.title}</h3>
+                    <p className="text-sm text-text-secondary leading-relaxed ml-3">{item.description}</p>
                   </div>
-                  <h3 className="font-semibold text-text-primary mb-2">{item.title}</h3>
-                  <p className="text-sm text-text-secondary leading-relaxed">{item.description}</p>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </section>
 
         {/* Pricing */}
-        <section id="pricing" className="py-20 px-4 bg-background">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-14">
+        <section
+          id="pricing"
+          className="relative py-24 px-4 overflow-hidden"
+          style={{ background: 'linear-gradient(180deg, #f1f5f9 0%, #e8eef7 100%)' }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              backgroundImage: 'radial-gradient(rgba(15,111,255,0.08) 1px, transparent 1px)',
+              backgroundSize: '40px 40px',
+            }}
+          />
+          <div className="relative max-w-5xl mx-auto">
+            <div className="text-center mb-16">
+              <span className="inline-block text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/15 mb-5">
+                Pricing
+              </span>
               <h2 className="section-title">Simple, Transparent Pricing</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 Start free. Upgrade when you're ready.
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
               {plans.map((plan) => (
                 <div
                   key={plan.name}
-                  className={`card p-8 flex flex-col relative ${
+                  className={`group relative flex flex-col rounded-2xl p-8 transition-all duration-300 cursor-default ${
                     plan.featured
-                      ? 'border-2 border-primary shadow-lg shadow-primary/10'
-                      : ''
+                      ? 'hover:-translate-y-3 hover:shadow-[0_32px_64px_-12px_rgba(15,111,255,0.45)]'
+                      : 'bg-white border border-slate-200/70 shadow-sm hover:-translate-y-2 hover:shadow-xl hover:border-primary/20'
                   }`}
+                  style={plan.featured ? {
+                    background: 'linear-gradient(160deg, #0a1f5c 0%, #1e3a8a 55%, #1d4ed8 100%)',
+                    boxShadow: '0 20px 48px -8px rgba(15,111,255,0.30)',
+                  } : {}}
                 >
                   {plan.featured && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                      <span className="bg-primary text-white text-xs font-bold px-4 py-1 rounded-full">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
+                      <span className="bg-white text-primary text-xs font-bold px-4 py-1.5 rounded-full shadow-lg shadow-primary/20">
                         Most Popular
                       </span>
                     </div>
                   )}
                   {plan.badge && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                      <span className="bg-success text-white text-xs font-bold px-4 py-1 rounded-full">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap z-10">
+                      <span className="bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-md">
                         {plan.badge}
                       </span>
                     </div>
                   )}
                   <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">
+                    <h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${plan.featured ? 'text-blue-300' : 'text-text-secondary'}`}>
                       {plan.name}
                     </h3>
                     <div className="flex items-end gap-1 mb-1">
-                      <span className="text-4xl font-bold text-text-primary">{plan.price}</span>
-                      <span className="text-text-secondary text-sm pb-1">/{plan.period}</span>
+                      <span className={`text-4xl font-bold ${plan.featured ? 'text-white' : 'text-text-primary'}`}>{plan.price}</span>
+                      <span className={`text-sm pb-1 ${plan.featured ? 'text-blue-300' : 'text-text-secondary'}`}>/{plan.period}</span>
                     </div>
-                    <p className="text-sm text-text-secondary">{plan.description}</p>
+                    <p className={`text-sm ${plan.featured ? 'text-blue-200' : 'text-text-secondary'}`}>{plan.description}</p>
                   </div>
                   <ul className="space-y-3 flex-1 mb-8">
                     {plan.features.map((feat) => (
-                      <li key={feat} className="flex items-start gap-2 text-sm text-text-secondary">
-                        <CheckCircle className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                      <li key={feat} className={`flex items-start gap-2 text-sm ${plan.featured ? 'text-blue-100' : 'text-text-secondary'}`}>
+                        <CheckCircle className={`w-4 h-4 shrink-0 mt-0.5 ${plan.featured ? 'text-emerald-400' : 'text-success'}`} />
                         {feat}
                       </li>
                     ))}
                   </ul>
                   <button
                     onClick={() => navigate('/register')}
-                    className={plan.featured ? 'btn-primary w-full' : 'btn-secondary w-full'}
+                    className={plan.featured
+                      ? 'w-full py-3 rounded-xl font-semibold text-sm bg-white text-primary hover:bg-blue-50 transition-colors'
+                      : 'btn-secondary w-full'}
                   >
                     {plan.cta}
                   </button>
@@ -1007,22 +1042,50 @@ export function LandingPage() {
         </section>
 
         {/* Trust / Security */}
-        <section className="py-20 px-4 bg-white">
-          <div className="max-w-7xl mx-auto">
+        <section
+          className="relative py-24 px-4 overflow-hidden"
+          style={{ background: 'linear-gradient(180deg, #020c24 0%, #071842 100%)' }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(100,149,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(100,149,255,0.06) 1px, transparent 1px)',
+              backgroundSize: '48px 48px',
+            }}
+          />
+          <div className="relative max-w-5xl mx-auto">
             <div className="text-center mb-14">
-              <h2 className="section-title">Your Data, Your Control</h2>
-              <p className="section-subtitle max-w-xl mx-auto">
+              <span
+                className="inline-block text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-5"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)', color: '#93c5fd' }}
+              >
+                Security & Privacy
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Your Data, Your Control</h2>
+              <p className="mt-4 max-w-xl mx-auto leading-relaxed text-lg" style={{ color: '#94a3b8' }}>
                 Built for aerospace and manufacturing professionals who require strict data security.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {trustItems.map((item) => (
-                <div key={item.title} className="flex flex-col items-start gap-3">
-                  <div className="w-12 h-12 bg-primary-light rounded-xl flex items-center justify-center">
+                <div
+                  key={item.title}
+                  className="flex flex-col gap-4 rounded-2xl p-6 transition-all duration-200 hover:scale-[1.02]"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.09)',
+                  }}
+                >
+                  <div
+                    className="w-11 h-11 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, rgba(15,111,255,0.25) 0%, rgba(59,130,246,0.12) 100%)' }}
+                  >
                     {item.icon}
                   </div>
-                  <h3 className="font-semibold text-text-primary">{item.title}</h3>
-                  <p className="text-sm text-text-secondary leading-relaxed">{item.description}</p>
+                  <h3 className="font-semibold text-white">{item.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: '#94a3b8' }}>{item.description}</p>
                 </div>
               ))}
             </div>
@@ -1044,28 +1107,95 @@ export function LandingPage() {
         </section>
 
         {/* Future Vision */}
-        <section className="py-20 px-4 bg-text-primary">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 bg-white/10 text-slate-300 text-xs font-semibold px-4 py-1.5 rounded-full mb-6 uppercase tracking-wider">
+        <section
+          className="relative py-24 px-4 overflow-hidden"
+          style={{ background: 'linear-gradient(160deg, #020c24 0%, #071842 40%, #0c1f4a 100%)' }}
+        >
+          {/* Blueprint grid */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(100,149,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(100,149,255,0.07) 1px, transparent 1px)',
+              backgroundSize: '48px 48px',
+            }}
+          />
+          {/* Glow blobs */}
+          <div
+            className="absolute pointer-events-none"
+            aria-hidden="true"
+            style={{
+              top: '-100px', left: '50%', transform: 'translateX(-50%)',
+              width: '600px', height: '300px',
+              background: 'radial-gradient(ellipse at center, rgba(99,149,255,0.15) 0%, transparent 70%)',
+            }}
+          />
+          <div className="relative max-w-5xl mx-auto text-center">
+            {/* Badge */}
+            <div
+              className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-8"
+              style={{
+                background: 'rgba(99,149,255,0.12)',
+                border: '1px solid rgba(99,149,255,0.30)',
+                color: '#93c5fd',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
               Future Roadmap
             </div>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight leading-tight">
+
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight text-white">
               Engineering Workflows Today.
               <br />
-              <span className="text-primary">Inspection Intelligence Tomorrow.</span>
+              <span
+                style={{
+                  background: 'linear-gradient(90deg, #60a5fa 0%, #38bdf8 50%, #a78bfa 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                Inspection Intelligence Tomorrow.
+              </span>
             </h2>
-            <p className="mt-5 text-slate-400 text-lg max-w-2xl mx-auto leading-relaxed">
+
+            <p className="mt-6 text-lg max-w-2xl mx-auto leading-relaxed" style={{ color: '#94a3b8' }}>
               FAI Engineer focuses on practical engineering drawing ballooning and quality inspection workflows today — while preparing for future inspection automation capabilities.
             </p>
-            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto text-left">
-              {futureItems.map((item) => (
-                <div key={item} className="flex items-start gap-3 bg-white/5 border border-white/10 rounded-xl px-5 py-4">
-                  <CheckCircle className="w-4 h-4 text-primary/60 shrink-0 mt-0.5" />
-                  <span className="text-sm text-slate-400 leading-relaxed">{item}</span>
+
+            {/* Roadmap items — 3-col grid */}
+            <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+              {futureItems.map((item, idx) => (
+                <div
+                  key={item}
+                  className="relative rounded-2xl px-5 py-5 overflow-hidden group transition-all duration-300 hover:-translate-y-1"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(99,149,255,0.18)',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(99,149,255,0.40)'; e.currentTarget.style.background = 'rgba(99,149,255,0.08)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(99,149,255,0.18)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                >
+                  {/* Item number */}
+                  <span
+                    className="absolute top-3 right-4 text-xs font-bold"
+                    style={{ color: 'rgba(99,149,255,0.35)' }}
+                  >
+                    0{idx + 1}
+                  </span>
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center mb-4"
+                    style={{ background: 'rgba(99,149,255,0.15)', border: '1px solid rgba(99,149,255,0.25)' }}
+                  >
+                    <CheckCircle className="w-4 h-4" style={{ color: '#60a5fa' }} />
+                  </div>
+                  <span className="text-sm leading-relaxed font-medium" style={{ color: '#cbd5e1' }}>{item}</span>
                 </div>
               ))}
             </div>
-            <p className="mt-8 text-xs text-slate-500">
+
+            <p className="mt-10 text-xs" style={{ color: '#475569' }}>
               Future roadmap items — not available today. Timelines subject to change.
             </p>
           </div>
