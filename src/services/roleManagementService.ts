@@ -29,6 +29,8 @@ export interface UserRecord {
   updatedAt:         Timestamp | null
   profileCompleted:  boolean
   subscriptionPlan?: string
+  status?:           string   // 'disabled' when hidden by developer
+  disabledAt?:       string
   // Signup origin (set once at profile creation)
   signupDomain?:      string
   signupHostname?:    string

@@ -3,7 +3,7 @@ import {
   Phone, Mail, MessageCircle, ChevronDown, ChevronRight,
   Search, Users, AlertCircle, Loader2, UserX,
   Building2, Clock, Globe, Trash2, FolderOpen, Folder,
-  FileText, ExternalLink, ArrowRight, EyeOff,
+  FileText, ExternalLink, ArrowRight, EyeOff, RotateCcw,
 } from 'lucide-react'
 import {
   subscribeAllUsers,
@@ -12,8 +12,10 @@ import {
   domainDisplayLabel,
   deleteUserData,
   disableUserData,
+  restoreUserData,
   deleteProjectData,
   archiveProjectData,
+  restoreProjectData,
   LEGACY_DOMAIN,
   type DirectoryUser,
 } from '../../services/userDirectoryService'
@@ -309,6 +311,17 @@ function ProjectSubPanel({ uid }: { uid: string }) {
     }
   }
 
+  async function handleRestoreProject(projectId: string) {
+    try {
+      await restoreProjectData(projectId)
+      setProjects(prev => prev?.map(p =>
+        p.projectId === projectId ? { ...p, status: 'draft' } : p
+      ) ?? null)
+    } catch (err) {
+      console.error('Project restore failed:', err)
+    }
+  }
+
   async function handleDeleteProject() {
     if (!nameConfirmProject) return
     setDeletingProj(true)
@@ -427,50 +440,70 @@ function ProjectSubPanel({ uid }: { uid: string }) {
             </tr>
           </thead>
           <tbody>
-            {projects.map(p => (
-              <tr key={p.projectId} className="border-b border-border/30 hover:bg-slate-50/60 transition-colors">
-                <td className="py-2 px-4 font-medium text-text-primary max-w-[180px]">
-                  <div className="flex items-center gap-1.5 truncate">
-                    <FileText className="w-3 h-3 text-primary/60 shrink-0" />
-                    <span className="truncate">{p.projectName || '(Untitled)'}</span>
-                  </div>
-                </td>
-                <td className="py-2 px-4 font-mono text-text-secondary">{p.partNumber || '—'}</td>
-                <td className="py-2 px-4 font-mono text-text-secondary">
-                  {p.drawingNumber
-                    ? `${p.drawingNumber}${p.drawingRevision ? ` Rev ${p.drawingRevision}` : ''}`
-                    : '—'}
-                </td>
-                <td className="py-2 px-4"><ProjectStatusBadge status={p.status} /></td>
-                <td className="py-2 px-4 text-text-secondary whitespace-nowrap">{fmtDate(p.updatedAt)}</td>
-                <td className="py-2 px-4">
-                  <div className="flex items-center gap-1">
-                    {p.googleDriveViewUrl ? (
-                      <a
-                        href={p.googleDriveViewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="View PDF in Google Drive"
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/60 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    ) : (
-                      <span title="No PDF uploaded" className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/40 text-text-secondary/25 cursor-not-allowed">
-                        <ExternalLink className="w-3.5 h-3.5" />
+            {projects.map(p => {
+              const isArchived = p.status === 'archived'
+              return (
+                <tr key={p.projectId} className={`border-b border-border/30 transition-colors ${isArchived ? 'opacity-50 bg-gray-50/60' : 'hover:bg-slate-50/60'}`}>
+                  <td className="py-2 px-4 font-medium max-w-[180px]">
+                    <div className="flex items-center gap-1.5 truncate">
+                      <FileText className={`w-3 h-3 shrink-0 ${isArchived ? 'text-gray-400' : 'text-primary/60'}`} />
+                      <span className={`truncate ${isArchived ? 'text-text-secondary' : 'text-text-primary'}`}>
+                        {p.projectName || '(Untitled)'}
                       </span>
-                    )}
-                    <button
-                      onClick={() => openDeleteFlow(p)}
-                      title="Delete project"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {isArchived && (
+                        <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">
+                          Hidden
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="py-2 px-4 font-mono text-text-secondary">{p.partNumber || '—'}</td>
+                  <td className="py-2 px-4 font-mono text-text-secondary">
+                    {p.drawingNumber
+                      ? `${p.drawingNumber}${p.drawingRevision ? ` Rev ${p.drawingRevision}` : ''}`
+                      : '—'}
+                  </td>
+                  <td className="py-2 px-4"><ProjectStatusBadge status={p.status} /></td>
+                  <td className="py-2 px-4 text-text-secondary whitespace-nowrap">{fmtDate(p.updatedAt)}</td>
+                  <td className="py-2 px-4">
+                    <div className="flex items-center gap-1">
+                      {p.googleDriveViewUrl ? (
+                        <a
+                          href={p.googleDriveViewUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="View PDF in Google Drive"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/60 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      ) : (
+                        <span title="No PDF uploaded" className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/40 text-text-secondary/25 cursor-not-allowed">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </span>
+                      )}
+                      {isArchived ? (
+                        <button
+                          onClick={() => handleRestoreProject(p.projectId)}
+                          title="Restore project"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-emerald-300 text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => openDeleteFlow(p)}
+                          title="Delete / archive project"
+                          className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
         <div className="px-4 py-2 text-[10px] text-text-secondary/60">
@@ -554,14 +587,15 @@ function ContactActions({ user }: { user: DirectoryUser }) {
 // ─── User Row (desktop table) ─────────────────────────────────────────────────
 
 function UserRow({
-  user, selected, onToggle, onDelete,
+  user, selected, onToggle, onDelete, onRestore,
 }: {
-  user: DirectoryUser; selected: boolean; onToggle: () => void; onDelete: () => void
+  user: DirectoryUser; selected: boolean; onToggle: () => void; onDelete: () => void; onRestore: () => void
 }) {
   const [projectsOpen, setProjectsOpen] = useState(false)
+  const isDisabled = user.status === 'disabled'
   return (
     <>
-      <tr className={`border-b border-border/50 transition-colors ${selected ? 'bg-red-50/40' : projectsOpen ? 'bg-primary/5' : 'hover:bg-background/50'}`}>
+      <tr className={`border-b border-border/50 transition-colors ${isDisabled ? 'opacity-50 bg-gray-50/60' : selected ? 'bg-red-50/40' : projectsOpen ? 'bg-primary/5' : 'hover:bg-background/50'}`}>
         <td className="py-3 pl-4 pr-2 w-8">
           <input type="checkbox" checked={selected} onChange={onToggle}
             className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer" />
@@ -570,8 +604,17 @@ function UserRow({
           <div className="flex items-center gap-2.5 min-w-0">
             <Avatar user={user} />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-text-primary truncate">{user.displayName || '(No name)'}</p>
-              {!user.profileCompleted && (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className={`text-sm font-medium truncate ${isDisabled ? 'text-text-secondary' : 'text-text-primary'}`}>
+                  {user.displayName || '(No name)'}
+                </p>
+                {isDisabled && (
+                  <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">
+                    Hidden
+                  </span>
+                )}
+              </div>
+              {!user.profileCompleted && !isDisabled && (
                 <span className="text-[10px] text-amber-600 font-medium">Profile incomplete</span>
               )}
             </div>
@@ -605,13 +648,23 @@ function UserRow({
             >
               {projectsOpen ? <FolderOpen className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
             </button>
-            <button
-              onClick={onDelete}
-              title={`Delete ${user.displayName || user.email}`}
-              className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            {isDisabled ? (
+              <button
+                onClick={onRestore}
+                title="Restore user"
+                className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-emerald-300 text-emerald-600 hover:bg-emerald-50 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                onClick={onDelete}
+                title={`Delete ${user.displayName || user.email}`}
+                className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </td>
       </tr>
@@ -638,13 +691,14 @@ function UserRow({
 // ─── User Card (mobile) ───────────────────────────────────────────────────────
 
 function UserCard({
-  user, selected, onToggle, onDelete,
+  user, selected, onToggle, onDelete, onRestore,
 }: {
-  user: DirectoryUser; selected: boolean; onToggle: () => void; onDelete: () => void
+  user: DirectoryUser; selected: boolean; onToggle: () => void; onDelete: () => void; onRestore: () => void
 }) {
   const [projectsOpen, setProjectsOpen] = useState(false)
+  const isDisabled = user.status === 'disabled'
   return (
-    <div className={`border rounded-xl shadow-sm transition-colors ${selected ? 'bg-red-50/40 border-red-200' : 'bg-white border-border'}`}>
+    <div className={`border rounded-xl shadow-sm transition-colors ${isDisabled ? 'opacity-50 bg-gray-50 border-gray-200' : selected ? 'bg-red-50/40 border-red-200' : 'bg-white border-border'}`}>
       <div className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -652,7 +706,16 @@ function UserCard({
               className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer shrink-0" />
             <Avatar user={user} />
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-text-primary truncate">{user.displayName || '(No name)'}</p>
+              <div className="flex items-center gap-1.5">
+                <p className={`text-sm font-semibold truncate ${isDisabled ? 'text-text-secondary' : 'text-text-primary'}`}>
+                  {user.displayName || '(No name)'}
+                </p>
+                {isDisabled && (
+                  <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-200 text-gray-500">
+                    Hidden
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-text-secondary truncate">{user.email}</p>
             </div>
           </div>
@@ -692,12 +755,21 @@ function UserCard({
               {projectsOpen ? <FolderOpen className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
               Projects
             </button>
-            <button
-              onClick={onDelete}
-              className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Delete
-            </button>
+            {isDisabled ? (
+              <button
+                onClick={onRestore}
+                className="inline-flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg border border-emerald-300 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Restore
+              </button>
+            ) : (
+              <button
+                onClick={onDelete}
+                className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Delete
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -717,13 +789,14 @@ function UserCard({
 // ─── Domain Group ─────────────────────────────────────────────────────────────
 
 function DomainGroup({
-  domain, users, defaultOpen, selectedUids, onToggleUser, onToggleAll, onRequestDelete,
+  domain, users, defaultOpen, selectedUids, onToggleUser, onToggleAll, onRequestDelete, onRestoreUser,
 }: {
   domain: string; users: DirectoryUser[]; defaultOpen: boolean
   selectedUids: Set<string>
   onToggleUser: (uid: string) => void
   onToggleAll: (uids: string[], allSelected: boolean) => void
   onRequestDelete: (users: DirectoryUser[]) => void
+  onRestoreUser: (uid: string) => void
 }) {
   const [open, setOpen] = useState(defaultOpen)
   const label    = domainDisplayLabel(domain)
@@ -799,6 +872,7 @@ function DomainGroup({
                     selected={selectedUids.has(u.uid)}
                     onToggle={() => onToggleUser(u.uid)}
                     onDelete={() => onRequestDelete([u])}
+                    onRestore={() => onRestoreUser(u.uid)}
                   />
                 ))}
               </tbody>
@@ -810,6 +884,7 @@ function DomainGroup({
                 selected={selectedUids.has(u.uid)}
                 onToggle={() => onToggleUser(u.uid)}
                 onDelete={() => onRequestDelete([u])}
+                onRestore={() => onRestoreUser(u.uid)}
               />
             ))}
           </div>
@@ -958,6 +1033,14 @@ export function ContactsTab() {
     setNameQueue([])
   }
 
+  async function handleRestoreUser(uid: string) {
+    try {
+      await restoreUserData(uid)
+    } catch (err) {
+      console.error('Restore user failed:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -1062,6 +1145,7 @@ export function ContactsTab() {
                 onToggleUser={onToggleUser}
                 onToggleAll={onToggleAll}
                 onRequestDelete={requestDelete}
+                onRestoreUser={handleRestoreUser}
               />
             ))}
           </div>

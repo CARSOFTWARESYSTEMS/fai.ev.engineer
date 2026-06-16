@@ -161,10 +161,10 @@ export function DashboardPage() {
     ? { label: 'Low',      count: lowCount,      cls: 'bg-gray-50 border-gray-200 text-gray-600',   dotCls: 'bg-gray-400', attention: false }
     : null
 
-  // ── Filtered recent projects (max 5) ───────────────────────────────────────
+  // ── Filtered recent projects (max 4, archived always excluded) ───────────────
   const recentProjects = useMemo(() =>
-    filterProjects(projects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter }).slice(0, 4),
-    [projects, statusFilter, priorityFilter, dueDateFilter]
+    filterProjects(activeProjects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter }).slice(0, 4),
+    [activeProjects, statusFilter, priorityFilter, dueDateFilter]
   )
 
   interface StatCard {
@@ -344,7 +344,7 @@ export function DashboardPage() {
               <h2 className="font-semibold text-text-primary">Recent Projects</h2>
               {!projectsLoading && (
                 <span className="text-xs font-semibold bg-primary-light text-primary px-2 py-0.5 rounded-full">
-                  {projects.length}
+                  {activeProjects.length}
                 </span>
               )}
               {projectsLoading && <RefreshCw className="w-3.5 h-3.5 text-text-secondary animate-spin" />}

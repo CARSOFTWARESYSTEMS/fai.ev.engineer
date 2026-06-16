@@ -1,4 +1,4 @@
-import { collection, onSnapshot, doc, deleteDoc, getDoc, updateDoc } from 'firebase/firestore'
+import { collection, onSnapshot, doc, deleteDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { UserRecord } from './roleManagementService'
 
@@ -110,6 +110,23 @@ export async function deleteProjectData(projectId: string): Promise<void> {
 export async function archiveProjectData(projectId: string): Promise<void> {
   await updateDoc(doc(firestore, 'projects', projectId), {
     status: 'archived',
+  })
+}
+
+// ─── Restore user (undo disable) ─────────────────────────────────────────────
+
+export async function restoreUserData(uid: string): Promise<void> {
+  await updateDoc(doc(firestore, 'users', uid), {
+    status: deleteField(),
+    disabledAt: deleteField(),
+  })
+}
+
+// ─── Restore project (set back to draft) ─────────────────────────────────────
+
+export async function restoreProjectData(projectId: string): Promise<void> {
+  await updateDoc(doc(firestore, 'projects', projectId), {
+    status: 'draft',
   })
 }
 
