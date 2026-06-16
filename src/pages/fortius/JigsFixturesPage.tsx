@@ -22,7 +22,7 @@ const service: FortiusService = {
   hero: {
     heading: 'Jigs & Fixtures Manufacturing — Precision Tooling for Production',
     subheading:
-      'Custom jig and fixture design and manufacture for production accuracy, assembly support, and inspection operations. Fortius Machining Solutions, Peenya, Bengaluru.',
+      'Custom jig and fixture design and manufacture for production accuracy, assembly support, and inspection operations. Fortius Machining Solutions, Chikkabanavara, Bengaluru.',
   },
   ctaText: 'Request Fixture Quote',
   ctaEmailSubject: 'Jigs & Fixtures Enquiry — Fortius',

@@ -31,6 +31,13 @@ export interface EVEngineerUser {
   createdAt: string
   updatedAt: string
   lastLoginAt: string
+
+  // Signup origin — set once at profile creation, read-only after
+  signupDomain?:      string   // e.g. 'fai.ev.engineer'
+  signupHostname?:    string   // same as signupDomain
+  signupBrandingId?:  string   // brandingId active at signup
+  signupPartnerCode?: string   // partner businessCode at signup
+  signupPartnerName?: string   // partner businessName at signup
 }
 
 // ─── Auth context shape ───────────────────────────────────────────────────────

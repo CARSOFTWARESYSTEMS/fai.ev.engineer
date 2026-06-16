@@ -6,8 +6,9 @@ import {
   Bell, Flag, Wrench, ChevronDown, Trash2, Info, RotateCcw,
   Type, Palette, UserCog, Search, Filter,
   Database, Play, RotateCw, Download, Package,
-  Handshake, Globe, Mail, Phone, Hash, UserPlus,
+  Handshake, Globe, Mail, Phone, Hash, UserPlus, BookUser,
 } from 'lucide-react'
+import { ContactsTab } from '../components/developer/ContactsTab'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useDeveloperAccess } from '../services/useDeveloperAccess'
 import { BOOTSTRAP_DEVELOPER_EMAILS } from '../config/developerBootstrap'
@@ -77,7 +78,7 @@ import { listUsers } from '../services/roleManagementService'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'developers' | 'configurations' | 'users' | 'demo' | 'partners'
+type Tab = 'developers' | 'configurations' | 'users' | 'demo' | 'partners' | 'contacts'
 
 // ─── Access Denied ────────────────────────────────────────────────────────────
 
@@ -3100,6 +3101,7 @@ export function DeveloperSettingsPage() {
     { id: 'developers',     label: 'Developer Access',    icon: Users,     visible: isDeveloper    },
     { id: 'configurations', label: 'Configurations',      icon: Settings2, visible: isDeveloper    },
     { id: 'partners',       label: 'Partner Admin',       icon: Handshake, visible: isDeveloper    },
+    { id: 'contacts',       label: 'Users / Contacts',    icon: BookUser,  visible: isDeveloper    },
     { id: 'users',          label: 'Product Users',       icon: UserCog,   visible: isProductAdmin },
     { id: 'demo',           label: 'Demo Data',           icon: Database,  visible: isProductAdmin || isDeveloper },
   ]
@@ -3187,6 +3189,7 @@ export function DeveloperSettingsPage() {
         {activeTab === 'partners'       && isDeveloper && (
           <PartnersTab callerUid={firebaseUser?.uid ?? ''} />
         )}
+        {activeTab === 'contacts'       && isDeveloper && <ContactsTab />}
         {activeTab === 'users'          && isProductAdmin && (
           <ProductUsersTab
             callerUid={firebaseUser?.uid ?? ''}

@@ -61,7 +61,7 @@ const service: FortiusService = {
     'In-house jig and fixture manufacturing for automotive assembly and inspection',
     'Automotive-grade material machining — steel, stainless, aluminium, and alloys',
     'Prototype to production — design validation through volume supply',
-    'Located in Peenya, Bengaluru — strategic location for India automotive supply chain',
+    'Located in Chikkabanavara, Bengaluru — strategically positioned for India automotive supply chain',
   ],
   faqs: [
     {

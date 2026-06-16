@@ -335,9 +335,35 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 function ProductMockup() {
   return (
-    <div className="w-full max-w-5xl mx-auto mt-14 px-2 sm:px-4">
+    <div className="relative w-full max-w-5xl mx-auto mt-14 px-2 sm:px-4">
+      {/* Glow bloom beneath mockup */}
+      <div
+        className="absolute inset-x-16 -bottom-8 h-40 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background: 'radial-gradient(ellipse 80% 100% at 50% 10%, rgba(15,111,255,0.55) 0%, transparent 70%)',
+          filter: 'blur(48px)',
+        }}
+      />
+      {/* Outer glassmorphism depth ring */}
+      <div
+        className="absolute -inset-3 rounded-3xl pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}
+      />
+      {/* Inner depth ring */}
+      <div
+        className="absolute -inset-1.5 rounded-2xl pointer-events-none"
+        aria-hidden="true"
+        style={{
+          border: '1px solid rgba(99,149,255,0.18)',
+        }}
+      />
       {/* Browser chrome frame */}
-      <div className="rounded-xl sm:rounded-2xl shadow-2xl shadow-primary/20 border border-border overflow-hidden">
+      <div className="relative rounded-xl sm:rounded-2xl shadow-2xl shadow-primary/50 border border-white/20 overflow-hidden">
         {/* Browser top bar */}
         <div className="bg-gray-100 border-b border-border px-4 py-3 flex items-center gap-3">
           <div className="flex gap-1.5">
@@ -496,7 +522,7 @@ function ProductMockup() {
       </div>
 
       {/* Caption */}
-      <p className="text-center text-xs text-text-secondary mt-4">
+      <p className="text-center text-xs text-slate-500 mt-4">
         Product preview — PDF viewer, balloon tool, and feature table in one browser tab
       </p>
     </div>
@@ -513,76 +539,245 @@ export function LandingPage() {
       <Header />
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="bg-gradient-to-br from-primary-light via-white to-white pt-16 pb-8 px-4">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary text-xs font-semibold px-4 py-1.5 rounded-full mb-6">
-              <span className="w-1.5 h-1.5 bg-primary rounded-full" />
+        {/* Hero — premium dark navy */}
+        <section
+          className="relative overflow-hidden pt-16 pb-0 px-4"
+          style={{
+            background: 'linear-gradient(135deg, #020c24 0%, #071842 35%, #0c2560 60%, #041130 100%)',
+          }}
+        >
+          {/* Blueprint grid overlay */}
+          <div
+            className="absolute inset-0 pointer-events-none select-none"
+            aria-hidden="true"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(100,149,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(100,149,255,0.07) 1px, transparent 1px)',
+              backgroundSize: '48px 48px',
+            }}
+          />
+
+          {/* Radial glow — top centre */}
+          <div
+            className="absolute inset-0 pointer-events-none select-none"
+            aria-hidden="true"
+            style={{
+              background:
+                'radial-gradient(ellipse 90% 55% at 50% -10%, rgba(15,111,255,0.25) 0%, transparent 70%)',
+            }}
+          />
+
+          {/* Glowing horizontal accent line */}
+          <div
+            className="absolute left-0 right-0 pointer-events-none select-none"
+            aria-hidden="true"
+            style={{
+              top: '40%',
+              height: '1px',
+              background:
+                'linear-gradient(90deg, transparent 0%, rgba(99,149,255,0.2) 20%, rgba(99,149,255,0.45) 50%, rgba(99,149,255,0.2) 80%, transparent 100%)',
+            }}
+          />
+
+          {/* Decorative engineering circle — top right */}
+          <div
+            className="absolute pointer-events-none select-none hidden lg:block"
+            aria-hidden="true"
+            style={{
+              top: '-80px',
+              right: '-100px',
+              width: '360px',
+              height: '360px',
+              border: '1px solid rgba(99,149,255,0.10)',
+              borderRadius: '50%',
+              boxShadow: '0 0 0 60px rgba(99,149,255,0.04), 0 0 0 120px rgba(99,149,255,0.02)',
+            }}
+          />
+
+          {/* Decorative engineering circle — bottom left */}
+          <div
+            className="absolute pointer-events-none select-none hidden lg:block"
+            aria-hidden="true"
+            style={{
+              bottom: '120px',
+              left: '-80px',
+              width: '220px',
+              height: '220px',
+              border: '1px solid rgba(99,149,255,0.08)',
+              borderRadius: '50%',
+              boxShadow: '0 0 0 40px rgba(99,149,255,0.025)',
+            }}
+          />
+
+          {/* Subtle crosshair accent — mid left */}
+          <div
+            className="absolute pointer-events-none select-none hidden xl:block"
+            aria-hidden="true"
+            style={{ top: '28%', left: '6%', opacity: 0.3 }}
+          >
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+              <circle cx="20" cy="20" r="8" stroke="rgba(99,149,255,0.6)" strokeWidth="0.8" />
+              <line x1="20" y1="0" x2="20" y2="12" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+              <line x1="20" y1="28" x2="20" y2="40" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+              <line x1="0" y1="20" x2="12" y2="20" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+              <line x1="28" y1="20" x2="40" y2="20" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+            </svg>
+          </div>
+
+          {/* Subtle crosshair accent — mid right */}
+          <div
+            className="absolute pointer-events-none select-none hidden xl:block"
+            aria-hidden="true"
+            style={{ top: '20%', right: '7%', opacity: 0.25 }}
+          >
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <circle cx="14" cy="14" r="5" stroke="rgba(99,149,255,0.7)" strokeWidth="0.8" />
+              <line x1="14" y1="0" x2="14" y2="8" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+              <line x1="14" y1="20" x2="14" y2="28" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+              <line x1="0" y1="14" x2="8" y2="14" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+              <line x1="20" y1="14" x2="28" y2="14" stroke="rgba(99,149,255,0.5)" strokeWidth="0.8" />
+            </svg>
+          </div>
+
+          {/* ── Hero text content ─────────────────────────────────────────── */}
+          <div className="relative z-10 max-w-4xl mx-auto text-center">
+            {/* Badge */}
+            <div
+              className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-1.5 rounded-full mb-6"
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.14)',
+                color: '#93c5fd',
+                backdropFilter: 'blur(6px)',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#60a5fa' }} />
               AS9102 First Article Inspection Toolkit
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary leading-tight tracking-tight">
+
+            {/* Heading */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white">
               Balloon Drawings and Create{' '}
-              <span className="text-primary">AS9102 FAI Reports</span>{' '}
+              <span style={{ color: '#60a5fa' }}>AS9102 FAI Reports</span>{' '}
               Faster
             </h1>
-            <p className="mt-6 text-lg sm:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
+
+            {/* Subtext */}
+            <p className="mt-6 text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed" style={{ color: '#94a3b8' }}>
               A browser-based toolkit for engineering drawing ballooning, characteristic tables, and First Article Inspection report preparation.
             </p>
+
+            {/* CTAs */}
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 onClick={() => navigate('/register')}
-                className="btn-primary text-base px-8 py-4 w-full sm:w-auto"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors w-full sm:w-auto text-base"
               >
                 Start 7-Day Trial
                 <ArrowRight className="w-4 h-4" />
               </button>
               <a
                 href="#features"
-                className="btn-secondary text-base px-8 py-4 w-full sm:w-auto text-center"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 font-semibold rounded-lg transition-colors w-full sm:w-auto text-base text-center text-white"
+                style={{
+                  border: '1px solid rgba(255,255,255,0.25)',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
                 View Features
               </a>
             </div>
-            <p className="mt-4 text-xs text-text-secondary">
+            <p className="mt-4 text-xs" style={{ color: '#64748b' }}>
               No credit card required &mdash; 7 days full access
             </p>
           </div>
 
-          {/* Product mockup */}
-          <ProductMockup />
+          {/* ── Product mockup ────────────────────────────────────────────── */}
+          <div className="relative z-10">
+            <ProductMockup />
+          </div>
 
-          {/* Industry badge row */}
-          <div className="max-w-4xl mx-auto mt-10 pt-8 border-t border-border/60">
-            <p className="text-center text-xs font-semibold text-text-secondary uppercase tracking-widest mb-5">
+          {/* ── Industry badge row ────────────────────────────────────────── */}
+          <div
+            className="relative z-10 max-w-4xl mx-auto mt-10 pt-8"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            <p
+              className="text-center text-xs font-semibold uppercase tracking-widest mb-5"
+              style={{ color: '#475569' }}
+            >
               Built for
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3 pb-10">
               {industries.map((ind) => (
                 <div
                   key={ind.label}
-                  className="flex items-center gap-2 bg-white border border-border rounded-full px-4 py-2 text-sm font-medium text-text-secondary shadow-sm"
+                  className="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: '#cbd5e1',
+                  }}
                 >
-                  <span className="text-primary">{ind.icon}</span>
+                  <span style={{ color: '#60a5fa' }}>{ind.icon}</span>
                   {ind.label}
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Bottom fade to next section */}
+          <div
+            className="absolute bottom-0 left-0 right-0 h-20 pointer-events-none select-none"
+            aria-hidden="true"
+            style={{
+              background: 'linear-gradient(to bottom, transparent, #f8fafc)',
+            }}
+          />
         </section>
 
         {/* Features */}
-        <section id="features" className="py-20 px-4 bg-background">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-14">
+        <section
+          id="features"
+          className="relative py-24 px-4 overflow-hidden"
+          style={{ background: 'linear-gradient(180deg, #eef2ff 0%, #f8fafc 60%, #f1f5f9 100%)' }}
+        >
+          {/* Subtle dot grid */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              backgroundImage: 'radial-gradient(rgba(15,111,255,0.12) 1px, transparent 1px)',
+              backgroundSize: '32px 32px',
+            }}
+          />
+          <div className="relative max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+              <span className="inline-block text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full bg-primary/10 text-primary border border-primary/15 mb-5">
+                Features
+              </span>
               <h2 className="section-title">Everything You Need for FAI</h2>
               <p className="section-subtitle max-w-2xl mx-auto">
                 From drawing upload to AS9102 Form 3 export, the complete toolkit in your browser.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {features.map((f) => (
-                <div key={f.title} className="card p-6 hover:shadow-md transition-shadow">
-                  <div className="w-12 h-12 bg-primary-light rounded-xl flex items-center justify-center mb-4">
+                <div
+                  key={f.title}
+                  className="group relative bg-white rounded-2xl p-6 border border-slate-200/70 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden"
+                >
+                  {/* Hover glow accent on top edge */}
+                  <div
+                    className="absolute top-0 left-8 right-8 h-0.5 rounded-b-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    style={{ background: 'linear-gradient(90deg, transparent, rgba(15,111,255,0.6), transparent)' }}
+                  />
+                  {/* Icon */}
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 shrink-0"
+                    style={{ background: 'linear-gradient(135deg, rgba(15,111,255,0.14) 0%, rgba(99,149,255,0.07) 100%)' }}
+                  >
                     {f.icon}
                   </div>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -601,22 +796,41 @@ export function LandingPage() {
         </section>
 
         {/* How It Works */}
-        <section id="how-it-works" className="py-20 px-4 bg-white">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-14">
+        <section id="how-it-works" className="py-24 px-4 bg-white">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center mb-16">
+              <span className="inline-block text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 mb-5">
+                Workflow
+              </span>
               <h2 className="section-title">How It Works</h2>
               <p className="section-subtitle max-w-xl mx-auto">
                 From drawing to FAI report in four steps.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-              {steps.map((step) => (
-                <div key={step.number} className="flex flex-col items-start">
-                  <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white mb-4">
+            <div className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {/* Connector line — desktop only */}
+              <div
+                className="absolute hidden lg:block top-6 left-[12.5%] right-[12.5%] h-px pointer-events-none"
+                aria-hidden="true"
+                style={{ background: 'linear-gradient(90deg, transparent, rgba(15,111,255,0.25) 15%, rgba(15,111,255,0.25) 85%, transparent)' }}
+              />
+              {steps.map((step, idx) => (
+                <div key={step.number} className="relative flex flex-col items-center text-center lg:items-center">
+                  {/* Step circle */}
+                  <div
+                    className="relative w-12 h-12 rounded-full flex items-center justify-center text-white mb-5 z-10 shadow-lg"
+                    style={{ background: `linear-gradient(135deg, #0F6FFF ${idx * 12}%, #3b82f6 100%)` }}
+                  >
                     {step.icon}
+                    {/* Step number badge */}
+                    <span
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border-2 border-primary flex items-center justify-center text-[10px] font-bold text-primary leading-none"
+                    >
+                      {idx + 1}
+                    </span>
                   </div>
-                  <span className="text-xs font-bold text-primary/60 tracking-widest mb-1">
-                    STEP {step.number}
+                  <span className="text-[10px] font-bold text-primary/50 tracking-widest mb-1.5 uppercase">
+                    Step {step.number}
                   </span>
                   <h3 className="font-semibold text-text-primary mb-2">{step.title}</h3>
                   <p className="text-sm text-text-secondary leading-relaxed">{step.description}</p>
@@ -627,21 +841,79 @@ export function LandingPage() {
         </section>
 
         {/* Why Teams Choose FAI Engineer */}
-        <section className="py-20 px-4 bg-primary">
-          <div className="max-w-7xl mx-auto">
+        <section
+          className="relative py-24 px-4 overflow-hidden"
+          style={{ background: 'linear-gradient(150deg, #020c24 0%, #0a1f5c 45%, #1e3a8a 100%)' }}
+        >
+          {/* Blueprint grid */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden="true"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(100,149,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(100,149,255,0.08) 1px, transparent 1px)',
+              backgroundSize: '48px 48px',
+            }}
+          />
+          {/* Radial glow top-right */}
+          <div
+            className="absolute pointer-events-none"
+            aria-hidden="true"
+            style={{
+              top: '-120px',
+              right: '-80px',
+              width: '500px',
+              height: '500px',
+              background: 'radial-gradient(ellipse at center, rgba(59,130,246,0.25) 0%, transparent 70%)',
+            }}
+          />
+          {/* Radial glow bottom-left */}
+          <div
+            className="absolute pointer-events-none"
+            aria-hidden="true"
+            style={{
+              bottom: '-80px',
+              left: '-60px',
+              width: '380px',
+              height: '380px',
+              background: 'radial-gradient(ellipse at center, rgba(15,111,255,0.18) 0%, transparent 70%)',
+            }}
+          />
+          <div className="relative max-w-5xl mx-auto">
             <div className="text-center mb-14">
-              <h2 className="text-3xl font-bold text-white tracking-tight">
+              <span
+                className="inline-block text-xs font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-5"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#93c5fd' }}
+              >
+                Why FAI Engineer
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
                 Why Teams Choose FAI Engineer
               </h2>
-              <p className="mt-3 text-primary-light text-lg max-w-xl mx-auto">
+              <p className="mt-4 text-lg max-w-xl mx-auto leading-relaxed" style={{ color: '#94a3b8' }}>
                 A practical manufacturing inspection workflow for quality engineers and FAI coordinators across aerospace and manufacturing.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {whyItems.map((item) => (
-                <div key={item.text} className="flex items-start gap-3 bg-white/10 rounded-xl p-5">
-                  <CheckCircle className="w-5 h-5 text-success shrink-0 mt-0.5" />
-                  <p className="text-sm text-white leading-relaxed">{item.text}</p>
+                <div
+                  key={item.text}
+                  className="group flex items-start gap-4 rounded-2xl p-5 transition-all duration-200 hover:scale-[1.02]"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    backdropFilter: 'blur(8px)',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)' }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.35)' }}
+                  >
+                    <CheckCircle className="w-4 h-4" style={{ color: '#4ade80' }} />
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: '#e2e8f0' }}>{item.text}</p>
                 </div>
               ))}
             </div>

@@ -16,18 +16,25 @@ import type { UserRole } from '../auth/AuthTypes'
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface UserRecord {
-  uid:              string
-  displayName:      string
-  email:            string
-  photoURL?:        string
+  uid:               string
+  displayName:       string
+  email:             string
+  photoURL?:         string
+  mobileNumber?:     string
   organizationName?: string
   organizationCode?: string
-  role:             UserRole
-  createdAt:        Timestamp | null
-  lastLoginAt:      Timestamp | null
-  updatedAt:        Timestamp | null
-  profileCompleted: boolean
+  role:              UserRole
+  createdAt:         Timestamp | null
+  lastLoginAt:       Timestamp | null
+  updatedAt:         Timestamp | null
+  profileCompleted:  boolean
   subscriptionPlan?: string
+  // Signup origin (set once at profile creation)
+  signupDomain?:      string
+  signupHostname?:    string
+  signupBrandingId?:  string
+  signupPartnerCode?: string
+  signupPartnerName?: string
 }
 
 export interface RoleAuditEvent {

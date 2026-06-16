@@ -18,9 +18,10 @@ export interface ResolvedBranding {
 }
 
 export interface UseBrandingResult {
-  branding:   ResolvedBranding
-  loading:    boolean
-  isFallback: boolean
+  branding:         ResolvedBranding
+  activeBrandingId: string | undefined
+  loading:          boolean
+  isFallback:       boolean
 }
 
 // ─── Fallback ─────────────────────────────────────────────────────────────────
@@ -39,9 +40,10 @@ export const FALLBACK_BRANDING: ResolvedBranding = {
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const BrandingContext = createContext<UseBrandingResult>({
-  branding:   FALLBACK_BRANDING,
-  loading:    true,
-  isFallback: true,
+  branding:         FALLBACK_BRANDING,
+  activeBrandingId: undefined,
+  loading:          true,
+  isFallback:       true,
 })
 
 // ─── Resolver ─────────────────────────────────────────────────────────────────
@@ -64,25 +66,28 @@ function resolvePreset(preset: BrandingPreset): ResolvedBranding {
 // ─── Provider — one Firestore subscription for the whole app ─────────────────
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const [branding,   setBranding]   = useState<ResolvedBranding>(FALLBACK_BRANDING)
-  const [loading,    setLoading]    = useState(true)
-  const [isFallback, setIsFallback] = useState(true)
+  const [branding,         setBranding]         = useState<ResolvedBranding>(FALLBACK_BRANDING)
+  const [activeBrandingId, setActiveBrandingId] = useState<string | undefined>(undefined)
+  const [loading,          setLoading]          = useState(true)
+  const [isFallback,       setIsFallback]       = useState(true)
 
   useEffect(() => {
     const hostname = getCurrentHostname()
     return subscribeDomainBranding(hostname, preset => {
       if (preset) {
         setBranding(resolvePreset(preset))
+        setActiveBrandingId(preset.brandingId)
         setIsFallback(false)
       } else {
         setBranding(FALLBACK_BRANDING)
+        setActiveBrandingId(undefined)
         setIsFallback(true)
       }
       setLoading(false)
     })
   }, [])
 
-  return createElement(BrandingContext.Provider, { value: { branding, loading, isFallback } }, children)
+  return createElement(BrandingContext.Provider, { value: { branding, activeBrandingId, loading, isFallback } }, children)
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────

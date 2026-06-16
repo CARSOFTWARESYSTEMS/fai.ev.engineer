@@ -92,10 +92,10 @@ export function FortiusServicePage({ service }: { service: FortiusService }) {
             telephone: '+918880423666',
             address: {
               '@type': 'PostalAddress',
-              streetAddress: 'Doddanna Industrial Estate, Peenya',
+              streetAddress: 'Sy no. 35, Near Over Head Water Tank, Kempapura, Chikkabanavara',
               addressLocality: 'Bengaluru',
               addressRegion: 'Karnataka',
-              postalCode: '560058',
+              postalCode: '560090',
               addressCountry: 'IN',
             },
           },

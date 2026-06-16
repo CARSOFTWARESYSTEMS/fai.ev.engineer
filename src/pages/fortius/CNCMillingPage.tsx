@@ -22,7 +22,7 @@ const service: FortiusService = {
   hero: {
     heading: 'CNC Milling Services — Precision Milled Components',
     subheading:
-      'Multi-axis CNC milling for complex geometries, contoured surfaces, pockets, and precision slots. Fortius Machining Solutions, Peenya, Bengaluru.',
+      'Multi-axis CNC milling for complex geometries, contoured surfaces, pockets, and precision slots. Fortius Machining Solutions, Chikkabanavara, Bengaluru.',
   },
   ctaText: 'Request Milling Quote',
   ctaEmailSubject: 'CNC Milling Enquiry — Fortius',
@@ -54,7 +54,7 @@ const service: FortiusService = {
     { name: 'Tooling & Fixtures', desc: 'Jig bodies, fixture plates, mold bases, and precision tool components manufactured by milling.' },
   ],
   whyFortius: [
-    'Dedicated CNC milling capability at Peenya, Bengaluru — established since 2017',
+    'Dedicated CNC milling capability at Chikkabanavara, Bengaluru — established since 2017',
     'Multi-axis milling for flat, profiled, and complex workpiece geometries',
     'Tight dimensional tolerances maintained through controlled process parameters',
     'In-house fixture design and manufacture for setup repeatability',

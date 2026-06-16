@@ -54,7 +54,7 @@ const service: FortiusService = {
     { name: 'Pumps & Valves', desc: 'Valve bodies, pump shafts, impeller hubs, and precision turned fluid system components.' },
   ],
   whyFortius: [
-    'CNC turning capability established since 2017 in Peenya, Bengaluru',
+    'CNC turning capability established since 2017 in Chikkabanavara, Bengaluru',
     'Accurate diameter and length control — tight tolerances maintained consistently',
     'Threading, grooving, taper turning, and profiling in a single setup where possible',
     'Turning of steel, stainless, aluminium, brass, and copper alloys',

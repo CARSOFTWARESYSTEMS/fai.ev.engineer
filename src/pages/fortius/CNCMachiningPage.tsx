@@ -17,11 +17,11 @@ const service: FortiusService = {
     'CNC machining automotive',
     'CNC machining aerospace',
   ],
-  badge: 'CNC Machining Services · Peenya, Bengaluru',
+  badge: 'CNC Machining Services · Chikkabanavara, Bengaluru',
   hero: {
     heading: 'Precision CNC Machining Services in Bengaluru',
     subheading:
-      'High-accuracy CNC machining for automotive, aerospace, power electronics, and industrial components. Fortius Machining Solutions — Peenya, Bengaluru, since 2017.',
+      'High-accuracy CNC machining for automotive, aerospace, power electronics, and industrial components. Fortius Machining Solutions — Chikkabanavara, Bengaluru, since 2017.',
   },
   ctaText: 'Request CNC Machining Quote',
   ctaEmailSubject: 'CNC Machining Enquiry — Fortius',
@@ -54,7 +54,7 @@ const service: FortiusService = {
     { name: 'Defence', desc: 'Precision machined components with tight tolerances for defence applications and critical systems.' },
   ],
   whyFortius: [
-    'Established in 2017 with a focused CNC machining facility in Peenya, Bengaluru',
+    'Established in 2017 with a focused CNC machining facility in Chikkabanavara, Bengaluru',
     'Multi-axis CNC milling and turning capability for complex component geometries',
     'Experience across automotive, aerospace, power electronics, and industrial sectors',
     'Prototype to production scaling — from single units to batch quantities',
@@ -94,7 +94,7 @@ const service: FortiusService = {
     },
     {
       q: 'Where is Fortius Machining Solutions located?',
-      a: 'Fortius is located at Doddanna Industrial Estate, Peenya, Bengaluru — 560058, Karnataka, India. Peenya is one of the largest industrial areas in Asia, with excellent logistics connectivity.',
+      a: 'Fortius is located at Sy no. 35, Near Over Head Water Tank, Kempapura, Chikkabanavara — 560090, Bengaluru, Karnataka, India.',
     },
   ],
   relatedServices: [

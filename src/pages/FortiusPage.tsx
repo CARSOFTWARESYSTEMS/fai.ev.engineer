@@ -215,13 +215,13 @@ const companyInfo = [
   { label: 'CIN', value: 'U29309KA2017PTC105628' },
   { label: 'GSTIN', value: '29AADCF1785B1ZQ' },
   { label: 'Location', value: 'Bengaluru, Karnataka' },
-  { label: 'Manufacturing Area', value: 'Peenya / Doddanna Industrial Estate, Bengaluru' },
+  { label: 'Manufacturing Area', value: 'Sy no. 35, Kempapura, Chikkabanavara — 560090, Bengaluru' },
   { label: 'Business Type', value: 'Precision machining and manufacturing services' },
   { label: 'Markets', value: 'India and abroad' },
 ]
 
 const galleryItems: GalleryItem[] = [
-  { src: '/Fortius/0.webp', alt: 'Fortius Machining Solutions Pvt. Ltd. factory signboard, Peenya 2nd Stage, Bangalore-560058' },
+  { src: '/Fortius/0.webp', alt: 'Fortius Machining Solutions Pvt. Ltd. factory signboard, Bengaluru' },
   { src: '/Fortius/4.webp', alt: 'Modern CNC machining centre at Fortius Machining Solutions manufacturing facility' },
   { src: '/Fortius/2.webp', alt: 'CNC production machines (FMS-CNC-06) on the Fortius Machining Solutions shop floor' },
   { src: '/Fortius/3.webp', alt: 'CNC production floor overview — Fortius Machining Solutions, Bengaluru' },
@@ -355,7 +355,7 @@ const mainFAQs: FAQItem[] = [
   },
   {
     q: 'Where is Fortius Machining Solutions located?',
-    a: 'Fortius is located at Doddanna Industrial Estate, Peenya, Bengaluru — 560058, Karnataka, India. Peenya is one of the largest industrial areas in Asia, with excellent logistics connectivity across India.',
+    a: 'Fortius is located at Sy no. 35, Near Over Head Water Tank, Kempapura, Chikkabanavara — 560090, Bengaluru, Karnataka, India.',
   },
   {
     q: 'Does Fortius manufacture aerospace components?',
@@ -411,7 +411,7 @@ const mainFAQs: FAQItem[] = [
   },
   {
     q: 'When was Fortius Machining Solutions founded?',
-    a: 'Fortius Machining Solutions Private Limited was founded in 2017. The company has been operating from its manufacturing facility at Peenya, Bengaluru since establishment.',
+    a: 'Fortius Machining Solutions Private Limited was founded in 2017. The company has been operating from its manufacturing facility at Chikkabanavara, Bengaluru since establishment.',
   },
   {
     q: 'Does Fortius manufacture molds?',
@@ -427,7 +427,7 @@ const mainFAQs: FAQItem[] = [
   },
   {
     q: 'What is Fortius\'s GSTIN and CIN?',
-    a: 'Fortius Machining Solutions Private Limited — GSTIN: 29AADCF1785B1ZQ, CIN: U29309KA2017PTC105628. The registered office is at Doddanna Industrial Estate, Peenya, Bengaluru — 560058.',
+    a: 'Fortius Machining Solutions Private Limited — GSTIN: 29AADCF1785B1ZQ, CIN: U29309KA2017PTC105628. The registered office is at Sy no. 35, Kempapura, Chikkabanavara — 560090, Bengaluru.',
   },
 ]
 
@@ -527,7 +527,7 @@ function MachinedComponentIllustration() {
         <text x="93" y="310" textAnchor="middle" fontSize="7" fill="#64748b" fontFamily="monospace">FORTIUS MACHINING SOLUTIONS PVT LTD</text>
         <text x="279" y="307" textAnchor="middle" fontSize="7" fill="#64748b" fontFamily="monospace">PART: FMS-FLANGE-001 | DRG: FMS-001</text>
         <text x="279" y="315" textAnchor="middle" fontSize="7" fill="#64748b" fontFamily="monospace">SCALE: 1:2 | TOL: ±0.05 UNLESS NOTED</text>
-        <text x="465" y="307" textAnchor="middle" fontSize="7" fill="#64748b" fontFamily="monospace">REV: A | Peenya, Bengaluru</text>
+        <text x="465" y="307" textAnchor="middle" fontSize="7" fill="#64748b" fontFamily="monospace">REV: A | Chikkabanavara, Bengaluru</text>
         <text x="465" y="315" textAnchor="middle" fontSize="7" fill="#64748b" fontFamily="monospace">FORTIUS MACHINING SOLUTIONS</text>
       </svg>
     </div>
@@ -1081,7 +1081,7 @@ export function FortiusPage() {
     const prevDesc = metaDesc?.content ?? ''
     if (metaDesc) {
       metaDesc.content =
-        'Precision CNC machining, CNC milling, turning, metal components, assemblies, jigs, fixtures, press tools, and molds for automotive, aerospace, power electronics, and electrical industries. Peenya, Bengaluru.'
+        'Precision CNC machining, CNC milling, turning, metal components, assemblies, jigs, fixtures, press tools, and molds for automotive, aerospace, power electronics, and electrical industries. Chikkabanavara, Bengaluru.'
     }
 
     const schema = {
@@ -1101,10 +1101,10 @@ export function FortiusPage() {
           ],
           address: {
             '@type': 'PostalAddress',
-            streetAddress: 'Doddanna Industrial Estate, Peenya',
+            streetAddress: 'Sy no. 35, Near Over Head Water Tank, Kempapura, Chikkabanavara',
             addressLocality: 'Bengaluru',
             addressRegion: 'Karnataka',
-            postalCode: '560058',
+            postalCode: '560090',
             addressCountry: 'IN',
           },
           geo: {
@@ -1113,7 +1113,7 @@ export function FortiusPage() {
             longitude: 77.5018281,
           },
           description:
-            'Precision CNC machining, CNC milling, CNC turning, jigs, fixtures, press tools, and manufacturing solutions for automotive, aerospace, power electronics, and electrical industries. Peenya, Bengaluru.',
+            'Precision CNC machining, CNC milling, CNC turning, jigs, fixtures, press tools, and manufacturing solutions for automotive, aerospace, power electronics, and electrical industries. Chikkabanavara, Bengaluru.',
           employee: [
             { '@type': 'Person', name: 'Vinayak Hegde', jobTitle: 'Founder / Director' },
             { '@type': 'Person', name: 'Valiya Parambath Kiranlal', jobTitle: 'Founder / Director' },
@@ -1221,7 +1221,7 @@ export function FortiusPage() {
               <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-text-secondary">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-primary shrink-0" />
-                  Peenya / Doddanna Industrial Estate, Bengaluru
+                  Kempapura, Chikkabanavara — 560090, Bengaluru
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-primary shrink-0" />
@@ -1578,7 +1578,7 @@ export function FortiusPage() {
               </a>
               <span className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-primary shrink-0" />
-                Peenya, Bengaluru — 560 058
+                Kempapura, Chikkabanavara — 560090
               </span>
             </div>
           </div>

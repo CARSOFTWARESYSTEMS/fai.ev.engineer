@@ -171,7 +171,7 @@ export function trackFortiusWhatsAppClick(position = 'floating') {
 
 export function trackFortiusDirectionsClick(source: 'footer' | 'floating') {
   track('fortius_direction_click', {
-    location_name: 'Fortius Machining Solutions, Peenya, Bengaluru',
+    location_name: 'Fortius Machining Solutions, Kempapura, Chikkabanavara, Bengaluru',
     page_path: '/Fortius',
     source,
     partner_name: FORTIUS_PARTNER,

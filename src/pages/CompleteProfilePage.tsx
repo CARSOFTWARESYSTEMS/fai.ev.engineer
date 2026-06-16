@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { CheckCircle, AlertCircle, Phone } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { completeProfile } from '../auth/EVEngineerAuthService'
+import { useBranding } from '../hooks/useBranding'
 
 function Spinner() {
   return (
@@ -18,6 +19,7 @@ function Spinner() {
 export function CompleteProfilePage() {
   const navigate = useNavigate()
   const { firebaseUser, isLoading, isProfileComplete, refreshProfile, signOut } = useAuth()
+  const { branding, activeBrandingId, isFallback } = useBranding()
 
   const [mobile, setMobile] = useState('')
   const [orgName, setOrgName] = useState('')
@@ -62,6 +64,9 @@ export function CompleteProfilePage() {
         mobileNumber: trimmedMobile,
         organizationName: orgName,
         gstNumber: gst,
+        signupBrandingId:  !isFallback ? activeBrandingId : undefined,
+        signupPartnerCode: !isFallback ? branding.businessCode : undefined,
+        signupPartnerName: !isFallback ? branding.businessName : undefined,
       })
       await refreshProfile()
       navigate('/dashboard', { replace: true })

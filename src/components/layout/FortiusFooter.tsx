@@ -222,9 +222,9 @@ export function FortiusFooter() {
             <div className="flex items-start gap-2 mb-3">
               <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
               <address className="not-italic text-sm text-slate-400 leading-relaxed">
-                Peenya /<br />
-                Doddanna Industrial Estate<br />
-                Bengaluru – 560058<br />
+                Sy no. 35, Near Over Head Water Tank<br />
+                Kempapura, Chikkabanavara<br />
+                Bengaluru – 560090<br />
                 Karnataka, India
               </address>
             </div>

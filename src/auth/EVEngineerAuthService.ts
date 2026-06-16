@@ -59,6 +59,9 @@ export interface CompleteProfileParams {
   mobileNumber: string
   organizationName?: string
   gstNumber?: string
+  signupBrandingId?:  string
+  signupPartnerCode?: string
+  signupPartnerName?: string
 }
 
 // Separate write type uses FieldValue for server timestamps
@@ -77,8 +80,12 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
     mobileNumber,
     organizationName = '',
     gstNumber = '',
+    signupBrandingId,
+    signupPartnerCode,
+    signupPartnerName,
   } = params
 
+  const signupDomain = typeof window !== 'undefined' ? window.location.hostname : undefined
   const orgName = organizationName.trim()
 
   console.log('[AUTH] Saving profile to Firestore...')
@@ -89,7 +96,7 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
   console.log('[AUTH] Organization Name:', orgName || '(none)')
   console.log('[AUTH] GST Number:', gstNumber || '(none)')
 
-  const writeDoc: UserWriteDoc = {
+  const baseDoc: UserWriteDoc = {
     uid,
     displayName,
     email,
@@ -105,6 +112,13 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
     updatedAt: serverTimestamp(),
     lastLoginAt: serverTimestamp(),
   }
+
+  if (signupDomain)    { baseDoc.signupDomain = signupDomain; baseDoc.signupHostname = signupDomain }
+  if (signupBrandingId)  baseDoc.signupBrandingId  = signupBrandingId
+  if (signupPartnerCode) baseDoc.signupPartnerCode = signupPartnerCode
+  if (signupPartnerName) baseDoc.signupPartnerName = signupPartnerName
+
+  const writeDoc = baseDoc
 
   try {
     await setDoc(doc(firestore, 'users', uid), writeDoc)
