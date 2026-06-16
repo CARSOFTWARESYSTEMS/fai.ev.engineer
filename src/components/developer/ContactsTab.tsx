@@ -3,7 +3,7 @@ import {
   Phone, Mail, MessageCircle, ChevronDown, ChevronRight,
   Search, Users, AlertCircle, Loader2, UserX,
   Building2, Clock, Globe, Trash2, FolderOpen, Folder,
-  FileText,
+  FileText, ExternalLink,
 } from 'lucide-react'
 import {
   subscribeAllUsers,
@@ -11,6 +11,7 @@ import {
   buildContactLinks,
   domainDisplayLabel,
   deleteUserData,
+  deleteProjectData,
   LEGACY_DOMAIN,
   type DirectoryUser,
 } from '../../services/userDirectoryService'
@@ -73,11 +74,78 @@ function Avatar({ user }: { user: DirectoryUser }) {
   )
 }
 
+// ─── Project Delete Confirm ───────────────────────────────────────────────────
+
+function ProjectDeleteModal({
+  project,
+  onConfirm,
+  onCancel,
+  deleting,
+}: {
+  project:   FAIProject
+  onConfirm: () => void
+  onCancel:  () => void
+  deleting:  boolean
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+            <Trash2 className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-text-primary">Delete project?</h2>
+            <p className="text-xs text-text-secondary mt-0.5">This removes the Firestore record only.</p>
+          </div>
+        </div>
+
+        <div className="bg-slate-50 border border-border rounded-xl px-4 py-3 mb-4 text-sm">
+          <p className="font-semibold text-text-primary truncate">{project.projectName || '(Untitled)'}</p>
+          {project.partNumber && (
+            <p className="text-xs text-text-secondary font-mono mt-0.5">{project.partNumber}</p>
+          )}
+        </div>
+
+        <div
+          className="text-xs rounded-lg border px-3 py-2.5 mb-5"
+          style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}
+        >
+          <p className="text-amber-700">
+            <strong>Note:</strong> Sub-collections (balloons, features, forms) and Google Drive files are <strong>not</strong> deleted — use Firebase Console to clean those up if needed.
+          </p>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={deleting}
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-text-primary border border-border rounded-xl hover:bg-background transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={deleting}
+            className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {deleting
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>
+              : <><Trash2 className="w-4 h-4" /> Delete</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Project Sub-panel ────────────────────────────────────────────────────────
 
 function ProjectSubPanel({ uid }: { uid: string }) {
-  const [projects, setProjects] = useState<FAIProject[] | null>(null)
-  const [loading,  setLoading]  = useState(true)
+  const [projects,       setProjects]       = useState<FAIProject[] | null>(null)
+  const [loading,        setLoading]        = useState(true)
+  const [confirmProject, setConfirmProject] = useState<FAIProject | null>(null)
+  const [deletingProj,   setDeletingProj]   = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -87,6 +155,20 @@ function ProjectSubPanel({ uid }: { uid: string }) {
     })
     return () => { cancelled = true }
   }, [uid])
+
+  async function handleDeleteProject() {
+    if (!confirmProject) return
+    setDeletingProj(true)
+    try {
+      await deleteProjectData(confirmProject.projectId)
+      setProjects(prev => prev?.filter(p => p.projectId !== confirmProject.projectId) ?? null)
+    } catch (err) {
+      console.error('Project delete failed:', err)
+    } finally {
+      setDeletingProj(false)
+      setConfirmProject(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -107,44 +189,86 @@ function ProjectSubPanel({ uid }: { uid: string }) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="bg-slate-50/80 text-text-secondary uppercase tracking-wide border-b border-border/40">
-            <th className="py-2 px-4 text-left font-semibold">Project Name</th>
-            <th className="py-2 px-4 text-left font-semibold">Part Number</th>
-            <th className="py-2 px-4 text-left font-semibold">Drawing #</th>
-            <th className="py-2 px-4 text-left font-semibold">Status</th>
-            <th className="py-2 px-4 text-left font-semibold">Updated</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map(p => (
-            <tr key={p.projectId} className="border-b border-border/30 hover:bg-slate-50/60 transition-colors">
-              <td className="py-2 px-4 font-medium text-text-primary max-w-[180px] truncate">
-                <div className="flex items-center gap-1.5">
-                  <FileText className="w-3 h-3 text-primary/60 shrink-0" />
-                  {p.projectName || '(Untitled)'}
-                </div>
-              </td>
-              <td className="py-2 px-4 font-mono text-text-secondary">{p.partNumber || '—'}</td>
-              <td className="py-2 px-4 font-mono text-text-secondary">
-                {p.drawingNumber
-                  ? `${p.drawingNumber}${p.drawingRevision ? ` Rev ${p.drawingRevision}` : ''}`
-                  : '—'}
-              </td>
-              <td className="py-2 px-4">
-                <ProjectStatusBadge status={p.status} />
-              </td>
-              <td className="py-2 px-4 text-text-secondary whitespace-nowrap">{fmtDate(p.updatedAt)}</td>
+    <>
+      {confirmProject && (
+        <ProjectDeleteModal
+          project={confirmProject}
+          onConfirm={handleDeleteProject}
+          onCancel={() => setConfirmProject(null)}
+          deleting={deletingProj}
+        />
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-slate-50/80 text-text-secondary uppercase tracking-wide border-b border-border/40">
+              <th className="py-2 px-4 text-left font-semibold">Project Name</th>
+              <th className="py-2 px-4 text-left font-semibold">Part #</th>
+              <th className="py-2 px-4 text-left font-semibold">Drawing #</th>
+              <th className="py-2 px-4 text-left font-semibold">Status</th>
+              <th className="py-2 px-4 text-left font-semibold">Updated</th>
+              <th className="py-2 px-4 text-left font-semibold">Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="px-4 py-2 text-[10px] text-text-secondary/60">
-        {projects.length} project{projects.length !== 1 ? 's' : ''} total
+          </thead>
+          <tbody>
+            {projects.map(p => (
+              <tr key={p.projectId} className="border-b border-border/30 hover:bg-slate-50/60 transition-colors">
+                <td className="py-2 px-4 font-medium text-text-primary max-w-[180px]">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <FileText className="w-3 h-3 text-primary/60 shrink-0" />
+                    <span className="truncate">{p.projectName || '(Untitled)'}</span>
+                  </div>
+                </td>
+                <td className="py-2 px-4 font-mono text-text-secondary">{p.partNumber || '—'}</td>
+                <td className="py-2 px-4 font-mono text-text-secondary">
+                  {p.drawingNumber
+                    ? `${p.drawingNumber}${p.drawingRevision ? ` Rev ${p.drawingRevision}` : ''}`
+                    : '—'}
+                </td>
+                <td className="py-2 px-4">
+                  <ProjectStatusBadge status={p.status} />
+                </td>
+                <td className="py-2 px-4 text-text-secondary whitespace-nowrap">{fmtDate(p.updatedAt)}</td>
+                <td className="py-2 px-4">
+                  <div className="flex items-center gap-1">
+                    {/* PDF / Drive link */}
+                    {p.googleDriveViewUrl ? (
+                      <a
+                        href={p.googleDriveViewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="View PDF in Google Drive"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/60 hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    ) : (
+                      <span
+                        title="No PDF uploaded"
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/40 text-text-secondary/25 cursor-not-allowed"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </span>
+                    )}
+                    {/* Delete project */}
+                    <button
+                      onClick={() => setConfirmProject(p)}
+                      title="Delete project"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="px-4 py-2 text-[10px] text-text-secondary/60">
+          {projects.length} project{projects.length !== 1 ? 's' : ''} total
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 

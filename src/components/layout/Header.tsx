@@ -4,16 +4,28 @@ import { Menu, X } from 'lucide-react'
 import { useBranding } from '../../hooks/useBranding'
 
 type NavLink =
-  | { label: string; href: string; type: 'anchor' }
+  | { label: string; sectionId: string; type: 'anchor' }
   | { label: string; to: string; type: 'route' }
 
 const navLinks: NavLink[] = [
-  { label: 'Features', href: '#features', type: 'anchor' },
-  { label: 'How It Works', href: '#how-it-works', type: 'anchor' },
-  { label: 'Pricing', href: '#pricing', type: 'anchor' },
-  { label: 'Roadmap', to: '/roadmap', type: 'route' },
-  { label: 'FAQ', href: '#faq', type: 'anchor' },
+  { label: 'Features',    sectionId: 'features',    type: 'anchor' },
+  { label: 'How It Works', sectionId: 'how-it-works', type: 'anchor' },
+  { label: 'Pricing',     sectionId: 'pricing',     type: 'anchor' },
+  { label: 'Roadmap',     to: '/roadmap',            type: 'route'  },
+  { label: 'FAQ',         sectionId: 'faq',          type: 'anchor' },
 ]
+
+function scrollToSection(sectionId: string, afterScroll?: () => void) {
+  afterScroll?.()
+  // Use requestAnimationFrame so mobile-menu close rerenders before we scroll
+  requestAnimationFrame(() => {
+    const el = document.getElementById(sectionId)
+    if (!el) return
+    const headerHeight = 72
+    const top = el.getBoundingClientRect().top + window.scrollY - headerHeight
+    window.scrollTo({ top, behavior: 'smooth' })
+  })
+}
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -68,13 +80,13 @@ export function Header() {
                   {link.label}
                 </Link>
               ) : (
-                <a
+                <button
                   key={link.label}
-                  href={link.href}
+                  onClick={() => scrollToSection(link.sectionId)}
                   className="px-3 py-2 text-sm font-medium text-text-secondary hover:text-primary rounded-lg hover:bg-primary-light transition-colors duration-200"
                 >
                   {link.label}
-                </a>
+                </button>
               )
             )}
           </nav>
@@ -120,14 +132,13 @@ export function Header() {
                 {link.label}
               </Link>
             ) : (
-              <a
+              <button
                 key={link.label}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="block px-4 py-3 text-sm font-medium text-text-secondary hover:text-primary hover:bg-primary-light rounded-lg transition-colors"
+                onClick={() => scrollToSection(link.sectionId, () => setMobileOpen(false))}
+                className="block w-full text-left px-4 py-3 text-sm font-medium text-text-secondary hover:text-primary hover:bg-primary-light rounded-lg transition-colors"
               >
                 {link.label}
-              </a>
+              </button>
             )
           )}
           <div className="border-t border-border mt-2 pt-4 flex flex-col gap-2">

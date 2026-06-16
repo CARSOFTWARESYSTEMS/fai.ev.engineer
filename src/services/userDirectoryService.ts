@@ -90,6 +90,12 @@ export async function deleteUserData(uid: string): Promise<void> {
   }
 }
 
+// ─── Delete project (Firestore document only — Drive files not touched) ──────
+
+export async function deleteProjectData(projectId: string): Promise<void> {
+  await deleteDoc(doc(firestore, 'projects', projectId))
+}
+
 // ─── Real-time subscription ───────────────────────────────────────────────────
 
 export function subscribeAllUsers(
