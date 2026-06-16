@@ -2,7 +2,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import {
   Phone, Mail, MessageCircle, ChevronDown, ChevronRight,
   Search, Users, AlertCircle, Loader2, UserX,
-  Building2, Clock, Globe, Trash2,
+  Building2, Clock, Globe, Trash2, FolderOpen, Folder,
+  FileText,
 } from 'lucide-react'
 import {
   subscribeAllUsers,
@@ -13,6 +14,8 @@ import {
   LEGACY_DOMAIN,
   type DirectoryUser,
 } from '../../services/userDirectoryService'
+import { getUserProjects } from '../../projects/project.service'
+import type { FAIProject } from '../../projects/project.types'
 import type { UserRole } from '../../auth/AuthTypes'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -39,6 +42,24 @@ function roleBadgeClass(role: UserRole): string {
   return map[role] ?? map.user
 }
 
+const PROJECT_STATUS: Record<string, { label: string; cls: string }> = {
+  'draft':       { label: 'Draft',       cls: 'bg-slate-100  text-slate-600'  },
+  'in-progress': { label: 'In Progress', cls: 'bg-blue-100   text-blue-700'   },
+  'review':      { label: 'Review',      cls: 'bg-amber-100  text-amber-700'  },
+  'completed':   { label: 'Completed',   cls: 'bg-green-100  text-green-700'  },
+  'complete':    { label: 'Completed',   cls: 'bg-green-100  text-green-700'  },
+  'archived':    { label: 'Archived',    cls: 'bg-gray-100   text-gray-500'   },
+}
+
+function ProjectStatusBadge({ status }: { status: string }) {
+  const s = PROJECT_STATUS[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600' }
+  return (
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${s.cls}`}>
+      {s.label}
+    </span>
+  )
+}
+
 function Avatar({ user }: { user: DirectoryUser }) {
   const initials = (user.displayName || user.email || '?')
     .split(' ')
@@ -48,6 +69,81 @@ function Avatar({ user }: { user: DirectoryUser }) {
   return (
     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
       <span className="text-xs font-bold text-primary">{initials || '?'}</span>
+    </div>
+  )
+}
+
+// ─── Project Sub-panel ────────────────────────────────────────────────────────
+
+function ProjectSubPanel({ uid }: { uid: string }) {
+  const [projects, setProjects] = useState<FAIProject[] | null>(null)
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    getUserProjects(uid).then(list => {
+      if (!cancelled) { setProjects(list); setLoading(false) }
+    })
+    return () => { cancelled = true }
+  }, [uid])
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-3 px-4 text-xs text-text-secondary">
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        Loading projects…
+      </div>
+    )
+  }
+
+  if (!projects || projects.length === 0) {
+    return (
+      <div className="flex items-center gap-2 py-3 px-4 text-xs text-text-secondary">
+        <FolderOpen className="w-3.5 h-3.5 opacity-50" />
+        No projects found for this user.
+      </div>
+    )
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="bg-slate-50/80 text-text-secondary uppercase tracking-wide border-b border-border/40">
+            <th className="py-2 px-4 text-left font-semibold">Project Name</th>
+            <th className="py-2 px-4 text-left font-semibold">Part Number</th>
+            <th className="py-2 px-4 text-left font-semibold">Drawing #</th>
+            <th className="py-2 px-4 text-left font-semibold">Status</th>
+            <th className="py-2 px-4 text-left font-semibold">Updated</th>
+          </tr>
+        </thead>
+        <tbody>
+          {projects.map(p => (
+            <tr key={p.projectId} className="border-b border-border/30 hover:bg-slate-50/60 transition-colors">
+              <td className="py-2 px-4 font-medium text-text-primary max-w-[180px] truncate">
+                <div className="flex items-center gap-1.5">
+                  <FileText className="w-3 h-3 text-primary/60 shrink-0" />
+                  {p.projectName || '(Untitled)'}
+                </div>
+              </td>
+              <td className="py-2 px-4 font-mono text-text-secondary">{p.partNumber || '—'}</td>
+              <td className="py-2 px-4 font-mono text-text-secondary">
+                {p.drawingNumber
+                  ? `${p.drawingNumber}${p.drawingRevision ? ` Rev ${p.drawingRevision}` : ''}`
+                  : '—'}
+              </td>
+              <td className="py-2 px-4">
+                <ProjectStatusBadge status={p.status} />
+              </td>
+              <td className="py-2 px-4 text-text-secondary whitespace-nowrap">{fmtDate(p.updatedAt)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="px-4 py-2 text-[10px] text-text-secondary/60">
+        {projects.length} project{projects.length !== 1 ? 's' : ''} total
+      </div>
     </div>
   )
 }
@@ -141,8 +237,7 @@ function DeleteConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-150">
-        {/* Header */}
+      <div className="bg-white rounded-2xl shadow-2xl border border-border max-w-md w-full p-6">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
             <Trash2 className="w-5 h-5 text-red-600" />
@@ -155,7 +250,6 @@ function DeleteConfirmModal({
           </div>
         </div>
 
-        {/* Users list */}
         <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-4 max-h-44 overflow-y-auto space-y-2">
           {users.map(u => (
             <div key={u.uid} className="flex items-center gap-2">
@@ -174,9 +268,10 @@ function DeleteConfirmModal({
           ))}
         </div>
 
-        {/* What gets deleted */}
-        <div className="text-xs rounded-lg border px-3 py-2.5 mb-5 space-y-1"
-          style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}>
+        <div
+          className="text-xs rounded-lg border px-3 py-2.5 mb-5 space-y-1"
+          style={{ background: 'rgba(245,158,11,0.06)', borderColor: 'rgba(245,158,11,0.25)' }}
+        >
           <p className="font-semibold text-amber-700">What will be deleted:</p>
           <ul className="text-amber-700 list-disc list-inside space-y-0.5">
             <li>Firestore user profile</li>
@@ -185,11 +280,10 @@ function DeleteConfirmModal({
           <p className="font-semibold text-amber-700 mt-1">What is preserved:</p>
           <ul className="text-amber-700 list-disc list-inside space-y-0.5">
             <li>All projects and drawing data</li>
-            <li>Google sign-in account (Auth only)</li>
+            <li>Google sign-in account (Firebase Auth)</li>
           </ul>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3">
           <button
             onClick={onCancel}
@@ -226,59 +320,95 @@ function UserRow({
   onToggle: () => void
   onDelete: () => void
 }) {
+  const [projectsOpen, setProjectsOpen] = useState(false)
+
   return (
-    <tr className={`border-b border-border/50 transition-colors ${selected ? 'bg-red-50/40' : 'hover:bg-background/50'}`}>
-      <td className="py-3 pl-4 pr-2 w-8">
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer"
-        />
-      </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Avatar user={user} />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-text-primary truncate">
-              {user.displayName || '(No name)'}
-            </p>
-            {!user.profileCompleted && (
-              <span className="text-[10px] text-amber-600 font-medium">Profile incomplete</span>
-            )}
+    <>
+      <tr className={`border-b border-border/50 transition-colors ${selected ? 'bg-red-50/40' : projectsOpen ? 'bg-primary/5' : 'hover:bg-background/50'}`}>
+        <td className="py-3 pl-4 pr-2 w-8">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggle}
+            className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer"
+          />
+        </td>
+        <td className="py-3 px-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Avatar user={user} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-text-primary truncate">
+                {user.displayName || '(No name)'}
+              </p>
+              {!user.profileCompleted && (
+                <span className="text-[10px] text-amber-600 font-medium">Profile incomplete</span>
+              )}
+            </div>
           </div>
-        </div>
-      </td>
-      <td className="py-3 px-4 text-sm text-text-secondary truncate max-w-[160px]">
-        {user.email}
-      </td>
-      <td className="py-3 px-4 text-sm text-text-secondary font-mono">
-        {user.mobileNumber?.trim() || <span className="text-text-secondary/40 not-italic font-sans">—</span>}
-      </td>
-      <td className="py-3 px-4 text-sm text-text-secondary truncate max-w-[140px]">
-        {user.organizationName || <span className="text-text-secondary/40">—</span>}
-      </td>
-      <td className="py-3 px-4">
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${roleBadgeClass(user.role)}`}>
-          {user.role}
-        </span>
-      </td>
-      <td className="py-3 px-4 text-xs text-text-secondary whitespace-nowrap">
-        {fmtDate(user.lastLoginAt)}
-      </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-1">
-          <ContactActions user={user} />
-          <button
-            onClick={onDelete}
-            title={`Delete ${user.displayName || user.email}`}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors ml-1"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </td>
-    </tr>
+        </td>
+        <td className="py-3 px-4 text-sm text-text-secondary truncate max-w-[160px]">
+          {user.email}
+        </td>
+        <td className="py-3 px-4 text-sm text-text-secondary font-mono">
+          {user.mobileNumber?.trim() || <span className="text-text-secondary/40 not-italic font-sans">—</span>}
+        </td>
+        <td className="py-3 px-4 text-sm text-text-secondary truncate max-w-[140px]">
+          {user.organizationName || <span className="text-text-secondary/40">—</span>}
+        </td>
+        <td className="py-3 px-4">
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${roleBadgeClass(user.role)}`}>
+            {user.role}
+          </span>
+        </td>
+        <td className="py-3 px-4 text-xs text-text-secondary whitespace-nowrap">
+          {fmtDate(user.lastLoginAt)}
+        </td>
+        <td className="py-3 px-4">
+          <div className="flex items-center gap-1">
+            <ContactActions user={user} />
+            <button
+              onClick={() => setProjectsOpen(o => !o)}
+              title={projectsOpen ? 'Hide projects' : 'View projects'}
+              className={[
+                'inline-flex items-center justify-center w-7 h-7 rounded-lg border text-xs transition-colors ml-1',
+                projectsOpen
+                  ? 'border-primary/40 text-primary bg-primary/10'
+                  : 'border-border/70 text-text-secondary/60 hover:text-primary hover:border-primary/40 hover:bg-primary/5',
+              ].join(' ')}
+            >
+              {projectsOpen
+                ? <FolderOpen className="w-3.5 h-3.5" />
+                : <Folder className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={onDelete}
+              title={`Delete ${user.displayName || user.email}`}
+              className="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-border/70 text-text-secondary/50 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </td>
+      </tr>
+
+      {/* Project sub-row */}
+      {projectsOpen && (
+        <tr className="border-b border-border/50">
+          <td />
+          <td colSpan={7} className="p-0">
+            <div className="bg-slate-50/60 border-l-2 border-primary/30 ml-4 mr-4 my-2 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-white/60">
+                <FolderOpen className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs font-semibold text-text-primary">
+                  Projects by {user.displayName || user.email}
+                </span>
+              </div>
+              <ProjectSubPanel uid={user.uid} />
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
@@ -295,56 +425,85 @@ function UserCard({
   onToggle: () => void
   onDelete: () => void
 }) {
+  const [projectsOpen, setProjectsOpen] = useState(false)
+
   return (
-    <div className={`border rounded-xl p-4 shadow-sm space-y-3 transition-colors ${selected ? 'bg-red-50/40 border-red-200' : 'bg-white border-border'}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <input
-            type="checkbox"
-            checked={selected}
-            onChange={onToggle}
-            className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer shrink-0"
-          />
-          <Avatar user={user} />
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-text-primary truncate">{user.displayName || '(No name)'}</p>
-            <p className="text-xs text-text-secondary truncate">{user.email}</p>
+    <div className={`border rounded-xl shadow-sm transition-colors ${selected ? 'bg-red-50/40 border-red-200' : 'bg-white border-border'}`}>
+      <div className="p-4 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggle}
+              className="w-4 h-4 rounded border-border text-primary accent-primary cursor-pointer shrink-0"
+            />
+            <Avatar user={user} />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-text-primary truncate">{user.displayName || '(No name)'}</p>
+              <p className="text-xs text-text-secondary truncate">{user.email}</p>
+            </div>
+          </div>
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${roleBadgeClass(user.role)}`}>
+            {user.role}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          {user.mobileNumber?.trim() && (
+            <div className="flex items-center gap-1 text-text-secondary">
+              <Phone className="w-3 h-3 shrink-0" />
+              <span className="font-mono truncate">{user.mobileNumber}</span>
+            </div>
+          )}
+          {user.organizationName && (
+            <div className="flex items-center gap-1 text-text-secondary">
+              <Building2 className="w-3 h-3 shrink-0" />
+              <span className="truncate">{user.organizationName}</span>
+            </div>
+          )}
+          {user.lastLoginAt && (
+            <div className="flex items-center gap-1 text-text-secondary">
+              <Clock className="w-3 h-3 shrink-0" />
+              <span>{fmtDate(user.lastLoginAt)}</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between pt-1 border-t border-border/50">
+          <ContactActions user={user} />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setProjectsOpen(o => !o)}
+              className={[
+                'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors',
+                projectsOpen
+                  ? 'text-primary border-primary/40 bg-primary/10'
+                  : 'text-text-secondary border-border hover:text-primary hover:border-primary/30 hover:bg-primary/5',
+              ].join(' ')}
+            >
+              {projectsOpen ? <FolderOpen className="w-3.5 h-3.5" /> : <Folder className="w-3.5 h-3.5" />}
+              Projects
+            </button>
+            <button
+              onClick={onDelete}
+              className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
           </div>
         </div>
-        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${roleBadgeClass(user.role)}`}>
-          {user.role}
-        </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-        {user.mobileNumber?.trim() && (
-          <div className="flex items-center gap-1 text-text-secondary">
-            <Phone className="w-3 h-3 shrink-0" />
-            <span className="font-mono truncate">{user.mobileNumber}</span>
+
+      {/* Mobile project panel */}
+      {projectsOpen && (
+        <div className="border-t border-border bg-slate-50/60">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40">
+            <FolderOpen className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-text-primary">Projects</span>
           </div>
-        )}
-        {user.organizationName && (
-          <div className="flex items-center gap-1 text-text-secondary">
-            <Building2 className="w-3 h-3 shrink-0" />
-            <span className="truncate">{user.organizationName}</span>
-          </div>
-        )}
-        {user.lastLoginAt && (
-          <div className="flex items-center gap-1 text-text-secondary">
-            <Clock className="w-3 h-3 shrink-0" />
-            <span>{fmtDate(user.lastLoginAt)}</span>
-          </div>
-        )}
-      </div>
-      <div className="flex items-center justify-between pt-1 border-t border-border/50">
-        <ContactActions user={user} />
-        <button
-          onClick={onDelete}
-          className="inline-flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200 transition-colors"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Delete
-        </button>
-      </div>
+          <ProjectSubPanel uid={user.uid} />
+        </div>
+      )}
     </div>
   )
 }
@@ -379,13 +538,8 @@ function DomainGroup({
 
   return (
     <div className="border border-border rounded-xl overflow-hidden mb-3">
-      {/* Group header */}
       <div className="flex items-center bg-white hover:bg-background/50 transition-colors">
-        {/* Select-all checkbox */}
-        <div
-          className="pl-4 pr-2 py-3 shrink-0"
-          onClick={e => e.stopPropagation()}
-        >
+        <div className="pl-4 pr-2 py-3 shrink-0" onClick={e => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={allSelected}
@@ -395,7 +549,6 @@ function DomainGroup({
             title={allSelected ? 'Deselect all in group' : 'Select all in group'}
           />
         </div>
-
         <button
           onClick={() => setOpen(o => !o)}
           className="flex-1 flex items-center justify-between px-3 py-3"
@@ -422,17 +575,13 @@ function DomainGroup({
         </button>
       </div>
 
-      {/* Bulk delete bar — shown when anything in this group is selected */}
       {selectedHere.length > 0 && (
         <div className="flex items-center justify-between px-4 py-2 bg-red-50 border-t border-red-100">
           <span className="text-xs text-red-700 font-medium">
             {selectedHere.length} user{selectedHere.length > 1 ? 's' : ''} selected in this group
           </span>
           <button
-            onClick={() => {
-              const toDelete = users.filter(u => selectedUids.has(u.uid))
-              onRequestDelete(toDelete)
-            }}
+            onClick={() => onRequestDelete(users.filter(u => selectedUids.has(u.uid)))}
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -448,7 +597,7 @@ function DomainGroup({
             <table className="w-full">
               <thead>
                 <tr className="bg-background text-xs text-text-secondary uppercase tracking-wide">
-                  <th className="py-2 pl-4 pr-2 w-8"></th>
+                  <th className="py-2 pl-4 pr-2 w-8" />
                   <th className="py-2 px-4 text-left font-semibold">Name</th>
                   <th className="py-2 px-4 text-left font-semibold">Email</th>
                   <th className="py-2 px-4 text-left font-semibold">Phone</th>
@@ -611,7 +760,6 @@ export function ContactsTab() {
 
         <SummaryCards users={allUsers} />
 
-        {/* Search + filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
@@ -644,7 +792,6 @@ export function ContactsTab() {
           </select>
         </div>
 
-        {/* Results count + global selected count */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-text-secondary">
             <Users className="w-4 h-4" />
@@ -656,10 +803,7 @@ export function ContactsTab() {
           </div>
           {selectedUids.size > 0 && (
             <button
-              onClick={() => {
-                const toDelete = allUsers.filter(u => selectedUids.has(u.uid))
-                setConfirmUsers(toDelete)
-              }}
+              onClick={() => setConfirmUsers(allUsers.filter(u => selectedUids.has(u.uid)))}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -668,7 +812,6 @@ export function ContactsTab() {
           )}
         </div>
 
-        {/* Grouped user list */}
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-text-secondary">
             <UserX className="w-10 h-10 opacity-30" />

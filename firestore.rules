@@ -198,7 +198,7 @@ service cloud.firestore {
     }
 
     match /projects/{projectId} {
-      allow read:   if isAuth() && (isOwner(resource.data.uid) || isManagerOrAbove());
+      allow read:   if isAuth() && (isOwner(resource.data.uid) || isManagerOrAbove() || isDeveloper());
       // Status must be one of the canonical values on every new document.
       allow create: if isAuth() && isOwner(request.resource.data.uid)
                        && isValidStatus(request.resource.data.status);
