@@ -6,6 +6,36 @@ import type { User as FirebaseUser } from 'firebase/auth'
 // 'user' | 'admin' are legacy values kept for backward compatibility.
 export type UserRole = 'user' | 'admin' | 'super_admin' | 'engineer' | 'manager'
 
+// ─── Final role model types (Sprint 5 — additive, no breaking changes) ────────
+
+// Platform-level roles (stored in users/{uid}.role going forward)
+export type PlatformRole = 'super_admin' | 'admin' | 'developer'
+
+// Partner-level roles (stored in partnerAdmins collection)
+export type PartnerRole = 'partner_super_admin' | 'partner_admin'
+
+// Organisation-level roles (stored in orgMemberships collection)
+export type OrganisationRole =
+  | 'owner'
+  | 'manager'
+  | 'engineer'
+  | 'inspector'
+  | 'auditor'
+  | 'approver'
+  | 'viewer'
+
+// Union of all role strings across all tiers
+export type AnyRole = PlatformRole | PartnerRole | OrganisationRole
+
+// ─── Subscription types ───────────────────────────────────────────────────────
+
+export type SubscriptionType = 'free' | 'trial' | 'monthly' | 'annual'
+export type SubscriptionStatus = 'active' | 'expired' | 'pending_payment' | 'suspended'
+
+// ─── Product catalogue ────────────────────────────────────────────────────────
+
+export type ProductId = 'fai_reports' | 'battery_pm' | 'motor_pm' | 'energy_mgmt' | 'clean_room'
+
 // ─── Lifecycle status ─────────────────────────────────────────────────────────
 
 export type LifecycleStatus =

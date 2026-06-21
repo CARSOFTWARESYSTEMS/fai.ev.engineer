@@ -7,6 +7,7 @@ import {
   Type, Palette, UserCog, Search, Filter,
   Database, Play, RotateCw, Download, Package,
   Handshake, Globe, Mail, Phone, Hash, UserPlus, BookUser,
+  Grid3x3, Building2, CreditCard, Layers, Users2, BadgeCheck, Zap,
 } from 'lucide-react'
 import { ContactsTab } from '../components/developer/ContactsTab'
 import { useAuth } from '../auth/hooks/useAuth'
@@ -78,7 +79,9 @@ import { listUsers } from '../services/roleManagementService'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'developers' | 'configurations' | 'users' | 'demo' | 'partners' | 'contacts'
+type Tab = 'developer_access' | 'partner_management' | 'contacts' | 'products' | 'configurations' | 'demo' | 'users'
+type DevSubTab = 'developer_users' | 'access_matrix'
+type PartnerSubTab = 'partners' | 'branding_domain' | 'admin_users' | 'organisations' | 'subscriptions_billing' | 'product_entitlements'
 
 // ─── Access Denied ────────────────────────────────────────────────────────────
 
@@ -3070,13 +3073,481 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
   )
 }
 
+// ─── Sub-tab navigation ───────────────────────────────────────────────────────
+
+function SubTabNav<T extends string>({
+  tabs,
+  active,
+  onSelect,
+}: {
+  tabs: { id: T; label: string; icon: typeof Code2; disabled?: boolean }[]
+  active: T
+  onSelect: (id: T) => void
+}) {
+  return (
+    <div className="flex items-center gap-0.5 border-b border-border mb-6 overflow-x-auto pb-px">
+      {tabs.map(({ id, label, icon: Icon, disabled }) => (
+        <button
+          key={id}
+          onClick={() => !disabled && onSelect(id)}
+          className={[
+            'inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold whitespace-nowrap',
+            'border-b-2 -mb-px transition-colors shrink-0',
+            disabled
+              ? 'border-transparent text-text-secondary/40 cursor-default'
+              : active === id
+                ? 'border-primary text-primary'
+                : 'border-transparent text-text-secondary hover:text-text-primary',
+          ].join(' ')}
+        >
+          <Icon className="w-3.5 h-3.5" />
+          {label}
+          {disabled && (
+            <span className="text-[9px] font-semibold bg-gray-100 text-text-secondary px-1.5 py-0.5 rounded-full ml-0.5">
+              Soon
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── Coming Soon placeholder ──────────────────────────────────────────────────
+
+function ComingSoonSection({
+  title,
+  description,
+  icon: Icon,
+  sprint = '7',
+}: {
+  title: string
+  description: string
+  icon: typeof Code2
+  sprint?: string
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+      <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+        <Icon className="w-5 h-5 text-text-secondary" />
+      </div>
+      <h3 className="text-base font-semibold text-text-primary mb-1">{title}</h3>
+      <p className="text-sm text-text-secondary max-w-sm">{description}</p>
+      <span className="mt-4 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full">
+        Coming in Sprint {sprint}
+      </span>
+    </div>
+  )
+}
+
+// ─── Roles & Access Matrix ────────────────────────────────────────────────────
+
+type MatrixCell = 'yes' | 'no' | 'view' | 'cond' | 'na'
+
+interface MatrixRow {
+  action: string
+  sa: MatrixCell; ad: MatrixCell; dv: MatrixCell
+  psa: MatrixCell; pa: MatrixCell
+  ow: MatrixCell; mg: MatrixCell; en: MatrixCell
+  ins: MatrixCell; au: MatrixCell; ap: MatrixCell; vw: MatrixCell
+}
+
+interface MatrixSection {
+  section: string
+  rows: MatrixRow[]
+}
+
+const ROLE_MATRIX: MatrixSection[] = [
+  {
+    section: 'Projects',
+    rows: [
+      { action: 'View Projects',    sa:'yes',ad:'yes',dv:'yes',psa:'yes',pa:'yes',ow:'yes',mg:'yes',en:'yes',ins:'yes',au:'yes',ap:'yes',vw:'yes' },
+      { action: 'Create Projects',  sa:'yes',ad:'yes',dv:'no', psa:'no', pa:'no', ow:'yes',mg:'yes',en:'yes',ins:'no', au:'no', ap:'no', vw:'no'  },
+      { action: 'Edit Projects',    sa:'yes',ad:'yes',dv:'no', psa:'no', pa:'no', ow:'yes',mg:'yes',en:'yes',ins:'no', au:'no', ap:'no', vw:'no'  },
+      { action: 'Delete Projects',  sa:'yes',ad:'yes',dv:'no', psa:'no', pa:'no', ow:'yes',mg:'yes',en:'no', ins:'no', au:'no', ap:'no', vw:'no'  },
+      { action: 'Block Projects',   sa:'yes',ad:'yes',dv:'no', psa:'no', pa:'no', ow:'yes',mg:'yes',en:'no', ins:'no', au:'no', ap:'no', vw:'no'  },
+      { action: 'Restore Projects', sa:'yes',ad:'yes',dv:'no', psa:'no', pa:'no', ow:'yes',mg:'yes',en:'no', ins:'no', au:'no', ap:'no', vw:'no'  },
+    ],
+  },
+  {
+    section: 'Administration',
+    rows: [
+      { action: 'Manage Users',         sa:'yes', ad:'yes', dv:'no',  psa:'yes', pa:'yes', ow:'yes',  mg:'view',en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+      { action: 'Manage Organisations', sa:'yes', ad:'yes', dv:'no',  psa:'yes', pa:'yes', ow:'no',   mg:'no',  en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+      { action: 'Manage Partners',      sa:'yes', ad:'yes', dv:'no',  psa:'no',  pa:'no',  ow:'no',   mg:'no',  en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+    ],
+  },
+  {
+    section: 'Billing',
+    rows: [
+      { action: 'View Billing',  sa:'yes', ad:'yes', dv:'view', psa:'yes',  pa:'view', ow:'view', mg:'no', en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+      { action: 'Edit Billing',  sa:'yes', ad:'yes', dv:'no',   psa:'yes',  pa:'yes',  ow:'no',   mg:'no', en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+    ],
+  },
+  {
+    section: 'Products',
+    rows: [
+      { action: 'View Products',    sa:'yes', ad:'yes', dv:'view', psa:'view', pa:'view', ow:'view', mg:'no', en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+      { action: 'Manage Products',  sa:'yes', ad:'yes', dv:'no',   psa:'yes',  pa:'yes',  ow:'no',   mg:'no', en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+    ],
+  },
+  {
+    section: 'Audit & Recovery',
+    rows: [
+      { action: 'View Logs',                    sa:'yes', ad:'yes', dv:'cond', psa:'no', pa:'no', ow:'no', mg:'no', en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+      { action: 'View User Activity Logs',      sa:'yes', ad:'yes', dv:'cond', psa:'no', pa:'no', ow:'no', mg:'no', en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+      { action: 'Restore Permanently Deleted',  sa:'yes', ad:'no',  dv:'no',   psa:'no', pa:'no', ow:'no', mg:'no', en:'no', ins:'no', au:'no', ap:'no', vw:'no' },
+    ],
+  },
+]
+
+function MatrixCell({ value }: { value: MatrixCell }) {
+  if (value === 'yes')  return <span className="text-success font-semibold text-sm">✓</span>
+  if (value === 'no')   return <span className="text-text-secondary/40 text-sm">✗</span>
+  if (value === 'view') return <span className="text-xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">View</span>
+  if (value === 'cond') return <span className="text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Cond</span>
+  return <span className="text-text-secondary/30 text-xs">—</span>
+}
+
+const PLATFORM_COLS  = ['super_admin','admin','developer'] as const
+const PARTNER_COLS   = ['partner_super_admin','partner_admin'] as const
+const ORG_COLS       = ['owner','manager','engineer','inspector','auditor','approver','viewer'] as const
+
+const COL_ABBREV: Record<string, string> = {
+  super_admin:'SA', admin:'AD', developer:'DV',
+  partner_super_admin:'PSA', partner_admin:'PA',
+  owner:'OW', manager:'MG', engineer:'EN',
+  inspector:'IN', auditor:'AU', approver:'AP', viewer:'VW',
+}
+
+const ROW_KEYS: (keyof MatrixRow)[] = [
+  'sa','ad','dv','psa','pa','ow','mg','en','ins','au','ap','vw',
+]
+
+function RolesAccessMatrixTab() {
+  return (
+    <div className="flex flex-col gap-6">
+
+      {/* Header */}
+      <div>
+        <h2 className="text-lg font-bold text-text-primary">Roles & Access Matrix</h2>
+        <p className="text-sm text-text-secondary mt-1">
+          Read-only reference of permissions across all role tiers. Source of truth:
+          <span className="font-mono text-xs ml-1 text-primary">docs/architecture/roles_access_matrix.md</span>
+        </p>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-3 text-xs">
+        <span className="font-semibold text-text-secondary uppercase tracking-wide">Legend:</span>
+        <span className="flex items-center gap-1.5"><span className="text-success font-semibold">✓</span> Allowed</span>
+        <span className="flex items-center gap-1.5"><span className="text-text-secondary/40">✗</span> Denied</span>
+        <span className="flex items-center gap-1.5"><span className="text-xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">View</span> Read-only</span>
+        <span className="flex items-center gap-1.5"><span className="text-xs font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Cond</span> Conditional</span>
+      </div>
+
+      {/* Matrix table — scrollable on mobile */}
+      <div className="card overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            {/* Tier headers */}
+            <tr className="border-b border-border bg-gray-50/60">
+              <th className="text-left px-4 py-2 text-xs font-semibold text-text-secondary w-44 min-w-[11rem]">Action</th>
+              <th colSpan={3} className="px-2 py-2 text-center text-[10px] font-bold text-primary uppercase tracking-wide border-l border-border">
+                Platform
+              </th>
+              <th colSpan={2} className="px-2 py-2 text-center text-[10px] font-bold text-purple-700 uppercase tracking-wide border-l border-border">
+                Partner
+              </th>
+              <th colSpan={7} className="px-2 py-2 text-center text-[10px] font-bold text-teal-700 uppercase tracking-wide border-l border-border">
+                Organisation
+              </th>
+            </tr>
+            {/* Role abbreviations */}
+            <tr className="border-b-2 border-border">
+              <th className="text-left px-4 py-2 text-xs text-text-secondary"></th>
+              {[...PLATFORM_COLS,...PARTNER_COLS,...ORG_COLS].map((role, i) => (
+                <th
+                  key={role}
+                  title={role}
+                  className={[
+                    'px-2 py-2 text-center text-[10px] font-bold',
+                    i === 0 ? 'border-l border-border text-primary' : '',
+                    i === 3 ? 'border-l border-border text-purple-700' : '',
+                    i === 5 ? 'border-l border-border text-teal-700' : '',
+                    i > 0 && i !== 3 && i !== 5 ? 'text-text-secondary' : '',
+                  ].join(' ')}
+                >
+                  {COL_ABBREV[role]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ROLE_MATRIX.map(({ section, rows }) => (
+              <>
+                <tr key={`section-${section}`} className="bg-gray-50/80 border-t border-border">
+                  <td
+                    colSpan={13}
+                    className="px-4 py-1.5 text-[10px] font-bold text-text-secondary uppercase tracking-widest"
+                  >
+                    {section}
+                  </td>
+                </tr>
+                {rows.map(row => (
+                  <tr key={row.action} className="border-t border-border/60 hover:bg-gray-50/40">
+                    <td className="px-4 py-2.5 text-xs font-medium text-text-primary whitespace-nowrap">
+                      {row.action}
+                    </td>
+                    {ROW_KEYS.map((k, i) => (
+                      <td
+                        key={k}
+                        className={[
+                          'px-2 py-2.5 text-center',
+                          i === 0 ? 'border-l border-border' : '',
+                          i === 3 ? 'border-l border-border' : '',
+                          i === 5 ? 'border-l border-border' : '',
+                        ].join(' ')}
+                      >
+                        <MatrixCell value={row[k] as MatrixCell} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Role key */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
+        {[...PLATFORM_COLS,...PARTNER_COLS,...ORG_COLS].map(role => (
+          <div key={role} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-border">
+            <span className="font-bold text-text-secondary w-7 shrink-0">{COL_ABBREV[role]}</span>
+            <span className="text-text-secondary truncate">{role.replace(/_/g,' ')}</span>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  )
+}
+
+// ─── Developer Access wrapper (sub-tabs) ──────────────────────────────────────
+
+function DeveloperAccessWrapper({
+  currentEmail,
+  canManage,
+  activeSubTab,
+  onSubTabChange,
+}: {
+  currentEmail: string | null
+  canManage: boolean
+  activeSubTab: DevSubTab
+  onSubTabChange: (t: DevSubTab) => void
+}) {
+  const DEV_SUB_TABS: { id: DevSubTab; label: string; icon: typeof Code2 }[] = [
+    { id: 'developer_users', label: 'Developer Users', icon: Users   },
+    { id: 'access_matrix',   label: 'Roles & Access Matrix', icon: Grid3x3 },
+  ]
+
+  return (
+    <div>
+      <SubTabNav tabs={DEV_SUB_TABS} active={activeSubTab} onSelect={onSubTabChange} />
+      {activeSubTab === 'developer_users' && (
+        <DevelopersTab currentEmail={currentEmail} canManage={canManage} />
+      )}
+      {activeSubTab === 'access_matrix' && <RolesAccessMatrixTab />}
+    </div>
+  )
+}
+
+// ─── Partner Management wrapper (sub-tabs) ────────────────────────────────────
+
+function PartnerManagementWrapper({
+  callerUid,
+  callerEmail,
+  activeSubTab,
+  onSubTabChange,
+}: {
+  callerUid: string
+  callerEmail: string
+  activeSubTab: PartnerSubTab
+  onSubTabChange: (t: PartnerSubTab) => void
+}) {
+  const PARTNER_SUB_TABS: { id: PartnerSubTab; label: string; icon: typeof Code2; disabled?: boolean }[] = [
+    { id: 'partners',              label: 'Partners',              icon: Handshake  },
+    { id: 'branding_domain',       label: 'Branding / Domain',     icon: Palette,   disabled: true },
+    { id: 'admin_users',           label: 'Admin Users',           icon: Users2,    disabled: true },
+    { id: 'organisations',         label: 'Organisations',         icon: Building2, disabled: true },
+    { id: 'subscriptions_billing', label: 'Subscriptions',         icon: CreditCard,disabled: true },
+    { id: 'product_entitlements',  label: 'Product Entitlements',  icon: Layers,    disabled: true },
+  ]
+
+  return (
+    <div>
+      <SubTabNav tabs={PARTNER_SUB_TABS} active={activeSubTab} onSelect={onSubTabChange} />
+      {activeSubTab === 'partners' && (
+        <PartnersTab callerUid={callerUid} callerEmail={callerEmail} />
+      )}
+      {activeSubTab === 'branding_domain' && (
+        <ComingSoonSection
+          title="Branding / Domain"
+          description="Configure per-partner branding, logo, support contacts, and domain assignments. Moved from Configurations tab."
+          icon={Palette}
+        />
+      )}
+      {activeSubTab === 'admin_users' && (
+        <ComingSoonSection
+          title="Admin Users"
+          description="Manage partner_super_admin and partner_admin assignments from a dedicated section."
+          icon={Users2}
+        />
+      )}
+      {activeSubTab === 'organisations' && (
+        <ComingSoonSection
+          title="Organisations"
+          description="Create and manage organisations under this partner, assign owners, and configure subscription plans."
+          icon={Building2}
+        />
+      )}
+      {activeSubTab === 'subscriptions_billing' && (
+        <ComingSoonSection
+          title="Subscriptions & Billing"
+          description="View and manage subscription status, payment recording, and billing history for each organisation."
+          icon={CreditCard}
+        />
+      )}
+      {activeSubTab === 'product_entitlements' && (
+        <ComingSoonSection
+          title="Product Entitlements"
+          description="Enable or disable products per organisation from the entitlement hierarchy (platform → partner → org)."
+          icon={Layers}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Product Catalogue tab ────────────────────────────────────────────────────
+
+interface ProductCard {
+  id: string
+  name: string
+  description: string
+  status: 'active' | 'development' | 'coming_soon'
+  icon: typeof Code2
+}
+
+const PRODUCT_CATALOGUE: ProductCard[] = [
+  {
+    id:          'fai_reports',
+    name:        'Balloon Drawings + AS9102 FAI Reports',
+    description: 'Full first article inspection report management with balloon drawings, Form 1, Form 2, and Form 3 inspection data. Supports AS9102 Rev D.',
+    status:      'active',
+    icon:        BadgeCheck,
+  },
+  {
+    id:          'battery_pm',
+    name:        'Battery Predictive Maintenance',
+    description: 'AI-powered battery health prediction and maintenance scheduling for EV fleets. Real-time SoH monitoring.',
+    status:      'development',
+    icon:        Zap,
+  },
+  {
+    id:          'motor_pm',
+    name:        'Motor Predictive Maintenance',
+    description: 'Vibration analysis and thermal monitoring for electric motor health. Predictive fault detection.',
+    status:      'development',
+    icon:        RotateCw,
+  },
+  {
+    id:          'energy_mgmt',
+    name:        'Energy Management',
+    description: 'Fleet-level energy consumption tracking, route optimisation, and regenerative braking analytics.',
+    status:      'development',
+    icon:        ToggleRight,
+  },
+  {
+    id:          'clean_room',
+    name:        'Clean Room Solutions',
+    description: 'Environmental monitoring and compliance reporting for cleanroom manufacturing environments.',
+    status:      'development',
+    icon:        Package,
+  },
+]
+
+const STATUS_CONFIG = {
+  active:      { label: 'Active',       cls: 'bg-success/10 text-success border-success/20'           },
+  development: { label: 'Development',  cls: 'bg-blue-50 text-blue-700 border-blue-200'               },
+  coming_soon: { label: 'Coming Soon',  cls: 'bg-amber-50 text-amber-700 border-amber-200'            },
+}
+
+function ProductCatalogueTab() {
+  return (
+    <div className="flex flex-col gap-6">
+
+      <div>
+        <h2 className="text-lg font-bold text-text-primary">Product Catalogue</h2>
+        <p className="text-sm text-text-secondary mt-1">
+          Platform products and their current availability status.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {PRODUCT_CATALOGUE.map(product => {
+          const status = STATUS_CONFIG[product.status]
+          const Icon   = product.icon
+          return (
+            <div
+              key={product.id}
+              className={[
+                'card p-5 flex flex-col gap-3 border',
+                product.status === 'active' ? 'border-success/30' : 'border-border',
+              ].join(' ')}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className={[
+                  'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                  product.status === 'active' ? 'bg-success/10' : 'bg-gray-100',
+                ].join(' ')}>
+                  <Icon className={[
+                    'w-5 h-5',
+                    product.status === 'active' ? 'text-success' : 'text-text-secondary',
+                  ].join(' ')} />
+                </div>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${status.cls}`}>
+                  {status.label}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text-primary leading-snug">{product.name}</h3>
+                <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">{product.description}</p>
+              </div>
+              <div className="mt-auto pt-1">
+                <span className="text-[10px] font-mono text-text-secondary/60 bg-gray-50 px-2 py-1 rounded">
+                  {product.id}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+    </div>
+  )
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function DeveloperSettingsPage() {
   const { firebaseUser, user, isLoading: authLoading } = useAuth()
   const { isDeveloper, isBootstrap, isDeveloperAdmin, isLoading: devLoading } = useDeveloperAccess()
   const { productKey, organizationConfig } = useProductConfig()
-  const [activeTab, setActiveTab] = useState<Tab>('developers')
+  const [activeTab,    setActiveTab]    = useState<Tab>('developer_access')
+  const [devSubTab,    setDevSubTab]    = useState<DevSubTab>('developer_users')
+  const [partnerSubTab,setPartnerSubTab]= useState<PartnerSubTab>('partners')
 
   const isProductAdmin = user?.role === 'admin' || user?.role === 'super_admin'
   const isLoading      = authLoading || devLoading
@@ -3099,12 +3570,13 @@ export function DeveloperSettingsPage() {
   if (!isDeveloper && !isProductAdmin) return <AccessDenied />
 
   const TABS: { id: Tab; label: string; icon: typeof Code2; visible: boolean }[] = [
-    { id: 'developers',     label: 'Developer Access',    icon: Users,     visible: isDeveloper    },
-    { id: 'configurations', label: 'Configurations',      icon: Settings2, visible: isDeveloper    },
-    { id: 'partners',       label: 'Partner Admin',       icon: Handshake, visible: isDeveloper    },
-    { id: 'contacts',       label: 'Users / Contacts',    icon: BookUser,  visible: isDeveloper    },
-    { id: 'users',          label: 'Product Users',       icon: UserCog,   visible: isProductAdmin },
-    { id: 'demo',           label: 'Demo Data',           icon: Database,  visible: isProductAdmin || isDeveloper },
+    { id: 'developer_access',   label: 'Developer Access',   icon: Users,     visible: isDeveloper    },
+    { id: 'partner_management', label: 'Partner Management', icon: Handshake, visible: isDeveloper    },
+    { id: 'contacts',           label: 'Users / Contacts',   icon: BookUser,  visible: isDeveloper    },
+    { id: 'products',           label: 'Products',           icon: Package,   visible: isDeveloper    },
+    { id: 'configurations',     label: 'Configurations',     icon: Settings2, visible: isDeveloper    },
+    { id: 'users',              label: 'Product Users',      icon: UserCog,   visible: isProductAdmin },
+    { id: 'demo',               label: 'Demo Data',          icon: Database,  visible: isProductAdmin || isDeveloper },
   ]
   const visibleTabs = TABS.filter(t => t.visible)
 
@@ -3185,12 +3657,25 @@ export function DeveloperSettingsPage() {
         </div>
 
         {/* Tab content */}
-        {activeTab === 'developers'     && <DevelopersTab currentEmail={firebaseUser?.email ?? null} canManage={isDeveloperAdmin} />}
-        {activeTab === 'configurations' && <ConfigurationsTab />}
-        {activeTab === 'partners'       && isDeveloper && (
-          <PartnersTab callerUid={firebaseUser?.uid ?? ''} callerEmail={firebaseUser?.email ?? ''} />
+        {activeTab === 'developer_access' && isDeveloper && (
+          <DeveloperAccessWrapper
+            currentEmail={firebaseUser?.email ?? null}
+            canManage={isDeveloperAdmin}
+            activeSubTab={devSubTab}
+            onSubTabChange={setDevSubTab}
+          />
+        )}
+        {activeTab === 'partner_management' && isDeveloper && (
+          <PartnerManagementWrapper
+            callerUid={firebaseUser?.uid ?? ''}
+            callerEmail={firebaseUser?.email ?? ''}
+            activeSubTab={partnerSubTab}
+            onSubTabChange={setPartnerSubTab}
+          />
         )}
         {activeTab === 'contacts'       && isDeveloper && <ContactsTab />}
+        {activeTab === 'products'       && isDeveloper && <ProductCatalogueTab />}
+        {activeTab === 'configurations' && <ConfigurationsTab />}
         {activeTab === 'users'          && isProductAdmin && (
           <ProductUsersTab
             callerUid={firebaseUser?.uid ?? ''}
