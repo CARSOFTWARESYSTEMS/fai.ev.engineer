@@ -21,12 +21,18 @@ import {
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { useBranding } from '../hooks/useBranding'
-import { getUserProjects, deleteProject } from '../projects/project.service'
+import { getOwnerAccessibleProjects, getUserProjects, deleteProject } from '../projects/project.service'
 import {
   type FAIProject,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
 } from '../projects/project.types'
+import {
+  getProjectLifecycleStatus,
+  isProjectVisibleToUser,
+  isProjectOpenAllowed,
+} from '../projects/projectLifecycle'
+import { isBootstrapDeveloper } from '../config/developerBootstrap'
 import {
   getPriorityLabel,
   getPriorityBadgeClass,
@@ -129,6 +135,36 @@ function DueBadge({ project }: { project: FAIProject }) {
   )
 }
 
+function RestrictedProjectCard({ project, supportEmail, supportPhone, supportWhatsapp }: {
+  project: FAIProject
+  supportEmail?: string
+  supportPhone?: string
+  supportWhatsapp?: string
+}) {
+  const lifecycle = getProjectLifecycleStatus(project)
+  const blocked = lifecycle === 'blocked'
+  return (
+    <div className={`rounded-xl border p-4 ${blocked ? 'border-red-200 bg-red-50/40' : 'border-gray-300 bg-gray-50'}`}>
+      <span className={`inline-flex text-xs font-bold px-2 py-0.5 rounded-full ${blocked ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-700'}`}>
+        {blocked ? 'Blocked' : lifecycle === 'deleted' ? 'Deleted' : 'Permanently Deleted'}
+      </span>
+      <p className="mt-3 text-sm font-bold text-text-primary">Project: {project.projectName}</p>
+      {blocked && project.partNumber && <p className="mt-1 text-xs text-text-secondary">Part: {project.partNumber}</p>}
+      <p className="mt-3 text-xs text-text-secondary">
+        {blocked ? <>This project is blocked.<br />Please contact Admin team.</> :
+          lifecycle === 'deleted' ? 'This project is marked as deleted.' : 'This project is permanently deleted.'}
+      </p>
+      {blocked && (supportEmail || supportPhone || supportWhatsapp) && (
+        <div className="mt-4 flex flex-wrap gap-3 border-t border-red-100 pt-3">
+          {supportEmail && <a className="text-xs font-semibold text-red-700 hover:underline" href={`mailto:${supportEmail}`}>Contact Admin</a>}
+          {supportWhatsapp && <a className="text-xs font-semibold text-green-700 hover:underline" href={`https://wa.me/${supportWhatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a>}
+          {supportPhone && <a className="text-xs font-semibold text-text-secondary hover:underline" href={`tel:${supportPhone}`}>Call</a>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Shared project card (Kanban / Priority / Date views) ─────────────────────
 
 function KanbanCard({ project, canDelete, onDelete }: {
@@ -149,6 +185,9 @@ function KanbanCard({ project, canDelete, onDelete }: {
         </span>
         {hasPdf && (
           <FileText className="w-3.5 h-3.5 text-primary shrink-0" aria-label={project.sourcePdfName} />
+        )}
+        {project.lifecycleStatus === 'inactive' && (
+          <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">Inactive</span>
         )}
       </div>
 
@@ -211,6 +250,8 @@ export function ProjectsPage() {
   const { canAccess } = useProductConfig()
   const { branding } = useBranding()
   const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
+  const actorRole = isBootstrapDeveloper(firebaseUser?.email) ? 'super_admin' : user?.role
+  const privileged = isManager || isBootstrapDeveloper(firebaseUser?.email)
 
   const [projects, setProjects]   = useState<FAIProject[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -247,8 +288,8 @@ export function ProjectsPage() {
     setIsLoading(true)
     setError('')
     try {
-      const data = await getUserProjects(firebaseUser.uid)
-      setProjects(data.filter(p => p.status !== 'deleted' as string))
+      const data = await (privileged ? getUserProjects(firebaseUser.uid) : getOwnerAccessibleProjects(firebaseUser.uid))
+      setProjects(data)
     } catch {
       setError('Unable to load projects. Please try again.')
     } finally {
@@ -256,7 +297,7 @@ export function ProjectsPage() {
     }
   }
 
-  useEffect(() => { load() }, [firebaseUser?.uid])
+  useEffect(() => { load() }, [firebaseUser?.uid, firebaseUser?.email, privileged])
 
   // ── Delete ──────────────────────────────────────────────────────────────────
   const handleDeleteConfirm = async () => {
@@ -288,10 +329,24 @@ export function ProjectsPage() {
   }
 
   // ── Filtered projects ───────────────────────────────────────────────────────
-  const filteredProjects = useMemo(() =>
-    filterProjects(projects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter, search }),
-    [projects, statusFilter, priorityFilter, dueDateFilter, search]
+  const visibleProjects = useMemo(
+    () => projects.filter(project => isProjectVisibleToUser(project, actorRole)),
+    [projects, actorRole],
   )
+  const regularProjects = useMemo(
+    () => visibleProjects.filter(project => isProjectOpenAllowed(project, actorRole)),
+    [visibleProjects, actorRole],
+  )
+  const filteredProjects = useMemo(() =>
+    filterProjects(regularProjects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter, search }),
+    [regularProjects, statusFilter, priorityFilter, dueDateFilter, search]
+  )
+  const lifecycleMatchesSearch = (project: FAIProject) => !search ||
+    project.projectName.toLowerCase().includes(search.toLowerCase()) ||
+    project.partNumber.toLowerCase().includes(search.toLowerCase())
+  const blockedProjects = visibleProjects.filter(project => getProjectLifecycleStatus(project) === 'blocked' && lifecycleMatchesSearch(project))
+  const deletedProjects = visibleProjects.filter(project => getProjectLifecycleStatus(project) === 'deleted' && lifecycleMatchesSearch(project))
+  const permanentlyDeletedProjects = visibleProjects.filter(project => getProjectLifecycleStatus(project) === 'permanently_deleted' && lifecycleMatchesSearch(project))
 
   const hasFilters = search || statusFilter !== 'all' || priorityFilter !== 'all' || dueDateFilter !== 'all'
 
@@ -409,7 +464,7 @@ export function ProjectsPage() {
             <h1 className="text-2xl font-bold text-text-primary">My Projects</h1>
             {!isLoading && (
               <p className="text-sm text-text-secondary mt-0.5">
-                {filteredProjects.length} project{filteredProjects.length !== 1 ? 's' : ''}
+                {visibleProjects.length} project{visibleProjects.length !== 1 ? 's' : ''}
                 {hasFilters ? ' matching filters' : ''}
               </p>
             )}
@@ -526,7 +581,7 @@ export function ProjectsPage() {
         )}
 
         {/* ── Empty state ───────────────────────────────────────────────────── */}
-        {!isLoading && filteredProjects.length === 0 && (
+        {!isLoading && filteredProjects.length === 0 && blockedProjects.length === 0 && deletedProjects.length === 0 && permanentlyDeletedProjects.length === 0 && (
           <div className="text-center py-16">
             <FileText className="w-10 h-10 text-border mx-auto mb-4" />
             {hasFilters ? (
@@ -547,6 +602,10 @@ export function ProjectsPage() {
               </>
             )}
           </div>
+        )}
+
+        {!isLoading && filteredProjects.length > 0 && (
+          <h2 className="text-sm font-bold text-text-primary mb-3">Active / Inactive Projects</h2>
         )}
 
         {/* ── PRIORITY VIEW ─────────────────────────────────────────────────── */}
@@ -603,6 +662,9 @@ export function ProjectsPage() {
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusClass}`}>
                         {PROJECT_STATUS_LABELS[project.status]}
                       </span>
+                      {project.lifecycleStatus === 'inactive' && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">Inactive</span>
+                      )}
                     </div>
                     {due && (
                       <span className="inline-flex items-center gap-1 text-xs text-text-secondary whitespace-nowrap sm:text-right">
@@ -666,6 +728,34 @@ export function ProjectsPage() {
         {/* ── KANBAN VIEW ───────────────────────────────────────────────────── */}
         {!isLoading && filteredProjects.length > 0 && viewMode === 'kanban' && (
           <GroupedColumns groups={kanbanBuckets} />
+        )}
+
+        {!isLoading && blockedProjects.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-sm font-bold text-red-700 mb-3">Blocked Projects</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {blockedProjects.map(project => <RestrictedProjectCard key={project.projectId} project={project}
+                supportEmail={branding.supportEmail} supportPhone={branding.supportPhone} supportWhatsapp={branding.whatsappNumber} />)}
+            </div>
+          </section>
+        )}
+
+        {!isLoading && deletedProjects.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-sm font-bold text-text-primary mb-3">Deleted Projects</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {deletedProjects.map(project => <RestrictedProjectCard key={project.projectId} project={project} />)}
+            </div>
+          </section>
+        )}
+
+        {!isLoading && permanentlyDeletedProjects.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-sm font-bold text-text-primary mb-3">Permanently Deleted Projects</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {permanentlyDeletedProjects.map(project => <RestrictedProjectCard key={project.projectId} project={project} />)}
+            </div>
+          </section>
         )}
 
       </main>

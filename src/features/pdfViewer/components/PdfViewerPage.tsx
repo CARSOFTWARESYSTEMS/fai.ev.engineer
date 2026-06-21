@@ -31,6 +31,9 @@ import { PdfLoadingState } from './PdfLoadingState'
 import { PdfErrorState } from './PdfErrorState'
 import { exportBalloonedPdf } from '../../export/services/balloonedPdfExportService'
 import { FairPackageModal } from '../../export/components/FairPackageModal'
+import { ProjectLifecycleRestricted } from '../../../components/ui/ProjectLifecycleRestricted'
+import { getProjectAccessSummaryById } from '../../../projects/projectAccessSummary.service'
+import { getProjectLifecycleStatus, isProjectOpenAllowed, type ProjectLifecycleStatus } from '../../../projects/projectLifecycle'
 
 type PdfLoadPhase = 'project' | 'drive' | 'download'
 type PdfLoadErrorAction = 'retry' | 'reconnect-drive'
@@ -76,6 +79,7 @@ export function PdfViewerPage() {
   const [loadPhase, setLoadPhase] = useState<PdfLoadPhase>('project')
   const [error, setError] = useState('')
   const [errorAction, setErrorAction] = useState<PdfLoadErrorAction>('retry')
+  const [restricted, setRestricted] = useState<{ status: Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>; projectName?: string } | null>(null)
   const [pdfCanvas, setPdfCanvas] = useState<HTMLCanvasElement | null>(null)
   const [balloonFocusRequest, setBalloonFocusRequest] = useState(0)
   const loadRequestRef = useRef(0)
@@ -158,15 +162,17 @@ export function PdfViewerPage() {
     document.addEventListener('pointerup', onUp)
   }, [rightWidth])
 
+  // Subcollection hooks stay disabled until the full project passes lifecycle validation.
+  const accessibleProjectId = project && isProjectOpenAllowed(project, user?.role) ? projectId ?? '' : ''
   const viewer = usePdfViewer()
-  const balloons = useBalloons({ projectId: projectId ?? '', userId: user?.uid ?? '' })
-  const features = useFeatures({ projectId: projectId ?? '', userId: user?.uid ?? '' })
-  const form1 = useForm1({ projectId: projectId ?? '' })
-  const form2 = useForm2({ projectId: projectId ?? '' })
+  const balloons = useBalloons({ projectId: accessibleProjectId, userId: user?.uid ?? '' })
+  const features = useFeatures({ projectId: accessibleProjectId, userId: user?.uid ?? '' })
+  const form1 = useForm1({ projectId: accessibleProjectId })
+  const form2 = useForm2({ projectId: accessibleProjectId })
   const workspace = useWorkspaceSidebarPreferences()
   const didRestoreBalloonMode = useRef(false)
   const form3 = useForm3Results({
-    projectId: projectId ?? '',
+    projectId: accessibleProjectId,
     userId: user?.uid ?? '',
     features: features.features,
     balloons: balloons.items,
@@ -246,7 +252,18 @@ export function PdfViewerPage() {
         'Project loading timed out.',
       )
       if (loadRequestRef.current !== requestId) return
-      if (!p) { setError('Project not found or you do not have access.'); return }
+      if (!p) {
+        const summary = await getProjectAccessSummaryById(projectId)
+        if (summary && summary.ownerUid === user.uid && !isProjectOpenAllowed(summary, user.role)) {
+          setRestricted({ status: summary.lifecycleStatus as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: summary.projectName })
+          return
+        }
+        setError('Project not found or you do not have access.'); return
+      }
+      if (!isProjectOpenAllowed(p, user.role)) {
+        setRestricted({ status: getProjectLifecycleStatus(p) as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: p.projectName })
+        return
+      }
       if (p.uid !== user.uid) { setError('You do not have access to this project.'); return }
       if (p.pdfStatus !== 'uploaded' || !p.googleDriveFileId) {
         setError('No PDF has been uploaded for this project. Upload a PDF from the project page first.')
@@ -400,6 +417,8 @@ export function PdfViewerPage() {
       </div>
     )
   }
+
+  if (restricted) return <ProjectLifecycleRestricted {...restricted} />
 
   // ── Error ───────────────────────────────────────────────────────────────────
   if (error || !project || !pdfBlobUrl) {

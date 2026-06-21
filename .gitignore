@@ -10,6 +10,10 @@ build/
 coverage/
 exports/
 reports/
+!docs/reports/
+docs/reports/*
+!docs/reports/project_lifecycle_corrective_fix_report.md
+!docs/reports/project_access_summary_security_report.md
 downloads/
 temp/
 uploads/

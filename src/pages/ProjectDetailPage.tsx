@@ -47,6 +47,9 @@ import {
   isDueThisWeek,
 } from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
+import { ProjectLifecycleRestricted } from '../components/ui/ProjectLifecycleRestricted'
+import { getProjectAccessSummaryById } from '../projects/projectAccessSummary.service'
+import { getProjectLifecycleStatus, isProjectOpenAllowed, type ProjectLifecycleStatus } from '../projects/projectLifecycle'
 
 function DetailRow({ icon, label, value, mono }: {
   icon: React.ReactNode
@@ -77,6 +80,7 @@ export function ProjectDetailPage() {
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
+  const [restricted, setRestricted] = useState<{ status: Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>; projectName?: string } | null>(null)
 
   const [showDelete,      setShowDelete]      = useState(false)
   const [isDeleting,      setIsDeleting]      = useState(false)
@@ -153,9 +157,18 @@ export function ProjectDetailPage() {
   useEffect(() => {
     if (!projectId) return
     getProjectById(projectId)
-      .then((p) => {
+      .then(async (p) => {
         if (!p) {
+          const summary = await getProjectAccessSummaryById(projectId)
+          if (summary && summary.ownerUid === user?.uid && !isProjectOpenAllowed(summary, user?.role)) {
+            setRestricted({ status: summary.lifecycleStatus as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: summary.projectName })
+            return
+          }
           setErrorMsg('Project not found or you do not have access.')
+          return
+        }
+        if (!isProjectOpenAllowed(p, user?.role)) {
+          setRestricted({ status: getProjectLifecycleStatus(p) as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: p.projectName })
           return
         }
         if (p.uid !== user?.uid) {
@@ -199,6 +212,8 @@ export function ProjectDetailPage() {
       </div>
     )
   }
+
+  if (restricted) return <ProjectLifecycleRestricted {...restricted} />
 
   if (errorMsg || !project) {
     return (

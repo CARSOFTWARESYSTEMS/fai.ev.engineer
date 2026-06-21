@@ -37,6 +37,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/projects/$(projectId)).data.uid == uid();
     }
 
+    function isProjectOwnerAccessible(projectId) {
+      return isProjectOwner(projectId) &&
+        !(get(/databases/$(database)/documents/projects/$(projectId))
+          .data.get('lifecycleStatus', 'active') in [
+            'blocked', 'deleted', 'permanently_deleted'
+          ]);
+    }
+
     // ── Lifecycle helpers ─────────────────────────────────────────────────────
 
     // True if the requesting user's lifecycle status prevents access.
@@ -247,9 +255,14 @@ service cloud.firestore {
         )
         || (
           isOwner(resource.data.uid)
+          && !isProjectLifecycleBlocked()
           && !request.resource.data.diff(resource.data)
                 .affectedKeys()
                 .hasAny([
+                  'lifecycleStatus',
+                  'blockedAt', 'blockedBy', 'blockedReason',
+                  'deletedAt', 'deletedBy', 'deletedReason',
+                  'permanentlyDeletedAt', 'permanentlyDeletedBy', 'permanentlyDeletedReason',
                   'priority', 'dueDate',
                   'reviewDecision', 'reviewComment', 'reviewedBy', 'reviewedAt',
                   'completedAt', 'completedBy', 'archivedAt', 'archivedBy'
@@ -266,56 +279,72 @@ service cloud.firestore {
         )
         || isDeveloper()
       );
-      allow delete: if (isManagerOrAbove() || isOwner(resource.data.uid) || isDeveloper())
+      allow delete: if (isManagerOrAbove() || (isOwner(resource.data.uid) && !isProjectLifecycleBlocked()) || isDeveloper())
                        && !isCurrentUserLifecycleBlocked();
 
       match /balloons/{balloonId} {
-        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow create: if isProjectOwner(projectId) &&
+        allow read:   if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow create: if isProjectOwnerAccessible(projectId) &&
                          request.resource.data.createdBy == uid() &&
                          !isCurrentUserLifecycleBlocked();
-        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /features/{featureId} {
-        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow create: if isProjectOwner(projectId) &&
+        allow read:   if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow create: if isProjectOwnerAccessible(projectId) &&
                          request.resource.data.createdBy == uid() &&
                          !isCurrentUserLifecycleBlocked();
-        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /form3Results/{featureId} {
-        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow create: if isProjectOwner(projectId) &&
+        allow read:   if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow create: if isProjectOwnerAccessible(projectId) &&
                          request.resource.data.createdBy == uid() &&
                          !isCurrentUserLifecycleBlocked();
-        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /form1/{form1Id} {
-        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow create: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow read:   if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow create: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /form2Rows/{rowId} {
-        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow create: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
-        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow read:   if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow create: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /auditTrail/{eventId} {
-        allow read:   if isAuth() && (isProjectOwner(projectId) || isManagerOrAbove());
+        allow read:   if isAuth() && (isProjectOwnerAccessible(projectId) || isManagerOrAbove());
         allow create: if isManagerOrAbove();
         allow update: if false;
         allow delete: if false;
       }
+    }
+
+    match /projectAccessSummaries/{projectId} {
+      allow read: if isAuth() && !isCurrentUserLifecycleBlocked()
+                    && resource.data.ownerUid == uid();
+      allow create, update: if isAuth() && (isAdmin() || isDeveloper())
+        && request.resource.data.keys().hasOnly([
+          'projectId', 'ownerUid', 'ownerEmail', 'lifecycleStatus',
+          'projectName', 'partNumber', 'status', 'updatedAt',
+          'supportDomain', 'supportEmail', 'supportPhone', 'supportWhatsapp'
+        ])
+        && request.resource.data.projectId == projectId
+        && request.resource.data.lifecycleStatus in [
+          'active', 'inactive', 'blocked', 'deleted', 'permanently_deleted'
+        ];
+      allow delete: if false;
     }
 
     // ── userActivityLogs/{logId} ──────────────────────────────────────────────

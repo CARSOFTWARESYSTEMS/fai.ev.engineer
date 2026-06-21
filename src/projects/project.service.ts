@@ -19,6 +19,7 @@ import { ENGINEER_ALLOWED_STATUSES, VALID_DECISIONS_FOR_STATUS } from './project
 import type { UserRole } from '../auth/AuthTypes'
 import { requestDriveToken, deleteFileFromDrive, deleteProjectFolderFromDrive } from '../lib/googleDrive'
 import { logProjectCreated } from '../services/userActivityLogService'
+import { getOwnerProjectAccessSummaries } from './projectAccessSummary.service'
 
 // Separate write type uses FieldValue for timestamps
 type ProjectWriteDoc = Omit<FAIProject, 'createdAt' | 'updatedAt'> & {
@@ -64,6 +65,7 @@ export async function createProject(
     description: input.description?.trim() ?? '',
 
     status: 'draft',
+    lifecycleStatus: 'active',
     version: 1,
 
     priority: input.priority ?? 'medium',
@@ -130,6 +132,60 @@ export async function getUserProjects(uid: string): Promise<FAIProject[]> {
     })
   } catch (err) {
     console.error('[PROJECT] Failed to fetch user projects:', err)
+    return []
+  }
+}
+
+/**
+ * Secure owner list: full documents are fetched only for active/inactive projects;
+ * blocked entries come exclusively from the sanitized summary collection.
+ */
+export async function getOwnerAccessibleProjects(uid: string): Promise<FAIProject[]> {
+  try {
+    const [fullSnapshot, summaries] = await Promise.all([
+      getDocs(query(
+        collection(firestore, 'projects'),
+        where('uid', '==', uid),
+        where('lifecycleStatus', 'in', ['active', 'inactive']),
+      )),
+      getOwnerProjectAccessSummaries(uid),
+    ])
+
+    const fullProjects = fullSnapshot.docs.map(item => item.data() as FAIProject)
+    const blockedProjects: FAIProject[] = summaries
+      .filter(summary => summary.lifecycleStatus === 'blocked')
+      .map(summary => ({
+        projectId: summary.projectId,
+        uid: summary.ownerUid,
+        productKey: '',
+        organizationCode: '',
+        organizationName: '',
+        projectName: summary.projectName,
+        customerName: '',
+        partNumber: summary.partNumber ?? '',
+        partName: '',
+        drawingNumber: '',
+        drawingRevision: '',
+        material: '',
+        description: '',
+        status: summary.status ?? 'draft',
+        version: 0,
+        sourcePdfName: '',
+        googleDriveFileId: '',
+        createdAt: null,
+        updatedAt: summary.updatedAt ?? null,
+        lifecycleStatus: 'blocked',
+        accessSummaryOnly: true,
+      }))
+
+    return [...fullProjects, ...blockedProjects].sort((a, b) => {
+      const millis = (value: unknown) => value && typeof (value as { toMillis?: () => number }).toMillis === 'function'
+        ? (value as { toMillis: () => number }).toMillis()
+        : 0
+      return millis(b.updatedAt) - millis(a.updatedAt)
+    })
+  } catch (err) {
+    console.error('[PROJECT] Failed to fetch accessible owner projects:', err)
     return []
   }
 }

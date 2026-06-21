@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "projects",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "lifecycleStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "userActivityLogs",
       "queryScope": "COLLECTION",
       "fields": [

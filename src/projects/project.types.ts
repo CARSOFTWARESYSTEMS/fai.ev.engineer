@@ -106,6 +106,9 @@ export interface FAIProject {
   permanentlyDeletedAt?:       unknown
   permanentlyDeletedBy?:       string
   permanentlyDeletedReason?:   string
+
+  // Client-only marker: this object came from projectAccessSummaries, not projects.
+  accessSummaryOnly?: boolean
 }
 
 // ─── Input shape for createProject() ─────────────────────────────────────────

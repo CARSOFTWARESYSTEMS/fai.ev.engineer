@@ -44,6 +44,9 @@ import {
 } from '../projects/projectPriority'
 import { toDate } from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
+import { ProjectLifecycleRestricted } from '../components/ui/ProjectLifecycleRestricted'
+import { getProjectAccessSummaryById } from '../projects/projectAccessSummary.service'
+import { getProjectLifecycleStatus, isProjectEditable, type ProjectLifecycleStatus } from '../projects/projectLifecycle'
 
 interface FormState {
   projectName: string
@@ -118,6 +121,7 @@ export function EditProjectPage() {
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [restricted, setRestricted] = useState<{ status: Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>; projectName?: string } | null>(null)
 
   const [form, setForm] = useState<FormState>({
     projectName: '',
@@ -158,8 +162,19 @@ export function EditProjectPage() {
     if (!projectId) return
     setIsLoading(true)
     getProjectById(projectId)
-      .then((p) => {
-        if (!p) { setLoadError('Project not found or you do not have access.'); return }
+      .then(async (p) => {
+        if (!p) {
+          const summary = await getProjectAccessSummaryById(projectId)
+          if (summary && summary.ownerUid === user?.uid && !isProjectEditable(summary, user?.role)) {
+            setRestricted({ status: summary.lifecycleStatus as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: summary.projectName })
+            return
+          }
+          setLoadError('Project not found or you do not have access.'); return
+        }
+        if (!isProjectEditable(p, user?.role)) {
+          setRestricted({ status: getProjectLifecycleStatus(p) as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: p.projectName })
+          return
+        }
         if (p.uid !== user?.uid) { setLoadError('You do not have access to this project.'); return }
         setProject(p)
         setForm({
@@ -338,6 +353,8 @@ export function EditProjectPage() {
       </div>
     )
   }
+
+  if (restricted) return <ProjectLifecycleRestricted {...restricted} />
 
   if (loadError || !project) {
     return (

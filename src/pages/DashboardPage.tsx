@@ -25,12 +25,18 @@ import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 import { BetaTestingBanner } from '../components/ui/BetaTestingBanner'
 import { BetaWatermark } from '../components/ui/BetaWatermark'
 import { FEATURE_LABELS, type FeatureKey } from '../config/productConfig.types'
-import { getUserProjects, deleteProject } from '../projects/project.service'
+import { getOwnerAccessibleProjects, getUserProjects, deleteProject } from '../projects/project.service'
 import {
   type FAIProject,
   PROJECT_STATUS_LABELS,
   PROJECT_STATUS_COLORS,
 } from '../projects/project.types'
+import {
+  isProjectVisibleToUser,
+  isProjectBlocked,
+  isProjectOpenAllowed,
+} from '../projects/projectLifecycle'
+import { isBootstrapDeveloper } from '../config/developerBootstrap'
 import {
   getPriorityLabel,
   getPriorityBadgeClass,
@@ -120,10 +126,12 @@ export function DashboardPage() {
   useEffect(() => {
     if (!firebaseUser) return
     setProjectsLoading(true)
-    getUserProjects(firebaseUser.uid)
+    const privileged = isManager || isBootstrapDeveloper(firebaseUser.email)
+    const reader = privileged ? getUserProjects : getOwnerAccessibleProjects
+    reader(firebaseUser.uid)
       .then(setProjects)
       .finally(() => setProjectsLoading(false))
-  }, [firebaseUser?.uid])
+  }, [firebaseUser?.uid, firebaseUser?.email, isManager])
 
   const handleDeleteConfirm = async () => {
     if (!isManager || !projectToDelete || !firebaseUser) return
@@ -141,14 +149,28 @@ export function DashboardPage() {
 
   const displayName = user?.displayName || firebaseUser?.displayName || 'User'
 
+  // ── Lifecycle filtering ────────────────────────────────────────────────────
+  const actorRole = isBootstrapDeveloper(firebaseUser?.email) ? 'super_admin' : user?.role
+  const visibleProjects = useMemo(
+    () => projects.filter(p => isProjectVisibleToUser(p, actorRole)),
+    [projects, actorRole],
+  )
+
   // ── Stats ──────────────────────────────────────────────────────────────────
-  const activeProjects   = useMemo(() => projects.filter(p => p.status !== 'archived'), [projects])
-  const criticalCount    = useMemo(() => countByPriority(activeProjects, 'critical'), [activeProjects])
-  const highCount        = useMemo(() => countByPriority(activeProjects, 'high'),     [activeProjects])
-  const mediumCount      = useMemo(() => countByPriority(activeProjects, 'medium'),   [activeProjects])
-  const lowCount         = useMemo(() => countByPriority(activeProjects, 'low'),      [activeProjects])
-  const inProgressCount  = useMemo(() => projects.filter(p => p.status === 'in-progress').length, [projects])
-  const dueThisWeekCount = useMemo(() => countDueThisWeek(activeProjects), [activeProjects])
+  const dashboardProjects = useMemo(
+    () => visibleProjects.filter(p => p.lifecycleStatus !== 'deleted' && p.lifecycleStatus !== 'permanently_deleted'),
+    [visibleProjects],
+  )
+  const openProjects = useMemo(
+    () => dashboardProjects.filter(p => isProjectOpenAllowed(p, actorRole) && p.status !== 'archived'),
+    [dashboardProjects, actorRole],
+  )
+  const criticalCount    = useMemo(() => countByPriority(openProjects, 'critical'), [openProjects])
+  const highCount        = useMemo(() => countByPriority(openProjects, 'high'),     [openProjects])
+  const mediumCount      = useMemo(() => countByPriority(openProjects, 'medium'),   [openProjects])
+  const lowCount         = useMemo(() => countByPriority(openProjects, 'low'),      [openProjects])
+  const inProgressCount  = useMemo(() => openProjects.filter(p => p.status === 'in-progress').length, [openProjects])
+  const dueThisWeekCount = useMemo(() => countDueThisWeek(openProjects), [openProjects])
 
   // Highest priority — pick the most urgent non-zero bucket
   const highestPriority = criticalCount > 0
@@ -163,8 +185,8 @@ export function DashboardPage() {
 
   // ── Filtered recent projects (max 4, archived always excluded) ───────────────
   const recentProjects = useMemo(() =>
-    filterProjects(activeProjects, { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter }).slice(0, 4),
-    [activeProjects, statusFilter, priorityFilter, dueDateFilter]
+    filterProjects(dashboardProjects.filter(p => p.status !== 'archived'), { status: statusFilter, priority: priorityFilter, dueDate: dueDateFilter }).slice(0, 4),
+    [dashboardProjects, statusFilter, priorityFilter, dueDateFilter]
   )
 
   interface StatCard {
@@ -181,7 +203,7 @@ export function DashboardPage() {
   const statCards: StatCard[] = [
     {
       label:   'Total Projects',
-      value:   activeProjects.length,
+      value:   dashboardProjects.length,
       icon:    <FolderOpen className="w-5 h-5 text-primary" />,
       bg:      'bg-primary-light',
       href:    '/projects',
@@ -344,14 +366,14 @@ export function DashboardPage() {
               <h2 className="font-semibold text-text-primary">Recent Projects</h2>
               {!projectsLoading && (
                 <span className="text-xs font-semibold bg-primary-light text-primary px-2 py-0.5 rounded-full">
-                  {activeProjects.length}
+                  {dashboardProjects.length}
                 </span>
               )}
               {projectsLoading && <RefreshCw className="w-3.5 h-3.5 text-text-secondary animate-spin" />}
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              {!projectsLoading && projects.length > 0 && (
+              {!projectsLoading && visibleProjects.length > 0 && (
                 <>
                   <FilterSelect value={statusFilter} onChange={setStatusFilter}>
                     <option value="all">Status</option>
@@ -396,7 +418,7 @@ export function DashboardPage() {
           </div>
 
           {/* Empty: no projects */}
-          {!projectsLoading && projects.length === 0 && (
+          {!projectsLoading && visibleProjects.length === 0 && (
             <div className="text-center py-8 border border-dashed border-border rounded-xl">
               <FileText className="w-8 h-8 text-border mx-auto mb-3" />
               <p className="text-sm text-text-secondary mb-4">No projects yet. Create your first one.</p>
@@ -410,7 +432,7 @@ export function DashboardPage() {
           )}
 
           {/* Empty: filter mismatch */}
-          {!projectsLoading && projects.length > 0 && recentProjects.length === 0 && (
+          {!projectsLoading && visibleProjects.length > 0 && recentProjects.length === 0 && (
             <div className="text-center py-6 border border-dashed border-border rounded-xl">
               <p className="text-sm text-text-secondary">No projects match the current filters.</p>
               <button onClick={clearFilters} className="mt-2 text-xs font-semibold text-primary hover:underline">
@@ -423,6 +445,8 @@ export function DashboardPage() {
           {!projectsLoading && recentProjects.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {recentProjects.map((project) => {
+                const blocked     = isProjectBlocked(project)
+                const canOpen     = isProjectOpenAllowed(project, actorRole)
                 const statusClass = PROJECT_STATUS_COLORS[project.status]
                 const priorityCls = getPriorityBadgeClass(project.priority)
                 const priorityDot = getPriorityDotClass(project.priority)
@@ -433,6 +457,47 @@ export function DashboardPage() {
                                   : dStatus === 'today'   ? 'text-orange-600 font-medium'
                                   : dStatus === 'soon'    ? 'text-warning font-medium'
                                   : 'text-text-secondary'
+
+                if (blocked) {
+                  return (
+                    <div key={project.projectId}
+                      className="border border-red-200 bg-red-50/40 rounded-xl p-4 flex flex-col opacity-80">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                          Blocked
+                        </span>
+                      </div>
+                      <p className="text-sm font-bold text-text-primary leading-snug mb-1.5 line-clamp-2">
+                        Project: {project.projectName}
+                      </p>
+                      {project.partNumber && <p className="text-xs text-text-secondary mb-1">Part: {project.partNumber}</p>}
+                      <p className="text-xs text-text-secondary mb-3">
+                        This project is blocked.<br />Please contact Admin team.
+                      </p>
+                      <div className="mt-auto pt-3 border-t border-red-100 flex flex-wrap gap-2">
+                        {branding.supportEmail && (
+                          <a href={`mailto:${branding.supportEmail}?subject=Blocked%20Project%3A%20${encodeURIComponent(project.projectName)}`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:underline">
+                            Email Admin
+                          </a>
+                        )}
+                        {branding.whatsappNumber && (
+                          <a href={`https://wa.me/${branding.whatsappNumber}?text=${encodeURIComponent(`Hi, my project "${project.projectName}" is blocked. Please review.`)}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:underline">
+                            WhatsApp
+                          </a>
+                        )}
+                        {branding.supportPhone && (
+                          <a href={`tel:${branding.supportPhone}`}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-text-secondary hover:underline">
+                            Call
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )
+                }
 
                 return (
                   <div key={project.projectId}
@@ -448,6 +513,9 @@ export function DashboardPage() {
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusClass}`}>
                           {PROJECT_STATUS_LABELS[project.status]}
                         </span>
+                        {project.lifecycleStatus === 'inactive' && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">Inactive</span>
+                        )}
                       </div>
                       {due && (
                         <span className={`text-xs whitespace-nowrap sm:text-right ${dueCls}`}>
@@ -488,11 +556,17 @@ export function DashboardPage() {
 
                     {/* Actions — pushed to bottom */}
                     <div className="mt-auto pt-3 border-t border-border flex items-center gap-2">
-                      <Link to={`/projects/${project.projectId}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-primary hover:bg-primary/90 px-2.5 py-1.5 rounded-lg transition-colors">
-                        Open
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
+                      {canOpen ? (
+                        <Link to={`/projects/${project.projectId}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-primary hover:bg-primary/90 px-2.5 py-1.5 rounded-lg transition-colors">
+                          Open
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-text-secondary/40 px-2.5 py-1.5 rounded-lg border border-border cursor-not-allowed">
+                          Open
+                        </span>
+                      )}
                       <Link to={`/projects/${project.projectId}/edit`}
                         className="inline-flex items-center gap-1 text-xs font-medium text-text-secondary hover:text-primary hover:bg-gray-100 px-2.5 py-1.5 rounded-lg transition-colors border border-border">
                         <Pencil className="w-3 h-3" />

@@ -7,6 +7,7 @@ import {
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { LifecycleStatus, UserRole } from '../auth/AuthTypes'
+import { ensureProjectAccessSummary } from '../projects/projectAccessSummary.service'
 
 export type { LifecycleStatus }
 
@@ -173,6 +174,7 @@ export async function movePermanentlyDeletedToDeleted(
   await updateDoc(doc(firestore, collectionName, targetId), {
     lifecycleStatus: 'deleted',
   })
+  if (targetType === 'project') await ensureProjectAccessSummary(targetId, 'deleted')
   await writeLifecycleAudit({
     targetType,
     targetId,
@@ -231,6 +233,7 @@ export async function setProjectLifecycleStatus(
   }
 
   await updateDoc(doc(firestore, 'projects', projectId), patch)
+  await ensureProjectAccessSummary(projectId, newStatus)
   await writeLifecycleAudit({ targetType: 'project', targetId: projectId, previousStatus, newStatus, changedBy, changedByEmail, reason })
 }
 
@@ -246,6 +249,7 @@ export async function restoreProject(
     )
   }
   await updateDoc(doc(firestore, 'projects', projectId), { lifecycleStatus: 'active' })
+  await ensureProjectAccessSummary(projectId, 'active')
   await writeLifecycleAudit({ targetType: 'project', targetId: projectId, previousStatus, newStatus: 'active', changedBy, changedByEmail })
 }
 
