@@ -70,6 +70,7 @@ import {
   createPartner,
   disablePartner,
   enablePartner,
+  updatePartnerEntitlements,
   type Partner,
 } from '../services/partnerService'
 import {
@@ -82,6 +83,7 @@ import {
   type OrgStatus,
 } from '../services/organisationService'
 import type { ProductId } from '../auth/AuthTypes'
+import { logOrgActivity } from '../services/organisationActivityLogService'
 import {
   assignPartnerAdmin,
   assignPendingPartnerAdmin,
@@ -2764,15 +2766,16 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
     setCreating(true)
     try {
       const partnerId = await createPartner({
-        name:         pName.trim(),
-        code:         pCode.trim().toLowerCase(),
-        supportEmail: pEmail.trim()  || undefined,
-        supportPhone: pPhone.trim()  || undefined,
-        website:      pWeb.trim()    || undefined,
-        domains:      pDomains.split('\n').map(d => d.trim()).filter(Boolean),
-        brandingId:   pBranding.trim() || undefined,
-        enabled:      true,
-        createdBy:    callerUid,
+        name:            pName.trim(),
+        code:            pCode.trim().toLowerCase(),
+        supportEmail:    pEmail.trim()  || undefined,
+        supportPhone:    pPhone.trim()  || undefined,
+        website:         pWeb.trim()    || undefined,
+        domains:         pDomains.split('\n').map(d => d.trim()).filter(Boolean),
+        brandingId:      pBranding.trim() || undefined,
+        enabled:         true,
+        enabledProducts: ['fai_reports', 'battery_pm', 'motor_pm', 'energy_mgmt', 'clean_room'],
+        createdBy:       callerUid,
       })
       await assignSlot(superAdmin, 'partner_super_admin', partnerId)
       if (admin1.email.trim()) await assignSlot(admin1, 'partner_admin', partnerId)
@@ -3346,6 +3349,133 @@ function DeveloperAccessWrapper({
   )
 }
 
+// ─── Partner product entitlements tab ────────────────────────────────────────
+
+const PLATFORM_PRODUCTS: { id: ProductId; label: string; description: string }[] = [
+  { id: 'fai_reports', label: 'FAI Reports',                    description: 'Balloon drawings + AS9102 First Article Inspection' },
+  { id: 'battery_pm',  label: 'Battery Predictive Maintenance', description: 'AI-powered battery health monitoring for EV fleets'  },
+  { id: 'motor_pm',    label: 'Motor Predictive Maintenance',   description: 'Vibration & thermal monitoring for electric motors'  },
+  { id: 'energy_mgmt', label: 'Energy Management',              description: 'Fleet-level energy tracking & optimisation'          },
+  { id: 'clean_room',  label: 'Clean Room Solutions',           description: 'Cleanroom environmental monitoring & reporting'      },
+]
+
+function PartnerProductEntitlementsTab(_: { callerUid: string }) {
+  const [partners, setPartners] = useState<Partner[]>([])
+  const [edits,    setEdits]    = useState<Record<string, ProductId[]>>({})
+  const [saving,   setSaving]   = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  useEffect(() => subscribePartners(setPartners), [])
+
+  function showFeedback(type: 'success' | 'error', msg: string) {
+    setFeedback({ type, msg })
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  function getProducts(partner: Partner): ProductId[] {
+    return edits[partner.partnerId] ?? partner.enabledProducts
+  }
+
+  function toggleProduct(partner: Partner, productId: ProductId) {
+    const current = getProducts(partner)
+    const next    = current.includes(productId)
+      ? current.filter(p => p !== productId)
+      : [...current, productId]
+    setEdits(prev => ({ ...prev, [partner.partnerId]: next }))
+  }
+
+  async function handleSave(partner: Partner) {
+    setSaving(partner.partnerId)
+    const products = getProducts(partner)
+    try {
+      await updatePartnerEntitlements(partner.partnerId, products)
+      setEdits(prev => { const n = { ...prev }; delete n[partner.partnerId]; return n })
+      showFeedback('success', `Entitlements saved for ${partner.name}.`)
+    } catch {
+      showFeedback('error', 'Failed to save entitlements.')
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const isDirty = (p: Partner) => !!edits[p.partnerId]
+
+  if (partners.length === 0) {
+    return <p className="text-sm text-text-secondary italic">No partners yet. Create one in the Partners tab.</p>
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {feedback && (
+        <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm
+          ${feedback.type === 'success'
+            ? 'bg-success/10 border border-success/20 text-success'
+            : 'bg-error/10 border border-error/20 text-error'}`}>
+          {feedback.type === 'success'
+            ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+            : <AlertTriangle className="w-4 h-4 shrink-0" />}
+          {feedback.msg}
+        </div>
+      )}
+
+      <div className="px-1 py-2 text-xs text-text-secondary">
+        Platform → Partner → Organisation hierarchy. Unchecking a product here prevents any of this partner's organisations from enabling it.
+      </div>
+
+      {partners.map(partner => {
+        const products = getProducts(partner)
+        const dirty    = isDirty(partner)
+        const isSaving = saving === partner.partnerId
+        return (
+          <CollapsibleCard
+            key={partner.partnerId}
+            title={partner.name}
+            subtitle={`${partner.code} · ${partner.enabled ? 'active' : 'disabled'} · ${products.length}/${PLATFORM_PRODUCTS.length} products`}
+            icon={Handshake}
+            iconBg="bg-primary-light"
+            iconColor="text-primary"
+            defaultOpen={false}
+          >
+            <div className="flex flex-col gap-2 mb-4">
+              {PLATFORM_PRODUCTS.map(({ id, label, description }) => (
+                <label
+                  key={id}
+                  className="flex items-start gap-3 cursor-pointer px-3 py-2.5 rounded-xl
+                    border border-border hover:bg-gray-50 transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={products.includes(id)}
+                    onChange={() => toggleProduct(partner, id)}
+                    className="mt-0.5 w-4 h-4 accent-primary cursor-pointer"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">{label}</p>
+                    <p className="text-[11px] text-text-secondary">{description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+            {dirty && (
+              <div className="flex justify-end">
+                <button
+                  onClick={() => handleSave(partner)}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white
+                    text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Changes
+                </button>
+              </div>
+            )}
+          </CollapsibleCard>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Organisations management tab ────────────────────────────────────────────
 
 const ORG_PRODUCT_OPTIONS: { id: ProductId; label: string }[] = [
@@ -3416,7 +3546,7 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
     if (!oName.trim() || !oCode.trim() || !oPartner) return
     setCreating(true)
     try {
-      await createOrganisation({
+      const orgId = await createOrganisation({
         partnerId:       oPartner,
         name:            oName.trim(),
         code:            oCode.trim().toLowerCase(),
@@ -3425,6 +3555,14 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
         enabledProducts: oProducts,
         createdBy:       callerUid,
       })
+      logOrgActivity({
+        organisationId: orgId,
+        eventType:      'subscription.created',
+        actorUid:       callerUid,
+        actorEmail:     '',
+        description:    `Trial subscription created (7 days, ${oCurrency})`,
+        metadata:       { type: 'trial', currency: oCurrency },
+      }).catch(() => {})
       showFeedback('success', `Organisation "${oName.trim()}" created with 7-day trial.`)
       setOName(''); setOCode(''); setOOwner(''); setOPartner('')
       setOProducts(['fai_reports']); setCreateOpen(false)
@@ -3439,22 +3577,25 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
   const trials    = organisations.filter(o => getOrganisationStatus(o) === 'trial').length
   const actives   = organisations.filter(o => getOrganisationStatus(o) === 'active').length
   const suspended = organisations.filter(o => getOrganisationStatus(o) === 'suspended').length
+  const revenue   = organisations.reduce((sum, o) => sum + (o.totalAmount ?? 0), 0)
+  const currency  = organisations.find(o => o.totalAmount > 0)?.currency ?? 'INR'
 
   return (
     <div className="flex flex-col gap-4">
       {feedback && <FeedbackBanner type={feedback.type} message={feedback.msg} />}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: 'Total',     value: total,     cls: 'text-text-primary' },
-          { label: 'Trial',     value: trials,    cls: 'text-blue-700'     },
-          { label: 'Active',    value: actives,   cls: 'text-success'      },
-          { label: 'Suspended', value: suspended, cls: 'text-error'        },
+          { label: 'Total',     value: String(total),     cls: 'text-text-primary' },
+          { label: 'Trial',     value: String(trials),    cls: 'text-blue-700'     },
+          { label: 'Active',    value: String(actives),   cls: 'text-success'      },
+          { label: 'Suspended', value: String(suspended), cls: 'text-error'        },
+          { label: 'Total Revenue', value: `${currency} ${revenue.toLocaleString()}`, cls: 'text-primary' },
         ].map(({ label, value, cls }) => (
           <div key={label} className="card p-4">
             <p className="text-xs font-semibold text-text-secondary">{label}</p>
-            <p className={`text-3xl font-bold mt-1 ${cls}`}>{value}</p>
+            <p className={`text-2xl font-bold mt-1 ${cls}`}>{value}</p>
           </div>
         ))}
       </div>
@@ -3676,7 +3817,7 @@ function PartnerManagementWrapper({
     { id: 'admin_users',           label: 'Admin Users',           icon: Users2,    disabled: true },
     { id: 'organisations',         label: 'Organisations',         icon: Building2 },
     { id: 'subscriptions_billing', label: 'Subscriptions',         icon: CreditCard,disabled: true },
-    { id: 'product_entitlements',  label: 'Product Entitlements',  icon: Layers,    disabled: true },
+    { id: 'product_entitlements',  label: 'Product Entitlements',  icon: Layers },
   ]
 
   return (
@@ -3710,11 +3851,7 @@ function PartnerManagementWrapper({
         />
       )}
       {activeSubTab === 'product_entitlements' && (
-        <ComingSoonSection
-          title="Product Entitlements"
-          description="Enable or disable products per organisation from the entitlement hierarchy (platform → partner → org)."
-          icon={Layers}
-        />
+        <PartnerProductEntitlementsTab callerUid={callerUid} />
       )}
     </div>
   )

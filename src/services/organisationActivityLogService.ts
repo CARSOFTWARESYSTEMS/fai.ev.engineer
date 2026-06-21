@@ -20,7 +20,10 @@ export type OrgActivityEventType =
   | 'member.role_changed'
   | 'member.deactivated'
   | 'member.reactivated'
+  | 'subscription.created'
   | 'subscription.updated'
+  | 'subscription.expired'
+  | 'seat.limit.changed'
   | 'product.enabled'
   | 'product.disabled'
 
@@ -40,7 +43,7 @@ export interface OrgActivityLog {
 export const ACTIVITY_FILTER_EVENTS: Record<OrgActivityFilter, OrgActivityEventType[] | null> = {
   all:          null,
   membership:   ['member.added', 'member.removed', 'member.role_changed', 'member.deactivated', 'member.reactivated', 'owner.assigned'],
-  subscription: ['subscription.updated'],
+  subscription: ['subscription.created', 'subscription.updated', 'subscription.expired', 'seat.limit.changed'],
   products:     ['product.enabled', 'product.disabled', 'organisation.created'],
 }
 
@@ -52,7 +55,10 @@ export const EVENT_LABELS: Record<OrgActivityEventType, string> = {
   'member.role_changed':  'Role Changed',
   'member.deactivated':   'Member Deactivated',
   'member.reactivated':   'Member Reactivated',
+  'subscription.created': 'Subscription Created',
   'subscription.updated': 'Subscription Updated',
+  'subscription.expired': 'Subscription Expired',
+  'seat.limit.changed':   'Seat Limits Changed',
   'product.enabled':      'Product Enabled',
   'product.disabled':     'Product Disabled',
 }
@@ -65,7 +71,10 @@ export const EVENT_COLOURS: Record<OrgActivityEventType, string> = {
   'member.role_changed':  'text-blue-700 bg-blue-50 border-blue-200',
   'member.deactivated':   'text-amber-700 bg-amber-50 border-amber-200',
   'member.reactivated':   'text-success bg-success/10 border-success/20',
+  'subscription.created': 'text-primary bg-primary-light border-primary/20',
   'subscription.updated': 'text-primary bg-primary-light border-primary/20',
+  'subscription.expired': 'text-error bg-red-50 border-red-200',
+  'seat.limit.changed':   'text-blue-700 bg-blue-50 border-blue-200',
   'product.enabled':      'text-success bg-success/10 border-success/20',
   'product.disabled':     'text-text-secondary bg-gray-100 border-border',
 }

@@ -33,6 +33,14 @@ export interface Organisation {
   subscriptionStartDate:  Timestamp | null
   subscriptionExpiryDate: Timestamp | null
   currency:               string
+  // Billing
+  totalAmount:            number
+  discountAmount:         number
+  paidAmount:             number
+  balanceAmount:          number
+  subscriptionNotes?:     string
+  // Seat limits (ownerLimit enforces max 1 owner)
+  ownerLimit:             number
   managerLimit:           number
   engineerLimit:          number
   inspectorLimit:         number
@@ -75,7 +83,8 @@ export type UpdateOrganisationInput = Partial<
 
 // ─── Seat limit helpers ────────────────────────────────────────────────────────
 
-const ROLE_LIMIT_KEY: Partial<Record<OrganisationRole, keyof Organisation>> = {
+const ROLE_LIMIT_KEY: Record<OrganisationRole, keyof Organisation> = {
+  owner:     'ownerLimit',
   manager:   'managerLimit',
   engineer:  'engineerLimit',
   inspector: 'inspectorLimit',
@@ -89,13 +98,8 @@ export function canAddOrganisationMember(
   members: OrganisationMember[],
   role:    OrganisationRole,
 ): boolean {
-  if (role === 'owner') {
-    // Only one owner per org
-    return !members.some(m => m.role === 'owner' && m.membershipStatus !== 'removed')
-  }
   const limitKey = ROLE_LIMIT_KEY[role]
-  if (!limitKey) return true
-  const limit = org[limitKey] as number
+  const limit    = org[limitKey] as number
   if (limit === 0) return false
   const current = members.filter(
     m => m.role === role && (m.membershipStatus === 'active' || m.membershipStatus === 'pending'),
@@ -133,6 +137,12 @@ function toOrganisation(id: string, data: Record<string, unknown>): Organisation
     subscriptionStartDate:  (data.subscriptionStartDate  as Timestamp | null)  ?? null,
     subscriptionExpiryDate: (data.subscriptionExpiryDate as Timestamp | null)  ?? null,
     currency:               (data.currency               as string)            ?? 'INR',
+    totalAmount:            (data.totalAmount             as number)           ?? 0,
+    discountAmount:         (data.discountAmount          as number)           ?? 0,
+    paidAmount:             (data.paidAmount              as number)           ?? 0,
+    balanceAmount:          (data.balanceAmount           as number)           ?? 0,
+    subscriptionNotes:      data.subscriptionNotes        as string | undefined,
+    ownerLimit:             (data.ownerLimit              as number)           ?? 1,
     managerLimit:           (data.managerLimit            as number)           ?? 2,
     engineerLimit:          (data.engineerLimit           as number)           ?? 2,
     inspectorLimit:         (data.inspectorLimit          as number)           ?? 0,
@@ -257,6 +267,12 @@ export async function createOrganisation(input: CreateOrganisationInput): Promis
     subscriptionStartDate:  now,
     subscriptionExpiryDate: expiry,
     currency:               input.currency,
+    totalAmount:            0,
+    discountAmount:         0,
+    paidAmount:             0,
+    balanceAmount:          0,
+    subscriptionNotes:      null,
+    ownerLimit:             1,
     managerLimit:           2,
     engineerLimit:          2,
     inspectorLimit:         0,

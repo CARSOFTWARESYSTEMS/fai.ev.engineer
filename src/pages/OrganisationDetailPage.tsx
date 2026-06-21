@@ -3,11 +3,12 @@ import { useParams, Link } from 'react-router-dom'
 import {
   Building2, ArrowLeft, Users, Package, CreditCard, AlertTriangle,
   Loader2, Plus, UserPlus, CheckCircle2, Activity, ShieldCheck,
-  ChevronDown,
+  ChevronDown, Save, XCircle,
 } from 'lucide-react'
 import {
   subscribeOrganisation,
   subscribeOrganisationMembers,
+  updateOrganisation,
   addOrganisationMember,
   updateMemberRole,
   deactivateMember,
@@ -32,10 +33,20 @@ import {
   type OrgActivityFilter,
 } from '../services/organisationActivityLogService'
 import { subscribePartnerById, type Partner } from '../services/partnerService'
+import {
+  calculateExpiryDate,
+  calculateBalanceAmount,
+  formatDateInput,
+  parseDateInput,
+  SUPPORTED_CURRENCIES,
+  type SupportedCurrency,
+} from '../services/subscriptionService'
 import { listUsers } from '../services/roleManagementService'
 import { useAuth } from '../auth/hooks/useAuth'
+import { usePartnerAccess } from '../services/partnerAccessService'
 import { isBootstrapDeveloper } from '../config/developerBootstrap'
-import type { OrganisationRole } from '../auth/AuthTypes'
+import type { OrganisationRole, ProductId } from '../auth/AuthTypes'
+import { Timestamp } from 'firebase/firestore'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,12 +55,12 @@ type Section = 'overview' | 'members' | 'users' | 'subscription' | 'products' | 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const SECTION_TABS: { id: Section; label: string; icon: typeof Building2 }[] = [
-  { id: 'overview',      label: 'Overview',      icon: Building2   },
-  { id: 'members',       label: 'Members',        icon: UserPlus    },
-  { id: 'users',         label: 'Users',          icon: Users       },
-  { id: 'subscription',  label: 'Subscription',   icon: CreditCard  },
-  { id: 'products',      label: 'Products',       icon: Package     },
-  { id: 'activity',      label: 'Activity',       icon: Activity    },
+  { id: 'overview',      label: 'Overview',     icon: Building2  },
+  { id: 'members',       label: 'Members',       icon: UserPlus   },
+  { id: 'users',         label: 'Users',         icon: Users      },
+  { id: 'subscription',  label: 'Subscription',  icon: CreditCard },
+  { id: 'products',      label: 'Products',      icon: Package    },
+  { id: 'activity',      label: 'Activity',      icon: Activity   },
 ]
 
 const ORG_ROLES: OrganisationRole[] = [
@@ -87,13 +98,20 @@ const MEMBERSHIP_STYLES: Record<MembershipStatus, string> = {
   removed:  'bg-red-50 text-error border-red-200',
 }
 
-const PRODUCT_NAMES: Record<string, string> = {
-  fai_reports: 'Balloon Drawings + AS9102 FAI Reports',
-  battery_pm:  'Battery Predictive Maintenance',
-  motor_pm:    'Motor Predictive Maintenance',
-  energy_mgmt: 'Energy Management',
-  clean_room:  'Clean Room Solutions',
-}
+const ALL_PRODUCTS: { id: ProductId; label: string }[] = [
+  { id: 'fai_reports', label: 'Balloon Drawings + AS9102 FAI Reports' },
+  { id: 'battery_pm',  label: 'Battery Predictive Maintenance' },
+  { id: 'motor_pm',    label: 'Motor Predictive Maintenance' },
+  { id: 'energy_mgmt', label: 'Energy Management' },
+  { id: 'clean_room',  label: 'Clean Room Solutions' },
+]
+
+const SUBSCRIPTION_TYPES = [
+  { value: 'free',    label: 'Free' },
+  { value: 'trial',   label: 'Trial' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'annual',  label: 'Annual' },
+] as const
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -106,11 +124,12 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="card">
-      <div className="px-5 py-4 border-b border-border">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-2">
         <h2 className="text-base font-bold text-text-primary">{title}</h2>
+        {action}
       </div>
       <div className="px-5 py-4">{children}</div>
     </div>
@@ -127,6 +146,24 @@ function FeedbackRow({ type, msg }: { type: 'success' | 'error'; msg: string }) 
         ? <CheckCircle2 className="w-4 h-4 shrink-0" />
         : <AlertTriangle className="w-4 h-4 shrink-0" />}
       {msg}
+    </div>
+  )
+}
+
+// ─── Suspended banner ─────────────────────────────────────────────────────────
+
+function SuspendedBanner({ partnerName }: { partnerName?: string }) {
+  return (
+    <div className="flex items-start gap-3 px-5 py-4 rounded-xl
+      bg-red-50 border border-red-200 text-sm text-error">
+      <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+      <div>
+        <p className="font-semibold">Subscription Expired</p>
+        <p className="text-xs text-red-600 mt-0.5">
+          This organisation is read-only. Contact{' '}
+          {partnerName ? `${partnerName} Partner Admin` : 'Partner Admin'} to renew the subscription.
+        </p>
+      </div>
     </div>
   )
 }
@@ -154,8 +191,9 @@ function OverviewSection({ org, partner }: { org: Organisation; partner: Partner
       </SectionCard>
 
       <SectionCard title="Seat Limits">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
+            { role: 'owner',     limit: org.ownerLimit    },
             { role: 'manager',   limit: org.managerLimit   },
             { role: 'engineer',  limit: org.engineerLimit  },
             { role: 'inspector', limit: org.inspectorLimit },
@@ -594,56 +632,413 @@ function UsersSection({
 
 // ─── Subscription section ─────────────────────────────────────────────────────
 
-function SubscriptionSection({ org }: { org: Organisation }) {
+function SubscriptionSection({
+  org, canEdit, callerUid, callerEmail,
+}: {
+  org: Organisation
+  canEdit: boolean
+  callerUid: string
+  callerEmail: string
+}) {
   const status = getOrganisationStatus(org)
-  const start  = org.subscriptionStartDate
-    ? new Date(org.subscriptionStartDate.seconds * 1000).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
-    : '—'
-  return (
-    <SectionCard title="Subscription">
-      <InfoRow label="Plan"       value={<span className="capitalize">{org.subscriptionType}</span>} />
-      <InfoRow label="Status"     value={
-        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLES[status]}`}>
-          {STATUS_LABELS[status]}
-        </span>
-      } />
-      <InfoRow label="Start Date" value={start} />
-      <InfoRow label="Expiry"     value={formatOrgExpiry(org)} />
-      <InfoRow label="Currency"   value={org.currency} />
-      <div className="mt-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
-        <p className="text-xs text-amber-700">
-          Subscription editing is available in Sprint 9.
-        </p>
+
+  // Form state initialised from org
+  const [plan,     setPlan]     = useState(org.subscriptionType)
+  const [currency, setCurrency] = useState<SupportedCurrency>((org.currency as SupportedCurrency) ?? 'INR')
+  const [startStr, setStartStr] = useState(
+    org.subscriptionStartDate
+      ? formatDateInput(new Date(org.subscriptionStartDate.seconds * 1000))
+      : formatDateInput(new Date()),
+  )
+  const [expiryStr, setExpiryStr] = useState(
+    org.subscriptionExpiryDate
+      ? formatDateInput(new Date(org.subscriptionExpiryDate.seconds * 1000))
+      : formatDateInput(new Date()),
+  )
+  const [totalAmt,    setTotalAmt]    = useState(String(org.totalAmount))
+  const [discountAmt, setDiscountAmt] = useState(String(org.discountAmount))
+  const [paidAmt,     setPaidAmt]     = useState(String(org.paidAmount))
+  const [notes,       setNotes]       = useState(org.subscriptionNotes ?? '')
+
+  // Seat limits
+  const [ownerLim,    setOwnerLim]    = useState(String(org.ownerLimit))
+  const [managerLim,  setManagerLim]  = useState(String(org.managerLimit))
+  const [engineerLim, setEngineerLim] = useState(String(org.engineerLimit))
+  const [inspectorLim,setInspectorLim]= useState(String(org.inspectorLimit))
+  const [auditorLim,  setAuditorLim]  = useState(String(org.auditorLimit))
+  const [approverLim, setApproverLim] = useState(String(org.approverLimit))
+  const [viewerLim,   setViewerLim]   = useState(String(org.viewerLimit))
+
+  const [saving,   setSaving]   = useState(false)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  function showFeedback(type: 'success' | 'error', msg: string) {
+    setFeedback({ type, msg })
+    setTimeout(() => setFeedback(null), 5000)
+  }
+
+  // Auto-recalculate expiry when plan or start date changes
+  useEffect(() => {
+    if (!startStr) return
+    const expiry = calculateExpiryDate(plan, parseDateInput(startStr))
+    setExpiryStr(formatDateInput(expiry))
+  }, [plan, startStr])
+
+  const balance = calculateBalanceAmount(
+    Number(totalAmt)    || 0,
+    Number(discountAmt) || 0,
+    Number(paidAmt)     || 0,
+  )
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const prevType  = org.subscriptionType
+      const newType   = plan
+      const startDate = parseDateInput(startStr)
+      const expDate   = parseDateInput(expiryStr)
+
+      const seatsChanged =
+        Number(ownerLim)    !== org.ownerLimit    ||
+        Number(managerLim)  !== org.managerLimit  ||
+        Number(engineerLim) !== org.engineerLimit ||
+        Number(inspectorLim)!== org.inspectorLimit||
+        Number(auditorLim)  !== org.auditorLimit  ||
+        Number(approverLim) !== org.approverLimit ||
+        Number(viewerLim)   !== org.viewerLimit
+
+      await updateOrganisation(org.organisationId, {
+        subscriptionType:       newType,
+        subscriptionStartDate:  Timestamp.fromDate(startDate),
+        subscriptionExpiryDate: Timestamp.fromDate(expDate),
+        currency,
+        totalAmount:            Number(totalAmt)    || 0,
+        discountAmount:         Number(discountAmt) || 0,
+        paidAmount:             Number(paidAmt)     || 0,
+        balanceAmount:          balance,
+        subscriptionNotes:      notes.trim() || undefined,
+        ownerLimit:             Number(ownerLim)    || 1,
+        managerLimit:           Number(managerLim)  || 0,
+        engineerLimit:          Number(engineerLim) || 0,
+        inspectorLimit:         Number(inspectorLim)|| 0,
+        auditorLimit:           Number(auditorLim)  || 0,
+        approverLimit:          Number(approverLim) || 0,
+        viewerLimit:            Number(viewerLim)   || 0,
+      })
+
+      await logOrgActivity({
+        organisationId: org.organisationId,
+        eventType:      'subscription.updated',
+        actorUid:       callerUid,
+        actorEmail:     callerEmail,
+        description:    prevType !== newType
+          ? `Subscription changed: ${prevType} → ${newType}`
+          : `Subscription updated (${newType})`,
+        metadata: { from: prevType, to: newType, currency, totalAmount: Number(totalAmt) },
+      })
+
+      if (seatsChanged) {
+        await logOrgActivity({
+          organisationId: org.organisationId,
+          eventType:      'seat.limit.changed',
+          actorUid:       callerUid,
+          actorEmail:     callerEmail,
+          description:    'Seat limits updated',
+          metadata: {
+            owner: Number(ownerLim), manager: Number(managerLim), engineer: Number(engineerLim),
+            inspector: Number(inspectorLim), auditor: Number(auditorLim),
+            approver: Number(approverLim), viewer: Number(viewerLim),
+          },
+        })
+      }
+
+      showFeedback('success', 'Subscription saved.')
+    } catch {
+      showFeedback('error', 'Failed to save subscription.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fieldCls = `w-full px-3 py-2 rounded-xl border border-border text-sm
+    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition`
+
+  const readCls  = `w-full px-3 py-2 rounded-xl border border-border text-sm bg-gray-50 text-text-primary`
+
+  // Read-only view for devs
+  if (!canEdit) {
+    const startStr_ = org.subscriptionStartDate
+      ? new Date(org.subscriptionStartDate.seconds * 1000).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })
+      : '—'
+    return (
+      <div className="flex flex-col gap-4">
+        <SectionCard title="Subscription">
+          <InfoRow label="Plan"       value={<span className="capitalize">{org.subscriptionType}</span>} />
+          <InfoRow label="Status"     value={
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLES[status]}`}>
+              {STATUS_LABELS[status]}
+            </span>
+          } />
+          <InfoRow label="Start Date" value={startStr_} />
+          <InfoRow label="Expiry"     value={formatOrgExpiry(org)} />
+          <InfoRow label="Currency"   value={org.currency} />
+          <InfoRow label="Total"      value={`${org.currency} ${org.totalAmount.toLocaleString()}`} />
+          <InfoRow label="Discount"   value={`${org.currency} ${org.discountAmount.toLocaleString()}`} />
+          <InfoRow label="Paid"       value={`${org.currency} ${org.paidAmount.toLocaleString()}`} />
+          <InfoRow label="Balance"    value={`${org.currency} ${org.balanceAmount.toLocaleString()}`} />
+          {org.subscriptionNotes && <InfoRow label="Notes" value={org.subscriptionNotes} />}
+          <div className="mt-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+            <p className="text-xs text-amber-700">Developer accounts are view-only for subscription data.</p>
+          </div>
+        </SectionCard>
+        <SectionCard title="Seat Limits">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { role: 'Owner',     limit: org.ownerLimit    },
+              { role: 'Manager',   limit: org.managerLimit   },
+              { role: 'Engineer',  limit: org.engineerLimit  },
+              { role: 'Inspector', limit: org.inspectorLimit },
+              { role: 'Auditor',   limit: org.auditorLimit   },
+              { role: 'Approver',  limit: org.approverLimit  },
+              { role: 'Viewer',    limit: org.viewerLimit    },
+            ].map(({ role, limit }) => (
+              <div key={role} className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 border border-border">
+                <span className="text-xs font-medium text-text-secondary">{role}</span>
+                <span className={`text-sm font-bold ${limit === 0 ? 'text-text-secondary' : 'text-text-primary'}`}>
+                  {limit === 0 ? '—' : limit}
+                </span>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
       </div>
-    </SectionCard>
+    )
+  }
+
+  // Editable form for partner admins
+  return (
+    <form onSubmit={handleSave} className="flex flex-col gap-4">
+      {feedback && <FeedbackRow type={feedback.type} msg={feedback.msg} />}
+
+      {/* Plan & Dates */}
+      <SectionCard title="Plan">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Plan</label>
+            <select value={plan} onChange={e => setPlan(e.target.value as typeof plan)} className={fieldCls}>
+              {SUBSCRIPTION_TYPES.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Status</label>
+            <div className={readCls}>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLES[status]}`}>
+                {STATUS_LABELS[status]}
+              </span>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Start Date</label>
+            <input type="date" value={startStr} onChange={e => setStartStr(e.target.value)} className={fieldCls} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
+              Expiry Date
+              <span className="text-[10px] font-normal ml-1 text-text-secondary">(auto from plan)</span>
+            </label>
+            <input type="date" value={expiryStr} onChange={e => setExpiryStr(e.target.value)} className={fieldCls} />
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Billing */}
+      <SectionCard title="Billing">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Currency</label>
+            <select value={currency} onChange={e => setCurrency(e.target.value as SupportedCurrency)} className={fieldCls}>
+              {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Total Amount</label>
+            <input type="number" min="0" step="1" value={totalAmt} onChange={e => setTotalAmt(e.target.value)} className={fieldCls} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Discount</label>
+            <input type="number" min="0" step="1" value={discountAmt} onChange={e => setDiscountAmt(e.target.value)} className={fieldCls} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Paid Amount</label>
+            <input type="number" min="0" step="1" value={paidAmt} onChange={e => setPaidAmt(e.target.value)} className={fieldCls} />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
+              Balance <span className="text-[10px] font-normal">(auto)</span>
+            </label>
+            <div className={`${readCls} font-semibold ${balance > 0 ? 'text-error' : 'text-success'}`}>
+              {currency} {balance.toLocaleString()}
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Notes</label>
+            <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Internal billing notes…"
+              className={`${fieldCls} resize-none`}
+            />
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Seat Limits */}
+      <SectionCard title="Seat Limits">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {([
+            ['Owner',     ownerLim,     setOwnerLim,    1],
+            ['Manager',   managerLim,   setManagerLim,  0],
+            ['Engineer',  engineerLim,  setEngineerLim, 0],
+            ['Inspector', inspectorLim, setInspectorLim,0],
+            ['Auditor',   auditorLim,   setAuditorLim,  0],
+            ['Approver',  approverLim,  setApproverLim, 0],
+            ['Viewer',    viewerLim,    setViewerLim,   0],
+          ] as [string, string, React.Dispatch<React.SetStateAction<string>>, number][]).map(([label, val, setter, min]) => (
+            <div key={label}>
+              <label className="text-xs font-medium text-text-secondary block mb-1">{label}</label>
+              <input
+                type="number" min={min} step="1" value={val}
+                onChange={e => setter(e.target.value)}
+                className={fieldCls}
+              />
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={saving}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white
+            text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save Subscription
+        </button>
+      </div>
+    </form>
   )
 }
 
 // ─── Products section ─────────────────────────────────────────────────────────
 
-function ProductsSection({ org }: { org: Organisation }) {
+function ProductsSection({
+  org, partner, canEdit, callerUid, callerEmail,
+}: {
+  org: Organisation
+  partner: Partner | null
+  canEdit: boolean
+  callerUid: string
+  callerEmail: string
+}) {
+  // Products the partner allows (default to all if partner not yet loaded)
+  const partnerProducts: ProductId[] = partner?.enabledProducts ?? ALL_PRODUCTS.map(p => p.id)
+
+  // Which products are enabled on this org
+  const [enabled,  setEnabled]  = useState<ProductId[]>(org.enabledProducts)
+  const [saving,   setSaving]   = useState(false)
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  // Sync if org updates externally
+  useEffect(() => { setEnabled(org.enabledProducts) }, [org.enabledProducts])
+
+  function showFeedback(type: 'success' | 'error', msg: string) {
+    setFeedback({ type, msg })
+    setTimeout(() => setFeedback(null), 5000)
+  }
+
+  async function toggle(productId: ProductId) {
+    const wasEnabled = enabled.includes(productId)
+    const next       = wasEnabled
+      ? enabled.filter(p => p !== productId)
+      : [...enabled, productId]
+    setEnabled(next)
+    setSaving(true)
+    try {
+      await updateOrganisation(org.organisationId, { enabledProducts: next })
+      await logOrgActivity({
+        organisationId: org.organisationId,
+        eventType:      wasEnabled ? 'product.disabled' : 'product.enabled',
+        actorUid:       callerUid,
+        actorEmail:     callerEmail,
+        description:    `${ALL_PRODUCTS.find(p => p.id === productId)?.label ?? productId} ${wasEnabled ? 'disabled' : 'enabled'}`,
+        metadata:       { productId },
+      })
+    } catch {
+      setEnabled(org.enabledProducts)
+      showFeedback('error', 'Failed to update product entitlements.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <SectionCard title="Enabled Products">
-      {org.enabledProducts.length === 0 ? (
-        <p className="text-sm text-text-secondary italic">No products enabled for this organisation.</p>
-      ) : (
+    <div className="flex flex-col gap-4">
+      {feedback && <FeedbackRow type={feedback.type} msg={feedback.msg} />}
+
+      <SectionCard
+        title="Product Entitlements"
+        action={saving ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : undefined}
+      >
+        {canEdit && (
+          <p className="text-xs text-text-secondary mb-3">
+            Showing products available to this partner. Toggle to enable or disable for this organisation.
+          </p>
+        )}
         <div className="flex flex-col gap-2">
-          {org.enabledProducts.map(id => (
-            <div key={id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl
-              bg-success/5 border border-success/20">
-              <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-text-primary">{PRODUCT_NAMES[id] ?? id}</p>
-                <p className="text-[10px] font-mono text-text-secondary">{id}</p>
+          {ALL_PRODUCTS.map(({ id, label }) => {
+            const partnerAllows = partnerProducts.includes(id)
+            const isEnabled     = enabled.includes(id)
+            return (
+              <div
+                key={id}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors
+                  ${isEnabled && partnerAllows
+                    ? 'bg-success/5 border-success/20'
+                    : !partnerAllows
+                    ? 'bg-gray-50 border-border opacity-50'
+                    : 'bg-white border-border'}`}
+              >
+                {canEdit && partnerAllows ? (
+                  <input
+                    type="checkbox"
+                    checked={isEnabled}
+                    onChange={() => toggle(id)}
+                    disabled={saving}
+                    className="w-4 h-4 accent-primary cursor-pointer"
+                  />
+                ) : (
+                  isEnabled && partnerAllows
+                    ? <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                    : <div className="w-4 h-4 rounded border border-border bg-gray-100 shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-text-primary">{label}</p>
+                  <p className="text-[10px] font-mono text-text-secondary">{id}</p>
+                </div>
+                {!partnerAllows && (
+                  <span className="text-[10px] text-text-secondary bg-gray-100 px-1.5 py-0.5 rounded border border-border shrink-0">
+                    Not in partner plan
+                  </span>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
-      )}
-      <div className="mt-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
-        <p className="text-xs text-amber-700">Product entitlement editing will be available in a future sprint.</p>
-      </div>
-    </SectionCard>
+      </SectionCard>
+    </div>
   )
 }
 
@@ -736,6 +1131,7 @@ function ActivitySection({ organisationId }: { organisationId: string }) {
 export function OrganisationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { firebaseUser } = useAuth()
+  const { isPartnerAdminUser, primaryPartnerId } = usePartnerAccess()
 
   const [org,     setOrg]     = useState<Organisation | null>(null)
   const [partner, setPartner] = useState<Partner | null>(null)
@@ -751,6 +1147,11 @@ export function OrganisationDetailPage() {
     m => m.userUid === callerUid && m.role === 'owner' && m.membershipStatus !== 'removed',
   )
   const canManage  = isDev || isOrgOwner
+
+  // Partner admin can edit subscription if this org belongs to their partner
+  const canEditSubscription = isPartnerAdminUser
+    && !!org
+    && primaryPartnerId === org.partnerId
 
   useEffect(() => {
     if (!id) { setLoading(false); return }
@@ -796,7 +1197,8 @@ export function OrganisationDetailPage() {
     )
   }
 
-  const status = getOrganisationStatus(org)
+  const status    = getOrganisationStatus(org)
+  const suspended = status === 'suspended'
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -826,6 +1228,12 @@ export function OrganisationDetailPage() {
       </header>
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+
+        {suspended && (
+          <div className="mb-5">
+            <SuspendedBanner partnerName={partner?.name} />
+          </div>
+        )}
 
         <div className="flex items-center border-b border-border mb-6 gap-0.5 overflow-x-auto">
           {SECTION_TABS.map(({ id: sid, label, icon: Icon }) => (
@@ -861,8 +1269,23 @@ export function OrganisationDetailPage() {
             canManage={canManage}
           />
         )}
-        {section === 'subscription' && <SubscriptionSection org={org} />}
-        {section === 'products'     && <ProductsSection org={org} />}
+        {section === 'subscription' && (
+          <SubscriptionSection
+            org={org}
+            canEdit={canEditSubscription}
+            callerUid={callerUid}
+            callerEmail={callerEmail}
+          />
+        )}
+        {section === 'products'     && (
+          <ProductsSection
+            org={org}
+            partner={partner}
+            canEdit={canEditSubscription}
+            callerUid={callerUid}
+            callerEmail={callerEmail}
+          />
+        )}
         {section === 'activity'     && <ActivitySection organisationId={org.organisationId} />}
 
       </main>

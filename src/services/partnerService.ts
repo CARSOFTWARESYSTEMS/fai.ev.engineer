@@ -9,22 +9,27 @@ import {
   type Timestamp,
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
+import type { ProductId } from '../auth/AuthTypes'
+
+// All product IDs — used as the default entitlement set when a partner has no explicit list
+const ALL_PRODUCTS: ProductId[] = ['fai_reports', 'battery_pm', 'motor_pm', 'energy_mgmt', 'clean_room']
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export interface Partner {
-  partnerId:    string
-  name:         string
-  code:         string          // short lowercase identifier (e.g. "ifab")
-  brandingId?:  string          // reference to brandings/{brandingId}
-  domains:      string[]        // hostnames served by this partner
-  supportEmail?: string
-  supportPhone?: string
-  website?:     string
-  enabled:      boolean
-  createdAt:    Timestamp | null
-  updatedAt:    Timestamp | null
-  createdBy:    string          // uid of Platform Admin who created
+  partnerId:       string
+  name:            string
+  code:            string          // short lowercase identifier (e.g. "ifab")
+  brandingId?:     string          // reference to brandings/{brandingId}
+  domains:         string[]        // hostnames served by this partner
+  supportEmail?:   string
+  supportPhone?:   string
+  website?:        string
+  enabled:         boolean
+  enabledProducts: ProductId[]     // products available to this partner's orgs; defaults to all
+  createdAt:       Timestamp | null
+  updatedAt:       Timestamp | null
+  createdBy:       string          // uid of Platform Admin who created
 }
 
 export type CreatePartnerInput = Omit<Partner, 'partnerId' | 'createdAt' | 'updatedAt'>
@@ -45,8 +50,9 @@ function toPartner(id: string, data: Record<string, unknown>): Partner {
     supportEmail: data.supportEmail as string | undefined,
     supportPhone: data.supportPhone as string | undefined,
     website:      data.website      as string | undefined,
-    enabled:      (data.enabled as boolean)     ?? true,
-    createdAt:    (data.createdAt  as Timestamp | null) ?? null,
+    enabled:         (data.enabled         as boolean)     ?? true,
+    enabledProducts: (data.enabledProducts as ProductId[]) ?? [...ALL_PRODUCTS],
+    createdAt:       (data.createdAt       as Timestamp | null) ?? null,
     updatedAt:    (data.updatedAt  as Timestamp | null) ?? null,
     createdBy:    (data.createdBy  as string)   ?? '',
   }
@@ -113,5 +119,15 @@ export async function enablePartner(partnerId: string): Promise<void> {
   await updateDoc(doc(firestore, 'partners', partnerId), {
     enabled: true,
     updatedAt: serverTimestamp(),
+  })
+}
+
+export async function updatePartnerEntitlements(
+  partnerId: string,
+  products:  ProductId[],
+): Promise<void> {
+  await updateDoc(doc(firestore, 'partners', partnerId), {
+    enabledProducts: products,
+    updatedAt:       serverTimestamp(),
   })
 }

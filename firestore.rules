@@ -202,11 +202,16 @@ service cloud.firestore {
     }
 
     // ── partnerAdmins/{uid} ───────────────────────────────────────────────────
+    // Active records: doc ID = Firebase UID, data.uid = uid.
+    // Pending records: doc ID = pending_{email}, data.uid = null (user not yet registered).
     match /partnerAdmins/{adminUid} {
       allow read:   if isDeveloper() || isAdmin() || (isAuth() && uid() == adminUid);
       allow create: if isDeveloper()
-                       && request.resource.data.get('uid', '') == adminUid
-                       && request.resource.data.get('status', '') in ['active', 'deactivated'];
+                       && (
+                         request.resource.data.get('uid', '') == adminUid
+                         || (adminUid.matches('pending_.*') && request.resource.data.uid == null)
+                       )
+                       && request.resource.data.get('status', '') in ['active', 'deactivated', 'pending'];
       allow update: if isDeveloper();
       allow delete: if isDeveloper();
     }
@@ -370,6 +375,11 @@ service cloud.firestore {
     // Platform-admin and bootstrap-developer may read/write all orgs.
     // Partner admins may read and update orgs that belong to their partner.
     // Deletes are soft (status set to 'inactive') — hard deletes not allowed.
+    //
+    // Subscription editing (Sprint 10):
+    //   Editable:  super_admin, admin, partner_super_admin, partner_admin
+    //   View-only: bootstrap developer (enforced at UI layer — Firestore allows for org mgmt)
+    //   Hidden:    organisation users (no rule grants org-user update access)
     match /organisations/{organisationId} {
       allow read:   if isDeveloper()
                     || isAdmin()
