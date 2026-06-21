@@ -2,6 +2,7 @@ import { collection, onSnapshot, doc, deleteDoc, getDoc, updateDoc, deleteField 
 import { firestore } from '../firebase/firestore'
 import type { UserRecord } from './roleManagementService'
 import type { LifecycleStatus } from '../auth/AuthTypes'
+import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../lib/contactMessage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,16 +74,23 @@ export function buildContactLinks(user: DirectoryUser): ContactLinks {
   const rawPhone  = user.mobileNumber?.trim() ?? ''
   const waNumber  = rawPhone ? normalizePhoneForWhatsApp(rawPhone) : null
   const domain    = user.signupDomain || LEGACY_DOMAIN
-  const name      = user.displayName || 'User'
-
-  const waText = encodeURIComponent(
-    `Hello ${name}, this is regarding your FAI Engineer account on ${domain}.`
-  )
+  const context: ContactMessageContext = {
+    userName: user.displayName,
+    userEmail: user.email,
+    userPhone: rawPhone,
+    userRole: user.role,
+    userLifecycleStatus: getEffectiveLifecycleStatus(user),
+    domain,
+    partnerName: user.signupPartnerName,
+    organizationName: user.organizationName,
+    organizationCode: user.organizationCode,
+    issue: 'This is regarding your FAI Engineer account.',
+  }
 
   return {
     tel:      rawPhone ? `tel:${rawPhone}` : null,
-    mailto:   `mailto:${user.email}`,
-    whatsapp: waNumber ? `https://wa.me/${waNumber}?text=${waText}` : null,
+    mailto:   buildMailtoLink(user.email, `FAI Engineer Account Support — ${user.email}`, context),
+    whatsapp: waNumber ? buildWhatsAppLink(waNumber, context) : null,
   }
 }
 

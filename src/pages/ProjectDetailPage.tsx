@@ -47,9 +47,9 @@ import {
   isDueThisWeek,
 } from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
-import { ProjectLifecycleRestricted } from '../components/ui/ProjectLifecycleRestricted'
+import { ProjectLifecycleRestricted, type ProjectLifecycleRestrictedProps } from '../components/ui/ProjectLifecycleRestricted'
 import { getProjectAccessSummaryById } from '../projects/projectAccessSummary.service'
-import { getProjectLifecycleStatus, isProjectOpenAllowed, type ProjectLifecycleStatus } from '../projects/projectLifecycle'
+import { getProjectLifecycleStatus, isProjectOpenAllowed } from '../projects/projectLifecycle'
 
 function DetailRow({ icon, label, value, mono }: {
   icon: React.ReactNode
@@ -80,7 +80,7 @@ export function ProjectDetailPage() {
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
-  const [restricted, setRestricted] = useState<{ status: Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>; projectName?: string } | null>(null)
+  const [restricted, setRestricted] = useState<ProjectLifecycleRestrictedProps | null>(null)
 
   const [showDelete,      setShowDelete]      = useState(false)
   const [isDeleting,      setIsDeleting]      = useState(false)
@@ -161,14 +161,14 @@ export function ProjectDetailPage() {
         if (!p) {
           const summary = await getProjectAccessSummaryById(projectId)
           if (summary && summary.ownerUid === user?.uid && !isProjectOpenAllowed(summary, user?.role)) {
-            setRestricted({ status: summary.lifecycleStatus as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: summary.projectName })
+            setRestricted({ status: summary.lifecycleStatus as ProjectLifecycleRestrictedProps['status'], projectName: summary.projectName, projectId, partNumber: summary.partNumber, projectStatus: summary.status })
             return
           }
           setErrorMsg('Project not found or you do not have access.')
           return
         }
         if (!isProjectOpenAllowed(p, user?.role)) {
-          setRestricted({ status: getProjectLifecycleStatus(p) as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: p.projectName })
+          setRestricted({ status: getProjectLifecycleStatus(p) as ProjectLifecycleRestrictedProps['status'], projectName: p.projectName, projectId, partNumber: p.partNumber, drawingNumber: p.drawingNumber, projectStatus: p.status })
           return
         }
         if (p.uid !== user?.uid) {

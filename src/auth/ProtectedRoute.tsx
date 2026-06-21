@@ -4,6 +4,7 @@ import { useAuth } from './hooks/useAuth'
 import { useBranding } from '../hooks/useBranding'
 import { isLifecycleAccessBlocked } from '../services/lifecycleService'
 import type { LifecycleStatus } from './AuthTypes'
+import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../lib/contactMessage'
 
 function Spinner() {
   return (
@@ -49,15 +50,20 @@ interface BlockedPageProps {
 
 function AccessBlockedPage({ status, email, onSignOut }: BlockedPageProps) {
   const { branding } = useBranding()
+  const { user } = useAuth()
   const content = ACCESS_BLOCKED_CONTENT[status] ?? ACCESS_BLOCKED_CONTENT.blocked
-
-  const waText = encodeURIComponent(
-    [
-      `Hello Admin Team, my FAI Engineer account is ${content.actionVerb}.`,
-      `Signed-in email: ${email}`,
-      `Please review and reactivate my account.`,
-    ].join('\n')
-  )
+  const contactContext: ContactMessageContext = {
+    userName: user?.displayName,
+    userEmail: email,
+    userPhone: user?.mobileNumber,
+    userRole: user?.role,
+    userLifecycleStatus: status,
+    domain: window.location.hostname,
+    partnerName: branding.businessName,
+    organizationName: user?.organizationName,
+    organizationCode: user?.organizationCode,
+    issue: `My FAI Engineer account is ${content.actionVerb}. Please review.`,
+  }
 
   async function handleSignOut() {
     try { await onSignOut() } catch { /* ignore */ }
@@ -94,7 +100,7 @@ function AccessBlockedPage({ status, email, onSignOut }: BlockedPageProps) {
 
           {branding.supportEmail && (
             <a
-              href={`mailto:${branding.supportEmail}?subject=Account%20${content.actionVerb}&body=Hello%20Admin%2C%20my%20account%20(${encodeURIComponent(email)})%20is%20${content.actionVerb}.%20Please%20review.`}
+              href={buildMailtoLink(branding.supportEmail, `FAI Engineer Account Support — ${email}`, contactContext)}
               className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-border text-sm font-medium text-text-primary hover:bg-background transition-colors"
             >
               <Mail className="w-4 h-4 text-blue-500 shrink-0" />
@@ -114,7 +120,7 @@ function AccessBlockedPage({ status, email, onSignOut }: BlockedPageProps) {
 
           {branding.whatsappNumber && (
             <a
-              href={`https://wa.me/${branding.whatsappNumber}?text=${waText}`}
+              href={buildWhatsAppLink(branding.whatsappNumber, contactContext)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl border border-green-200 bg-green-50 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"

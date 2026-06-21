@@ -1159,15 +1159,15 @@ function UserCard({
 function DomainGroup({
   domain,
   users,
-  defaultOpen,
   onAction,
 }: {
   domain:      string
   users:       DirectoryUser[]
-  defaultOpen: boolean
   onAction:    (user: DirectoryUser, action: LifecycleAction) => void
 }) {
-  const [open, setOpen] = useState(defaultOpen)
+  const [open, setOpen] = useState(false)
+  const [visibleLifecycle, setVisibleLifecycle] = useState<LifecycleStatus | 'all' | null>(null)
+  const [selectionRevision, setSelectionRevision] = useState(0)
   const label    = domainDisplayLabel(domain)
   const isLegacy = domain === LEGACY_DOMAIN
 
@@ -1183,43 +1183,80 @@ function DomainGroup({
     return map
   }, [users])
 
-  const nonEmptyCategories = LIFECYCLE_STATUS_ORDER.filter(s => (byStatus.get(s)?.length ?? 0) > 0)
+  const selectLifecycle = (lifecycle: LifecycleStatus | 'all') => {
+    setOpen(true)
+    setVisibleLifecycle(lifecycle)
+    // Remount displayed sections so the selected category/categories open immediately.
+    setSelectionRevision(revision => revision + 1)
+  }
+
+  const chipClass = (lifecycle: LifecycleStatus | 'all') => {
+    const selected = visibleLifecycle === lifecycle
+    const colour = lifecycle === 'all'
+      ? 'bg-blue-100 text-blue-700 border-blue-200'
+      : LIFECYCLE_BADGE[lifecycle]
+    return [
+      'inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold px-2 py-1 rounded-full border transition-all whitespace-nowrap',
+      colour,
+      selected ? 'ring-2 ring-offset-1 ring-primary/40 shadow-sm' : 'hover:brightness-95',
+    ].join(' ')
+  }
+
+  const displayedCategories = visibleLifecycle && visibleLifecycle !== 'all'
+    ? [visibleLifecycle]
+    : LIFECYCLE_STATUS_ORDER
 
   return (
     <div className="border border-border rounded-xl overflow-hidden mb-3">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-white hover:bg-background/50 transition-colors"
-      >
-        <div className="flex items-center gap-2.5">
-          <Globe className={`w-4 h-4 ${isLegacy ? 'text-text-secondary/50' : 'text-primary'}`} />
-          <span className={`text-sm font-semibold ${isLegacy ? 'text-text-secondary' : 'text-text-primary'}`}>{label}</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-            {users.length} {users.length === 1 ? 'user' : 'users'}
-          </span>
-          <div className="flex gap-1">
-            {nonEmptyCategories.map(s => (
-              <span key={s} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${LIFECYCLE_BADGE[s]}`}>
-                {byStatus.get(s)!.length} {s === 'permanently_deleted' ? 'perm' : s}
-              </span>
-            ))}
-          </div>
+      <div className="flex flex-col lg:flex-row lg:items-center gap-2.5 px-3 sm:px-4 py-3 bg-white">
+        <button
+          onClick={() => setOpen(current => !current)}
+          aria-expanded={open}
+          className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity"
+        >
+          <Globe className={`w-4 h-4 shrink-0 ${isLegacy ? 'text-text-secondary/50' : 'text-primary'}`} />
+          <span className={`text-sm font-semibold truncate ${isLegacy ? 'text-text-secondary' : 'text-text-primary'}`}>{label}</span>
+        </button>
+
+        <div className="flex flex-wrap items-center gap-1.5 lg:flex-1">
+          <button type="button" onClick={() => selectLifecycle('all')}
+            aria-pressed={visibleLifecycle === 'all'} className={chipClass('all')}>
+            {users.length} Users
+          </button>
+          {LIFECYCLE_STATUS_ORDER.map(status => (
+            <button type="button" key={status} onClick={() => selectLifecycle(status)}
+              aria-pressed={visibleLifecycle === status} className={chipClass(status)}>
+              {byStatus.get(status)?.length ?? 0}{' '}
+              {status === 'permanently_deleted'
+                ? 'Permanently Deleted'
+                : status.charAt(0).toUpperCase() + status.slice(1)}
+            </button>
+          ))}
         </div>
-        {open
-          ? <ChevronDown  className="w-4 h-4 text-text-secondary shrink-0" />
-          : <ChevronRight className="w-4 h-4 text-text-secondary shrink-0" />}
-      </button>
+
+        <button
+          type="button"
+          onClick={() => setOpen(current => !current)}
+          aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
+          aria-expanded={open}
+          className="self-end lg:self-auto p-1.5 rounded-lg text-text-secondary hover:text-primary hover:bg-primary/5 transition-colors"
+        >
+          {open
+            ? <ChevronDown  className="w-4 h-4" />
+            : <ChevronRight className="w-4 h-4" />}
+        </button>
+      </div>
 
       {open && (
         <div className="border-t border-border">
-          {LIFECYCLE_STATUS_ORDER.map(lc => {
+          {displayedCategories.map(lc => {
             const bucket = byStatus.get(lc) ?? []
             return (
               <LifecycleCategorySection
-                key={lc}
+                key={`${lc}-${selectionRevision}`}
                 category={lc}
                 users={bucket}
-                defaultOpen={lc === 'active' || lc === 'blocked'}
+                defaultOpen
                 onAction={onAction}
               />
             )
@@ -1456,12 +1493,11 @@ export function ContactsTab() {
           </div>
         ) : (
           <div>
-            {[...grouped.entries()].map(([domain, users], idx) => (
+            {[...grouped.entries()].map(([domain, users]) => (
               <DomainGroup
                 key={domain}
                 domain={domain}
                 users={users}
-                defaultOpen={idx === 0}
                 onAction={requestAction}
               />
             ))}

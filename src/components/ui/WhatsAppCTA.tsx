@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Phone, ChevronDown } from 'lucide-react'
 import { useBranding } from '../../hooks/useBranding'
+import { buildWhatsAppLink, type ContactMessageContext } from '../../lib/contactMessage'
 
 const WA_GREEN = '#25D366'
 
@@ -11,7 +12,11 @@ export function WhatsAppCTA() {
   const [pathname, setPathname] = useState(window.location.pathname)
   const ref = useRef<HTMLDivElement>(null)
   const { branding } = useBranding()
-  const whatsappText = encodeURIComponent(`${branding.businessName} - FAI Reports`)
+  const contactContext: ContactMessageContext = {
+    domain: window.location.hostname,
+    partnerName: branding.businessName,
+    issue: 'I need help with FAI Engineer.',
+  }
 
   // Track client-side navigation (React Router uses History API push/replace)
   useEffect(() => {
@@ -108,7 +113,7 @@ export function WhatsAppCTA() {
                     <Phone className="w-3.5 h-3.5 text-text-secondary" />
                   </a>
                   <a
-                    href={`https://wa.me/${n.number}?text=${whatsappText}`}
+                    href={buildWhatsAppLink(n.number, contactContext)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-full transition-opacity hover:opacity-90"

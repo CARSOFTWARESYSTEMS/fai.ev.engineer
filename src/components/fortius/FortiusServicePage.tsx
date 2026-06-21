@@ -12,6 +12,7 @@ import {
   trackFortiusServiceCTAClick,
   trackFortiusRelatedServiceClick,
 } from '../../services/AnalyticsService'
+import { buildMailtoLink } from '../../lib/contactMessage'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -144,7 +145,10 @@ export function FortiusServicePage({ service }: { service: FortiusService }) {
     }
   }, [service, canonical])
 
-  const mailtoHref = `mailto:vnyk.hgde@gmail.com?subject=${encodeURIComponent(service.ctaEmailSubject)}`
+  const mailtoHref = buildMailtoLink('vnyk.hgde@gmail.com', service.ctaEmailSubject, {
+    partnerName: 'Fortius Machining Solutions',
+    issue: `I am interested in ${service.name}.`,
+  })
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">

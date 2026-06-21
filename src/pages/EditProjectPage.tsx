@@ -44,9 +44,9 @@ import {
 } from '../projects/projectPriority'
 import { toDate } from '../projects/projectDueDate'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
-import { ProjectLifecycleRestricted } from '../components/ui/ProjectLifecycleRestricted'
+import { ProjectLifecycleRestricted, type ProjectLifecycleRestrictedProps } from '../components/ui/ProjectLifecycleRestricted'
 import { getProjectAccessSummaryById } from '../projects/projectAccessSummary.service'
-import { getProjectLifecycleStatus, isProjectEditable, type ProjectLifecycleStatus } from '../projects/projectLifecycle'
+import { getProjectLifecycleStatus, isProjectEditable } from '../projects/projectLifecycle'
 
 interface FormState {
   projectName: string
@@ -121,7 +121,7 @@ export function EditProjectPage() {
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
-  const [restricted, setRestricted] = useState<{ status: Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>; projectName?: string } | null>(null)
+  const [restricted, setRestricted] = useState<ProjectLifecycleRestrictedProps | null>(null)
 
   const [form, setForm] = useState<FormState>({
     projectName: '',
@@ -166,13 +166,13 @@ export function EditProjectPage() {
         if (!p) {
           const summary = await getProjectAccessSummaryById(projectId)
           if (summary && summary.ownerUid === user?.uid && !isProjectEditable(summary, user?.role)) {
-            setRestricted({ status: summary.lifecycleStatus as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: summary.projectName })
+            setRestricted({ status: summary.lifecycleStatus as ProjectLifecycleRestrictedProps['status'], projectName: summary.projectName, projectId, partNumber: summary.partNumber, projectStatus: summary.status })
             return
           }
           setLoadError('Project not found or you do not have access.'); return
         }
         if (!isProjectEditable(p, user?.role)) {
-          setRestricted({ status: getProjectLifecycleStatus(p) as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: p.projectName })
+          setRestricted({ status: getProjectLifecycleStatus(p) as ProjectLifecycleRestrictedProps['status'], projectName: p.projectName, projectId, partNumber: p.partNumber, drawingNumber: p.drawingNumber, projectStatus: p.status })
           return
         }
         if (p.uid !== user?.uid) { setLoadError('You do not have access to this project.'); return }

@@ -1,13 +1,41 @@
 import { Link } from 'react-router-dom'
 import { useBranding } from '../../hooks/useBranding'
 import type { ProjectLifecycleStatus } from '../../projects/projectLifecycle'
+import { useAuth } from '../../auth/hooks/useAuth'
+import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../../lib/contactMessage'
 
-export function ProjectLifecycleRestricted({ status, projectName }: {
+export interface ProjectLifecycleRestrictedProps {
   status: Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>
   projectName?: string
-}) {
+  projectId?: string
+  partNumber?: string
+  drawingNumber?: string
+  projectStatus?: string
+}
+
+export function ProjectLifecycleRestricted({ status, projectName, projectId, partNumber, drawingNumber, projectStatus }: ProjectLifecycleRestrictedProps) {
   const { branding } = useBranding()
+  const { user, firebaseUser } = useAuth()
   const label = status === 'permanently_deleted' ? 'permanently deleted' : status
+  const resolvedProjectId = projectId || window.location.pathname.split('/projects/')[1]?.split('/')[0]
+  const contactContext: ContactMessageContext = {
+    userName: user?.displayName,
+    userEmail: firebaseUser?.email ?? user?.email,
+    userPhone: user?.mobileNumber,
+    userRole: user?.role,
+    userLifecycleStatus: user?.lifecycleStatus,
+    domain: window.location.hostname,
+    partnerName: branding.businessName,
+    organizationName: user?.organizationName,
+    organizationCode: user?.organizationCode,
+    projectName,
+    projectId: resolvedProjectId,
+    partNumber,
+    drawingNumber,
+    projectStatus,
+    projectLifecycleStatus: status,
+    issue: `Please review this ${label} project.`,
+  }
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="card max-w-md w-full p-7 text-center">
@@ -23,7 +51,15 @@ export function ProjectLifecycleRestricted({ status, projectName }: {
         )}
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           {status !== 'permanently_deleted' && branding.supportEmail && (
-            <a className="btn-primary text-sm" href={`mailto:${branding.supportEmail}`}>Contact Admin</a>
+            <a className="btn-primary text-sm" href={buildMailtoLink(
+              branding.supportEmail,
+              `FAI Engineer Project Support — ${projectName || resolvedProjectId || 'Project'}`,
+              contactContext,
+            )}>Contact Admin</a>
+          )}
+          {status !== 'permanently_deleted' && branding.whatsappNumber && (
+            <a className="btn-secondary text-sm" target="_blank" rel="noreferrer"
+              href={buildWhatsAppLink(branding.whatsappNumber, contactContext)}>WhatsApp</a>
           )}
           <Link to="/projects" className="btn-secondary text-sm">Back to Projects</Link>
         </div>

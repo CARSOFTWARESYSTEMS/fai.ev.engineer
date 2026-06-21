@@ -56,6 +56,7 @@ import {
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
 import { BetaTestingBanner } from '../components/ui/BetaTestingBanner'
 import { BetaWatermark } from '../components/ui/BetaWatermark'
+import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../lib/contactMessage'
 
 type ViewMode = 'priority' | 'date' | 'list' | 'kanban'
 
@@ -141,8 +142,26 @@ function RestrictedProjectCard({ project, supportEmail, supportPhone, supportWha
   supportPhone?: string
   supportWhatsapp?: string
 }) {
+  const { user, firebaseUser } = useAuth()
   const lifecycle = getProjectLifecycleStatus(project)
   const blocked = lifecycle === 'blocked'
+  const contactContext: ContactMessageContext = {
+    userName: user?.displayName,
+    userEmail: firebaseUser?.email ?? user?.email,
+    userPhone: user?.mobileNumber,
+    userRole: user?.role,
+    userLifecycleStatus: user?.lifecycleStatus,
+    domain: window.location.hostname,
+    organizationName: user?.organizationName,
+    organizationCode: user?.organizationCode,
+    projectName: project.projectName,
+    projectId: project.projectId,
+    partNumber: project.partNumber,
+    drawingNumber: project.drawingNumber,
+    projectStatus: PROJECT_STATUS_LABELS[project.status],
+    projectLifecycleStatus: lifecycle,
+    issue: blocked ? 'Please review and unblock this project.' : 'Please review this deleted project.',
+  }
   return (
     <div className={`rounded-xl border p-4 ${blocked ? 'border-red-200 bg-red-50/40' : 'border-gray-300 bg-gray-50'}`}>
       <span className={`inline-flex text-xs font-bold px-2 py-0.5 rounded-full ${blocked ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-700'}`}>
@@ -154,10 +173,12 @@ function RestrictedProjectCard({ project, supportEmail, supportPhone, supportWha
         {blocked ? <>This project is blocked.<br />Please contact Admin team.</> :
           lifecycle === 'deleted' ? 'This project is marked as deleted.' : 'This project is permanently deleted.'}
       </p>
-      {blocked && (supportEmail || supportPhone || supportWhatsapp) && (
+      {lifecycle !== 'permanently_deleted' && (supportEmail || supportPhone || supportWhatsapp) && (
         <div className="mt-4 flex flex-wrap gap-3 border-t border-red-100 pt-3">
-          {supportEmail && <a className="text-xs font-semibold text-red-700 hover:underline" href={`mailto:${supportEmail}`}>Contact Admin</a>}
-          {supportWhatsapp && <a className="text-xs font-semibold text-green-700 hover:underline" href={`https://wa.me/${supportWhatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a>}
+          {supportEmail && <a className="text-xs font-semibold text-red-700 hover:underline"
+            href={buildMailtoLink(supportEmail, `FAI Engineer Project Support — ${project.projectName}`, contactContext)}>Contact Admin</a>}
+          {supportWhatsapp && <a className="text-xs font-semibold text-green-700 hover:underline"
+            href={buildWhatsAppLink(supportWhatsapp, contactContext)} target="_blank" rel="noreferrer">WhatsApp</a>}
           {supportPhone && <a className="text-xs font-semibold text-text-secondary hover:underline" href={`tel:${supportPhone}`}>Call</a>}
         </div>
       )}
@@ -744,7 +765,8 @@ export function ProjectsPage() {
           <section className="mt-10">
             <h2 className="text-sm font-bold text-text-primary mb-3">Deleted Projects</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {deletedProjects.map(project => <RestrictedProjectCard key={project.projectId} project={project} />)}
+              {deletedProjects.map(project => <RestrictedProjectCard key={project.projectId} project={project}
+                supportEmail={branding.supportEmail} supportPhone={branding.supportPhone} supportWhatsapp={branding.whatsappNumber} />)}
             </div>
           </section>
         )}

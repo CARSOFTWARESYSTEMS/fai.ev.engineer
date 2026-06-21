@@ -10,6 +10,7 @@ import { useDeveloperAccess } from '../services/useDeveloperAccess'
 import { useCurrentPartner } from '../services/partnerAccessService'
 import { type Partner } from '../services/partnerService'
 import { UserAvatarMenu } from '../components/ui/UserAvatarMenu'
+import { buildMailtoLink } from '../lib/contactMessage'
 
 // ─── Sub-navigation ────────────────────────────────────────────────────────────
 
@@ -109,7 +110,11 @@ function PartnerDetailCard({ partner }: { partner: Partner }) {
               <Mail className="w-4 h-4 text-text-secondary shrink-0 mt-0.5" />
               <div>
                 <p className="text-[10px] font-medium text-text-secondary uppercase tracking-wide mb-0.5">Support Email</p>
-                <a href={`mailto:${partner.supportEmail}`} className="text-sm text-text-primary hover:text-primary transition-colors">
+                <a href={buildMailtoLink(
+                  partner.supportEmail,
+                  `FAI Engineer Organization Support — ${partner.name}`,
+                  { partnerName: partner.name, domain: partner.domains.join(', '), issue: 'Partner support request.' },
+                )} className="text-sm text-text-primary hover:text-primary transition-colors">
                   {partner.supportEmail}
                 </a>
               </div>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { MessageCircle, Mail, Phone, Globe } from 'lucide-react'
 import { useBranding } from '../../hooks/useBranding'
+import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../../lib/contactMessage'
 
 const footerSections = [
   {
@@ -42,12 +43,16 @@ export function Footer() {
   const waNumber      = branding.whatsappNumber
   const techNumber    = branding.technicalSupportNumber
   const website       = branding.website
-  const whatsappText  = encodeURIComponent(`${branding.businessName} - FAI Reports`)
+  const contactContext: ContactMessageContext = {
+    domain: window.location.hostname,
+    partnerName: branding.businessName,
+    issue: 'I need help with FAI Engineer.',
+  }
 
   const resourceLinks = [
     { label: 'Documentation', href: '#' },
     { label: 'FAQ', href: '#faq' },
-    ...(supportEmail ? [{ label: 'Support', href: `mailto:${supportEmail}` }] : []),
+    ...(supportEmail ? [{ label: 'Support', href: buildMailtoLink(supportEmail, `FAI Engineer Support — ${branding.businessName}`, contactContext) }] : []),
   ]
 
   return (
@@ -102,7 +107,7 @@ export function Footer() {
             {/* Email */}
             {supportEmail && (
               <a
-                href={`mailto:${supportEmail}`}
+                href={buildMailtoLink(supportEmail, `FAI Engineer Support — ${branding.businessName}`, contactContext)}
                 className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-5 group"
               >
                 <Mail className="w-4 h-4 text-primary group-hover:text-white transition-colors" />
@@ -124,14 +129,14 @@ export function Footer() {
                     <ContactRow
                       number={waNumber}
                       label="Sales & Marketing"
-                      whatsappText={whatsappText}
+                      contactContext={contactContext}
                     />
                   )}
                   {techNumber && techNumber !== waNumber && (
                     <ContactRow
                       number={techNumber}
                       label="Technical Support"
-                      whatsappText={whatsappText}
+                      contactContext={contactContext}
                     />
                   )}
                 </div>
@@ -185,7 +190,7 @@ export function Footer() {
               </li>
               {supportEmail && (
                 <li>
-                  <a href={`mailto:${supportEmail}`}
+                  <a href={buildMailtoLink(supportEmail, `FAI Engineer Support — ${branding.businessName}`, contactContext)}
                     className="text-sm text-slate-400 hover:text-white transition-colors">
                     Contact
                   </a>
@@ -235,13 +240,13 @@ export function Footer() {
   )
 }
 
-function ContactRow({ number, label, whatsappText }: { number: string; label: string; whatsappText: string }) {
+function ContactRow({ number, label, contactContext }: { number: string; label: string; contactContext: ContactMessageContext }) {
   const clean   = number.replace(/\D/g, '')
   const display = `+${clean}`
   return (
     <div className="flex items-center gap-2">
       <a
-        href={`https://wa.me/${clean}?text=${whatsappText}`}
+        href={buildWhatsAppLink(clean, contactContext)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-[#25D366] transition-colors group"

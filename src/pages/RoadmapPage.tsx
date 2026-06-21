@@ -1,6 +1,7 @@
 import { CheckCircle, Circle, Clock } from 'lucide-react'
 import { Header } from '../components/layout/Header'
 import { Footer } from '../components/layout/Footer'
+import { buildMailtoLink } from '../lib/contactMessage'
 
 type RoadmapStatus = 'done' | 'in-progress' | 'planned'
 
@@ -160,7 +161,7 @@ export function RoadmapPage() {
                 Start 7-Day Trial
               </a>
               <a
-                href="mailto:info@iTelematics.com"
+                href={buildMailtoLink('info@iTelematics.com', 'FAI Engineer Roadmap Feedback', { issue: 'I would like to share roadmap feedback.' })}
                 className="btn-secondary w-full sm:w-auto"
               >
                 Share Feedback

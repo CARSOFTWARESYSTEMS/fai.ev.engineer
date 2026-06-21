@@ -9,6 +9,12 @@ import {
   trackFortiusDirectionsClick,
   trackFortiusExternalLinkClick,
 } from '../../services/AnalyticsService'
+import { buildMailtoLink } from '../../lib/contactMessage'
+
+const FORTIUS_EMAIL_LINK = buildMailtoLink('vnyk.hgde@gmail.com', 'Fortius Manufacturing Enquiry', {
+  partnerName: 'Fortius Machining Solutions',
+  issue: 'I would like to discuss a manufacturing enquiry.',
+})
 
 const FORTIUS_MAPS_URL =
   'https://www.google.com/maps/place/Fortius+Machining+Solutions+Pvt.+Ltd./@13.1029875,77.4992532,1046m/data=!3m2!1e3!4b1!4m6!3m5!1s0x3bae2300551346fd:0x884f69eefd04da5f!8m2!3d13.1029875!4d77.5018281!16s%2Fg%2F11yfjw4rl_?entry=ttu&g_ep=EgoyMDI2MDYwMy4xIKXMDSoASAFQAw%3D%3D'
@@ -210,7 +216,7 @@ export function FortiusFooter() {
 
             {/* Email */}
             <a
-              href="mailto:vnyk.hgde@gmail.com"
+              href={FORTIUS_EMAIL_LINK}
               onClick={trackFortiusFooterEmailClick}
               className="flex items-start gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-4 group"
             >
@@ -244,7 +250,7 @@ export function FortiusFooter() {
             {/* CTAs — min 44px touch height */}
             <div className="flex flex-col gap-2.5">
               <a
-                href="mailto:vnyk.hgde@gmail.com"
+                href={FORTIUS_EMAIL_LINK}
                 onClick={trackFortiusFooterEmailClick}
                 className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 border border-slate-600 text-slate-300 text-sm font-semibold rounded-lg hover:bg-white/10 hover:text-white transition-colors"
               >

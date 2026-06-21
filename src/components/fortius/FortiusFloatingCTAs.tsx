@@ -4,11 +4,10 @@ import {
   trackFortiusFloatingWhatsAppClick,
   trackFortiusDirectionsClick,
 } from '../../services/AnalyticsService'
+import { buildWhatsAppLink } from '../../lib/contactMessage'
 
 const FORTIUS_MAPS_URL =
   'https://www.google.com/maps/place/Fortius+Machining+Solutions+Pvt.+Ltd./@13.1029875,77.4992532,1046m/data=!3m2!1e3!4b1!4m6!3m5!1s0x3bae2300551346fd:0x884f69eefd04da5f!8m2!3d13.1029875!4d77.5018281!16s%2Fg%2F11yfjw4rl_?entry=ttu&g_ep=EgoyMDI2MDYwMy4xIKXMDSoASAFQAw%3D%3D'
-
-const WA_TEXT = encodeURIComponent('Hi Fortius, I am interested in your precision machining services.')
 
 export function FortiusFloatingCTAs() {
   return (
@@ -41,7 +40,7 @@ export function FortiusFloatingCTAs() {
 
       {/* Bottom-right: WhatsApp */}
       <a
-        href={`https://wa.me/918880423666?text=${WA_TEXT}`}
+        href={buildWhatsAppLink('918880423666', { partnerName: 'Fortius Machining Solutions', issue: 'I am interested in your precision machining services.' })}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Fortius on WhatsApp"

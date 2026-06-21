@@ -50,6 +50,7 @@ import {
   type DueDateFilter,
 } from '../projects/projectFilters'
 import { fmtDueDate, dueDateStatus } from '../projects/projectDueDate'
+import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../lib/contactMessage'
 
 // ─── Feature badge keys (admin panel only) ────────────────────────────────────
 
@@ -457,6 +458,23 @@ export function DashboardPage() {
                                   : dStatus === 'today'   ? 'text-orange-600 font-medium'
                                   : dStatus === 'soon'    ? 'text-warning font-medium'
                                   : 'text-text-secondary'
+                const contactContext: ContactMessageContext = {
+                  userName: user?.displayName,
+                  userEmail: firebaseUser?.email ?? user?.email,
+                  userPhone: user?.mobileNumber,
+                  userRole: user?.role,
+                  userLifecycleStatus: user?.lifecycleStatus,
+                  domain: window.location.hostname,
+                  organizationName: user?.organizationName,
+                  organizationCode: user?.organizationCode,
+                  projectName: project.projectName,
+                  projectId: project.projectId,
+                  partNumber: project.partNumber,
+                  drawingNumber: project.drawingNumber,
+                  projectStatus: PROJECT_STATUS_LABELS[project.status],
+                  projectLifecycleStatus: project.lifecycleStatus,
+                  issue: 'Please review and unblock this project.',
+                }
 
                 if (blocked) {
                   return (
@@ -476,13 +494,13 @@ export function DashboardPage() {
                       </p>
                       <div className="mt-auto pt-3 border-t border-red-100 flex flex-wrap gap-2">
                         {branding.supportEmail && (
-                          <a href={`mailto:${branding.supportEmail}?subject=Blocked%20Project%3A%20${encodeURIComponent(project.projectName)}`}
+                          <a href={buildMailtoLink(branding.supportEmail, `FAI Engineer Project Support — ${project.projectName}`, contactContext)}
                             className="inline-flex items-center gap-1 text-xs font-medium text-red-700 hover:underline">
                             Email Admin
                           </a>
                         )}
                         {branding.whatsappNumber && (
-                          <a href={`https://wa.me/${branding.whatsappNumber}?text=${encodeURIComponent(`Hi, my project "${project.projectName}" is blocked. Please review.`)}`}
+                          <a href={buildWhatsAppLink(branding.whatsappNumber, contactContext)}
                             target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:underline">
                             WhatsApp

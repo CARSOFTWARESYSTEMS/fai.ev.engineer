@@ -31,9 +31,9 @@ import { PdfLoadingState } from './PdfLoadingState'
 import { PdfErrorState } from './PdfErrorState'
 import { exportBalloonedPdf } from '../../export/services/balloonedPdfExportService'
 import { FairPackageModal } from '../../export/components/FairPackageModal'
-import { ProjectLifecycleRestricted } from '../../../components/ui/ProjectLifecycleRestricted'
+import { ProjectLifecycleRestricted, type ProjectLifecycleRestrictedProps } from '../../../components/ui/ProjectLifecycleRestricted'
 import { getProjectAccessSummaryById } from '../../../projects/projectAccessSummary.service'
-import { getProjectLifecycleStatus, isProjectOpenAllowed, type ProjectLifecycleStatus } from '../../../projects/projectLifecycle'
+import { getProjectLifecycleStatus, isProjectOpenAllowed } from '../../../projects/projectLifecycle'
 
 type PdfLoadPhase = 'project' | 'drive' | 'download'
 type PdfLoadErrorAction = 'retry' | 'reconnect-drive'
@@ -79,7 +79,7 @@ export function PdfViewerPage() {
   const [loadPhase, setLoadPhase] = useState<PdfLoadPhase>('project')
   const [error, setError] = useState('')
   const [errorAction, setErrorAction] = useState<PdfLoadErrorAction>('retry')
-  const [restricted, setRestricted] = useState<{ status: Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>; projectName?: string } | null>(null)
+  const [restricted, setRestricted] = useState<ProjectLifecycleRestrictedProps | null>(null)
   const [pdfCanvas, setPdfCanvas] = useState<HTMLCanvasElement | null>(null)
   const [balloonFocusRequest, setBalloonFocusRequest] = useState(0)
   const loadRequestRef = useRef(0)
@@ -255,13 +255,13 @@ export function PdfViewerPage() {
       if (!p) {
         const summary = await getProjectAccessSummaryById(projectId)
         if (summary && summary.ownerUid === user.uid && !isProjectOpenAllowed(summary, user.role)) {
-          setRestricted({ status: summary.lifecycleStatus as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: summary.projectName })
+          setRestricted({ status: summary.lifecycleStatus as ProjectLifecycleRestrictedProps['status'], projectName: summary.projectName, projectId, partNumber: summary.partNumber, projectStatus: summary.status })
           return
         }
         setError('Project not found or you do not have access.'); return
       }
       if (!isProjectOpenAllowed(p, user.role)) {
-        setRestricted({ status: getProjectLifecycleStatus(p) as Extract<ProjectLifecycleStatus, 'blocked' | 'deleted' | 'permanently_deleted'>, projectName: p.projectName })
+        setRestricted({ status: getProjectLifecycleStatus(p) as ProjectLifecycleRestrictedProps['status'], projectName: p.projectName, projectId, partNumber: p.partNumber, drawingNumber: p.drawingNumber, projectStatus: p.status })
         return
       }
       if (p.uid !== user.uid) { setError('You do not have access to this project.'); return }

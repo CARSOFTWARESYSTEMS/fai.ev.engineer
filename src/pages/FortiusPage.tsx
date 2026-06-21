@@ -31,6 +31,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { buildMailtoLink, buildWhatsAppLink } from '../lib/contactMessage'
 import { FortiusHeader } from '../components/layout/FortiusHeader'
 import { FortiusFooter } from '../components/layout/FortiusFooter'
 import { FortiusFAQ } from '../components/fortius/FortiusFAQ'
@@ -691,15 +692,11 @@ function ContactForm() {
     }
     trackFortiusContactFormSubmit(form.name, form.company)
     trackFortiusLeadGenerated(form.name, form.company, form.email)
-    const body = [
-      `Name: ${form.name}`,
-      `Company: ${form.company}`,
-      `Email: ${form.email}`,
-      `Phone: ${form.phone}`,
-      `\nRequirement:\n${form.requirement}`,
-    ].join('\n')
-    const subject = encodeURIComponent(`Manufacturing Enquiry — ${form.company || form.name}`)
-    window.location.href = `mailto:vnyk.hgde@gmail.com?subject=${subject}&body=${encodeURIComponent(body)}`
+    window.location.href = buildMailtoLink(
+      'vnyk.hgde@gmail.com',
+      `Manufacturing Enquiry — ${form.company || form.name}`,
+      { userName: form.name, userEmail: form.email, userPhone: form.phone, organizationName: form.company, issue: form.requirement },
+    )
   }
 
   return (
@@ -1463,7 +1460,7 @@ export function FortiusPage() {
                     +91 88804 23666
                   </a>
                   <a
-                    href="mailto:vnyk.hgde@gmail.com"
+                    href={buildMailtoLink('vnyk.hgde@gmail.com', 'Fortius Manufacturing Enquiry', { partnerName: 'Fortius Machining Solutions', issue: 'I would like to discuss a manufacturing enquiry.' })}
                     onClick={(e) => { e.stopPropagation(); trackFortiusFounderEmailClick('Vinayak Hegde') }}
                     className="flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-primary transition-colors"
                   >
@@ -1570,7 +1567,7 @@ export function FortiusPage() {
                 +91 88804 23666
               </a>
               <a
-                href="mailto:vnyk.hgde@gmail.com"
+                href={buildMailtoLink('vnyk.hgde@gmail.com', 'Fortius Manufacturing Enquiry', { partnerName: 'Fortius Machining Solutions', issue: 'I would like to discuss a manufacturing enquiry.' })}
                 className="flex items-center gap-2 hover:text-primary transition-colors"
               >
                 <Mail className="w-4 h-4 text-primary shrink-0" />
@@ -1626,7 +1623,7 @@ export function FortiusPage() {
 
       {/* Bottom-right: WhatsApp */}
       <a
-        href={`https://wa.me/918880423666?text=${encodeURIComponent('Hi Fortius, I am interested in your precision machining services.')}`}
+        href={buildWhatsAppLink('918880423666', { partnerName: 'Fortius Machining Solutions', issue: 'I am interested in your precision machining services.' })}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with Fortius on WhatsApp"
