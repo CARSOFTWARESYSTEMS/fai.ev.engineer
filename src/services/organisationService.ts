@@ -18,6 +18,9 @@ import type { ProductId, OrganisationRole } from '../auth/AuthTypes'
 export type OrgStatus = 'active' | 'inactive' | 'trial' | 'suspended'
 export type OrgSubscriptionType = 'free' | 'trial' | 'monthly' | 'annual'
 
+// Tracks the lifecycle state of a membership record
+export type MembershipStatus = 'pending' | 'active' | 'inactive' | 'removed'
+
 export interface Organisation {
   organisationId:         string
   partnerId:              string
@@ -43,14 +46,17 @@ export interface Organisation {
 }
 
 export interface OrganisationMember {
-  membershipId:   string
-  organisationId: string
-  userUid:        string
-  userEmail:      string
-  role:           OrganisationRole
-  active:         boolean
-  createdAt:      Timestamp | null
-  createdBy:      string
+  membershipId:     string
+  organisationId:   string
+  userUid:          string
+  userEmail:        string
+  role:             OrganisationRole
+  membershipStatus: MembershipStatus
+  // active mirrors membershipStatus === 'active' || membershipStatus === 'pending'
+  // kept for backwards compatibility with Sprint 7 data
+  active:           boolean
+  createdAt:        Timestamp | null
+  createdBy:        string
 }
 
 export interface CreateOrganisationInput {
@@ -66,6 +72,49 @@ export interface CreateOrganisationInput {
 export type UpdateOrganisationInput = Partial<
   Omit<Organisation, 'organisationId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'code' | 'partnerId'>
 >
+
+// ─── Seat limit helpers ────────────────────────────────────────────────────────
+
+const ROLE_LIMIT_KEY: Partial<Record<OrganisationRole, keyof Organisation>> = {
+  manager:   'managerLimit',
+  engineer:  'engineerLimit',
+  inspector: 'inspectorLimit',
+  auditor:   'auditorLimit',
+  approver:  'approverLimit',
+  viewer:    'viewerLimit',
+}
+
+export function canAddOrganisationMember(
+  org:     Organisation,
+  members: OrganisationMember[],
+  role:    OrganisationRole,
+): boolean {
+  if (role === 'owner') {
+    // Only one owner per org
+    return !members.some(m => m.role === 'owner' && m.membershipStatus !== 'removed')
+  }
+  const limitKey = ROLE_LIMIT_KEY[role]
+  if (!limitKey) return true
+  const limit = org[limitKey] as number
+  if (limit === 0) return false
+  const current = members.filter(
+    m => m.role === role && (m.membershipStatus === 'active' || m.membershipStatus === 'pending'),
+  ).length
+  return current < limit
+}
+
+export function getSeatLimitMessage(role: OrganisationRole): string {
+  const label: Record<OrganisationRole, string> = {
+    owner:     'Owner',
+    manager:   'Manager',
+    engineer:  'Engineer',
+    inspector: 'Inspector',
+    auditor:   'Auditor',
+    approver:  'Approver',
+    viewer:    'Viewer',
+  }
+  return `${label[role]} seat limit reached. Contact Partner Admin to increase limits.`
+}
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -97,16 +146,27 @@ function toOrganisation(id: string, data: Record<string, unknown>): Organisation
   }
 }
 
+function deriveActive(ms: MembershipStatus): boolean {
+  return ms === 'active' || ms === 'pending'
+}
+
 function toMember(id: string, data: Record<string, unknown>): OrganisationMember {
+  // Derive membershipStatus from legacy active field for Sprint 7 documents
+  let membershipStatus: MembershipStatus =
+    (data.membershipStatus as MembershipStatus | undefined) ?? 'active'
+  if (!data.membershipStatus) {
+    membershipStatus = (data.active as boolean) === false ? 'removed' : 'active'
+  }
   return {
-    membershipId:   id,
-    organisationId: (data.organisationId as string)           ?? '',
-    userUid:        (data.userUid        as string)           ?? '',
-    userEmail:      (data.userEmail      as string)           ?? '',
-    role:           (data.role           as OrganisationRole) ?? 'viewer',
-    active:         (data.active         as boolean)          ?? true,
-    createdAt:      (data.createdAt      as Timestamp | null) ?? null,
-    createdBy:      (data.createdBy      as string)           ?? '',
+    membershipId:     id,
+    organisationId:   (data.organisationId as string)           ?? '',
+    userUid:          (data.userUid        as string)           ?? '',
+    userEmail:        (data.userEmail      as string)           ?? '',
+    role:             (data.role           as OrganisationRole) ?? 'viewer',
+    membershipStatus,
+    active:           deriveActive(membershipStatus),
+    createdAt:        (data.createdAt      as Timestamp | null) ?? null,
+    createdBy:        (data.createdBy      as string)           ?? '',
   }
 }
 
@@ -229,6 +289,8 @@ export async function archiveOrganisation(id: string): Promise<void> {
   })
 }
 
+// ─── Member write operations ───────────────────────────────────────────────────
+
 export async function addOrganisationMember(opts: {
   organisationId: string
   userUid:        string
@@ -236,20 +298,46 @@ export async function addOrganisationMember(opts: {
   role:           OrganisationRole
   createdBy:      string
 }): Promise<string> {
+  const membershipStatus: MembershipStatus = opts.userUid ? 'active' : 'pending'
   const ref = await addDoc(collection(firestore, 'organisationMembers'), {
-    organisationId: opts.organisationId,
-    userUid:        opts.userUid,
-    userEmail:      opts.userEmail,
-    role:           opts.role,
-    active:         true,
-    createdAt:      serverTimestamp(),
-    createdBy:      opts.createdBy,
+    organisationId:   opts.organisationId,
+    userUid:          opts.userUid,
+    userEmail:        opts.userEmail,
+    role:             opts.role,
+    membershipStatus,
+    active:           deriveActive(membershipStatus),
+    createdAt:        serverTimestamp(),
+    createdBy:        opts.createdBy,
   })
   return ref.id
 }
 
+export async function updateMemberRole(
+  membershipId: string,
+  newRole:      OrganisationRole,
+): Promise<void> {
+  await updateDoc(doc(firestore, 'organisationMembers', membershipId), {
+    role: newRole,
+  })
+}
+
+export async function deactivateMember(membershipId: string): Promise<void> {
+  await updateDoc(doc(firestore, 'organisationMembers', membershipId), {
+    membershipStatus: 'inactive' satisfies MembershipStatus,
+    active:           false,
+  })
+}
+
+export async function reactivateMember(membershipId: string): Promise<void> {
+  await updateDoc(doc(firestore, 'organisationMembers', membershipId), {
+    membershipStatus: 'active' satisfies MembershipStatus,
+    active:           true,
+  })
+}
+
 export async function removeOrganisationMember(membershipId: string): Promise<void> {
   await updateDoc(doc(firestore, 'organisationMembers', membershipId), {
-    active: false,
+    membershipStatus: 'removed' satisfies MembershipStatus,
+    active:           false,
   })
 }

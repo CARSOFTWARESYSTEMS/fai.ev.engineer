@@ -71,6 +71,15 @@ service cloud.firestore {
 
     // ── Partner admin helper ──────────────────────────────────────────────────
 
+    // True if the requesting user is the owner of the given organisation.
+    // Uses the denormalised ownerUid field on the organisations document.
+    function isOrgOwner(organisationId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/organisations/$(organisationId)) &&
+        get(/databases/$(database)/documents/organisations/$(organisationId))
+          .data.get('ownerUid', '') == uid();
+    }
+
     function isPartnerAdminForPartner(partnerId) {
       return isAuth() &&
         exists(/databases/$(database)/documents/partnerAdmins/$(uid())) &&
@@ -374,15 +383,40 @@ service cloud.firestore {
 
     // ── organisationMembers/{membershipId} ────────────────────────────────────
     // Platform-admin and bootstrap-developer may read/write all memberships.
-    // Partner admins may read/write memberships for orgs in their partner scope.
-    // Organisation members may read their own membership record.
-    // Deletes are soft (active set to false) — hard deletes not allowed.
+    // Org owners may create/update memberships within their organisation.
+    // Any member may read their own membership record.
+    // Deletes are soft (membershipStatus / active field) — hard deletes not allowed.
     match /organisationMembers/{membershipId} {
       allow read:   if isDeveloper()
                     || isAdmin()
-                    || (isAuth() && resource.data.userUid == uid());
-      allow create: if isDeveloper() || isAdmin();
-      allow update: if isDeveloper() || isAdmin();
+                    || (isAuth() && resource.data.userUid == uid())
+                    || isOrgOwner(resource.data.organisationId);
+      allow create: if isDeveloper()
+                    || isAdmin()
+                    || isOrgOwner(request.resource.data.organisationId);
+      allow update: if isDeveloper()
+                    || isAdmin()
+                    || isOrgOwner(resource.data.organisationId);
+      allow delete: if false;
+    }
+
+    // ── organisationActivityLogs/{logId} ──────────────────────────────────────
+    // Append-only activity log for organisation events.
+    // Platform admins, org owners, and org members may read.
+    // Anyone authenticated and non-lifecycle-blocked may create (actions fire this).
+    // Never update or delete — immutable audit trail.
+    match /organisationActivityLogs/{logId} {
+      allow read:   if isDeveloper()
+                    || isAdmin()
+                    || isOrgOwner(resource.data.organisationId)
+                    || (isAuth() && !isCurrentUserLifecycleBlocked());
+      allow create: if isAuth()
+                    && !isCurrentUserLifecycleBlocked()
+                    && request.resource.data.keys().hasAll([
+                         'organisationId', 'eventType', 'actorUid',
+                         'actorEmail', 'description', 'createdAt'
+                       ]);
+      allow update: if false;
       allow delete: if false;
     }
   }

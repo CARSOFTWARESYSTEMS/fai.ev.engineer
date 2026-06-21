@@ -73,6 +73,7 @@ import {
 } from '../services/partnerService'
 import {
   subscribeAllOrganisations,
+  subscribePartnerOrganisations,
   createOrganisation,
   getOrganisationStatus,
   formatOrgExpiry,
@@ -83,6 +84,7 @@ import type { ProductId } from '../auth/AuthTypes'
 import {
   assignPartnerAdmin,
   subscribePartnerAccess,
+  usePartnerAccess,
 } from '../services/partnerAccessService'
 import { listUsers } from '../services/roleManagementService'
 
@@ -3397,6 +3399,8 @@ const ORG_STATUS_LABELS: Record<OrgStatus, string> = {
 }
 
 function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
+  const { isPartnerAdminUser, primaryPartnerId } = usePartnerAccess()
+
   const [organisations, setOrganisations] = useState<Organisation[]>([])
   const [partners,      setPartners]      = useState<Partner[]>([])
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
@@ -3411,10 +3415,13 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
   const [oProducts,  setOProducts]  = useState<ProductId[]>(['fai_reports'])
 
   useEffect(() => {
-    const u1 = subscribeAllOrganisations(setOrganisations)
+    // Partner admins see only their own partner's organisations
+    const u1 = isPartnerAdminUser && primaryPartnerId
+      ? subscribePartnerOrganisations(primaryPartnerId, setOrganisations)
+      : subscribeAllOrganisations(setOrganisations)
     const u2 = subscribePartners(setPartners)
     return () => { u1(); u2() }
-  }, [])
+  }, [isPartnerAdminUser, primaryPartnerId])
 
   useEffect(() => {
     if (!oName) return
