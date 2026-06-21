@@ -156,10 +156,15 @@ export function UserActivityLogModal({ targetUid, targetEmail, onClose }: Props)
   useEffect(() => {
     setLoading(true)
     setError(false)
-    const unsub = subscribeUserActivityLogs(targetUid, incoming => {
-      setLogs(incoming)
-      setLoading(false)
-    })
+    const unsub = subscribeUserActivityLogs(
+      targetUid,
+      incoming => { setLogs(incoming); setLoading(false) },
+      err => {
+        console.error('[ActivityLog] Subscription error:', err)
+        setError(true)
+        setLoading(false)
+      },
+    )
     return unsub
   }, [targetUid])
 
@@ -244,9 +249,12 @@ export function UserActivityLogModal({ targetUid, targetEmail, onClose }: Props)
             </div>
           )}
           {!loading && error && (
-            <div className="flex items-center justify-center py-10 gap-2 text-error text-sm">
-              <AlertCircle className="w-4 h-4" />
-              Failed to load activity log. Check Firestore permissions.
+            <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              <p className="text-sm font-medium text-red-600">Could not load activity log</p>
+              <p className="text-[11px] text-text-secondary/60 max-w-xs">
+                Firestore rules or index may not be deployed yet. Publish <code className="bg-gray-100 px-1 rounded">firestore.rules</code> and <code className="bg-gray-100 px-1 rounded">firestore.indexes.json</code> in Firebase Console.
+              </p>
             </div>
           )}
           {!loading && !error && filtered.length === 0 && (

@@ -305,6 +305,7 @@ export function logPartnerAdminRevoked(params: {
 export function subscribeUserActivityLogs(
   targetUid: string,
   callback:  (logs: UserActivityLog[]) => void,
+  onError?:  (err: Error) => void,
 ): () => void {
   const q = query(
     collection(firestore, 'userActivityLogs'),
@@ -314,7 +315,7 @@ export function subscribeUserActivityLogs(
   return onSnapshot(
     q,
     snap => callback(snap.docs.map(d => ({ logId: d.id, ...(d.data() as Omit<UserActivityLog, 'logId'>) }))),
-    () => callback([]),
+    err  => { callback([]); onError?.(err) },
   )
 }
 
