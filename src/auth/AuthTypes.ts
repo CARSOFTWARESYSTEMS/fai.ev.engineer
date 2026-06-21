@@ -6,6 +6,15 @@ import type { User as FirebaseUser } from 'firebase/auth'
 // 'user' | 'admin' are legacy values kept for backward compatibility.
 export type UserRole = 'user' | 'admin' | 'super_admin' | 'engineer' | 'manager'
 
+// ─── Lifecycle status ─────────────────────────────────────────────────────────
+
+export type LifecycleStatus =
+  | 'active'
+  | 'inactive'
+  | 'blocked'
+  | 'deleted'
+  | 'permanently_deleted'
+
 export interface EVEngineerUser {
   uid: string
   displayName: string
@@ -23,6 +32,19 @@ export interface EVEngineerUser {
   // Role & state
   role: UserRole
   profileCompleted: boolean
+
+  // Lifecycle — missing means 'active'
+  lifecycleStatus?:            LifecycleStatus
+  lastActivityAt?:             string
+  blockedAt?:                  string
+  blockedBy?:                  string
+  blockedReason?:              string
+  deletedAt?:                  string
+  deletedBy?:                  string
+  deletedReason?:              string
+  permanentlyDeletedAt?:       string
+  permanentlyDeletedBy?:       string
+  permanentlyDeletedReason?:   string
 
   // Subscription
   subscriptionPlan: 'trial' | 'monthly' | 'annual'

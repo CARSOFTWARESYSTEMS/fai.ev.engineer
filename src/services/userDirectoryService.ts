@@ -1,6 +1,7 @@
 import { collection, onSnapshot, doc, deleteDoc, getDoc, updateDoc, deleteField } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { UserRecord } from './roleManagementService'
+import type { LifecycleStatus } from '../auth/AuthTypes'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,16 +15,55 @@ export interface ContactLinks {
 
 export const LEGACY_DOMAIN = 'legacy'
 
+// Ninety days in milliseconds — threshold for auto-derived inactivity
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000
+
+// ─── Effective lifecycle status ───────────────────────────────────────────────
+// Computes the displayed lifecycle status for a user, including legacy 'disabled'
+// and auto-derived inactivity (no login in 90+ days).
+
+function tsToMs(ts: unknown): number {
+  if (!ts) return 0
+  if (typeof (ts as { toMillis?: () => number }).toMillis === 'function')
+    return (ts as { toMillis: () => number }).toMillis()
+  if (typeof ts === 'string') return new Date(ts).getTime()
+  return 0
+}
+
+export function getEffectiveLifecycleStatus(user: DirectoryUser): LifecycleStatus {
+  const lc = user.lifecycleStatus as LifecycleStatus | undefined
+  if (lc && lc !== 'active') return lc
+
+  // Legacy: status:'disabled' → treated as blocked, but only when no explicit lifecycleStatus is set.
+  // If lifecycleStatus is explicitly 'active', the admin has restored them — don't re-block via legacy field.
+  if (!lc && user.status === 'disabled') return 'blocked'
+
+  // Auto-derived inactivity: no login in 90+ days
+  const lastMs = tsToMs(user.lastLoginAt) || tsToMs(user.lastActivityAt)
+  if (lastMs > 0 && lastMs < Date.now() - NINETY_DAYS_MS) return 'inactive'
+
+  return 'active'
+}
+
+export function getEffectiveProjectLifecycleStatus(
+  project: { lifecycleStatus?: string; updatedAt?: unknown; lastActivityAt?: unknown }
+): LifecycleStatus {
+  const lc = project.lifecycleStatus as LifecycleStatus | undefined
+  if (lc && lc !== 'active') return lc
+
+  const lastMs = tsToMs(project.lastActivityAt) || tsToMs(project.updatedAt)
+  if (lastMs > 0 && lastMs < Date.now() - NINETY_DAYS_MS) return 'inactive'
+
+  return 'active'
+}
+
 // ─── Phone helpers ────────────────────────────────────────────────────────────
 
 export function normalizePhoneForWhatsApp(phone: string): string | null {
   const digits = phone.replace(/\D/g, '')
   if (digits.length < 7) return null
-  // Already has country code (12+ digits starting with a country prefix)
   if (digits.length >= 11) return digits
-  // 10-digit Indian mobile starting with 6–9
   if (digits.length === 10 && /^[6-9]/.test(digits)) return `91${digits}`
-  // Anything else — return as-is if >= 7 digits
   return digits.length >= 7 ? digits : null
 }
 
@@ -67,7 +107,6 @@ export function groupUsersBySignupDomain(
     group.push(u)
     map.set(key, group)
   }
-  // Sort groups: largest first, 'legacy' always last
   return new Map(
     [...map.entries()].sort(([aKey, aUsers], [bKey, bUsers]) => {
       if (aKey === LEGACY_DOMAIN) return 1
@@ -77,20 +116,16 @@ export function groupUsersBySignupDomain(
   )
 }
 
-// ─── Delete user data ─────────────────────────────────────────────────────────
+// ─── Legacy: physical delete (kept for backward compat, not used by lifecycle UI) ──
 
 export async function deleteUserData(uid: string): Promise<void> {
   await deleteDoc(doc(firestore, 'users', uid))
-
-  // Remove partner-admin record if one exists
   const paRef  = doc(firestore, 'partnerAdmins', uid)
   const paSnap = await getDoc(paRef)
-  if (paSnap.exists()) {
-    await deleteDoc(paRef)
-  }
+  if (paSnap.exists()) await deleteDoc(paRef)
 }
 
-// ─── Disable user (soft — marks status disabled, does NOT delete) ─────────────
+// ─── Legacy: disable (soft — superseded by lifecycleStatus:'blocked') ─────────
 
 export async function disableUserData(uid: string): Promise<void> {
   await updateDoc(doc(firestore, 'users', uid), {
@@ -99,34 +134,29 @@ export async function disableUserData(uid: string): Promise<void> {
   })
 }
 
-// ─── Delete project (Firestore document only — Drive files not touched) ──────
+// ─── Legacy: restore disable (clears old status field) ───────────────────────
+
+export async function restoreUserData(uid: string): Promise<void> {
+  await updateDoc(doc(firestore, 'users', uid), {
+    status:    deleteField(),
+    disabledAt: deleteField(),
+  })
+}
+
+// ─── Legacy: project delete/archive/restore ───────────────────────────────────
 
 export async function deleteProjectData(projectId: string): Promise<void> {
   await deleteDoc(doc(firestore, 'projects', projectId))
 }
 
-// ─── Archive project (soft — sets status:'archived', does NOT delete) ────────
-
 export async function archiveProjectData(projectId: string): Promise<void> {
-  await updateDoc(doc(firestore, 'projects', projectId), {
-    status: 'archived',
-  })
+  await updateDoc(doc(firestore, 'projects', projectId), { status: 'archived' })
 }
-
-// ─── Restore user (undo disable) ─────────────────────────────────────────────
-
-export async function restoreUserData(uid: string): Promise<void> {
-  await updateDoc(doc(firestore, 'users', uid), {
-    status: deleteField(),
-    disabledAt: deleteField(),
-  })
-}
-
-// ─── Restore project (set back to draft) ─────────────────────────────────────
 
 export async function restoreProjectData(projectId: string): Promise<void> {
   await updateDoc(doc(firestore, 'projects', projectId), {
-    status: 'draft',
+    status:          'draft',
+    lifecycleStatus: 'active',
   })
 }
 

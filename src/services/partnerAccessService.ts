@@ -11,6 +11,7 @@ import { firestore } from '../firebase/firestore'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useDeveloperAccess } from './useDeveloperAccess'
 import { subscribePartners, subscribePartnerById, type Partner } from './partnerService'
+import { logPartnerAdminAssigned, logPartnerAdminRevoked } from './userActivityLogService'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,13 +70,14 @@ export function subscribePartnerAccess(
 // ─── Write: assign partner admin (Platform Developer only) ─────────────────────
 
 export async function assignPartnerAdmin(opts: {
-  uid:         string
-  email:       string
-  displayName: string
-  partnerId:   string
-  addedBy:     string   // uid of platform admin performing the assignment
+  uid:          string
+  email:        string
+  displayName:  string
+  partnerId:    string
+  addedBy:      string   // uid of platform admin performing the assignment
+  addedByEmail?: string
 }): Promise<void> {
-  const { uid, email, displayName, partnerId, addedBy } = opts
+  const { uid, email, displayName, partnerId, addedBy, addedByEmail } = opts
   const ref  = doc(firestore, 'partnerAdmins', uid)
   const snap = await getDoc(ref)
 
@@ -88,6 +90,15 @@ export async function assignPartnerAdmin(opts: {
         partnerIds: [...existingIds, partnerId],
         status: 'active',
       }, { merge: true })
+      if (addedByEmail) {
+        logPartnerAdminAssigned({
+          targetUid:   uid,
+          targetEmail: email,
+          partnerId,
+          actorUid:    addedBy,
+          actorEmail:  addedByEmail,
+        }).catch(() => {})
+      }
     }
   } else {
     await setDoc(ref, {
@@ -99,10 +110,23 @@ export async function assignPartnerAdmin(opts: {
       addedBy,
       addedAt:    serverTimestamp(),
     })
+    if (addedByEmail) {
+      logPartnerAdminAssigned({
+        targetUid:   uid,
+        targetEmail: email,
+        partnerId,
+        actorUid:    addedBy,
+        actorEmail:  addedByEmail,
+      }).catch(() => {})
+    }
   }
 }
 
-export async function revokePartnerAdmin(uid: string, partnerId: string): Promise<void> {
+export async function revokePartnerAdmin(
+  uid: string,
+  partnerId: string,
+  revokedBy?: { uid: string; email: string },
+): Promise<void> {
   const ref  = doc(firestore, 'partnerAdmins', uid)
   const snap = await getDoc(ref)
   if (!snap.exists()) return
@@ -113,6 +137,15 @@ export async function revokePartnerAdmin(uid: string, partnerId: string): Promis
     partnerIds: remaining,
     status:     remaining.length === 0 ? 'deactivated' : 'active',
   }, { merge: true })
+  if (revokedBy) {
+    logPartnerAdminRevoked({
+      targetUid:   uid,
+      targetEmail: (current.email as string) ?? '',
+      partnerId,
+      actorUid:    revokedBy.uid,
+      actorEmail:  revokedBy.email,
+    }).catch(() => {})
+  }
 }
 
 // ─── Hook: partner access state ────────────────────────────────────────────────

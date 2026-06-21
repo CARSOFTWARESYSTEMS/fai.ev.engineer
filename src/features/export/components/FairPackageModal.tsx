@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { X, Package, FileSpreadsheet, FileText, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react'
 import type { FairPackageInput } from '../services/fairPackageExportService'
 import { exportFairPackage } from '../services/fairPackageExportService'
+import { useAuth } from '../../../auth/hooks/useAuth'
+import { logFairExported } from '../../../services/userActivityLogService'
 
 interface FairPackageModalProps {
   input: FairPackageInput
@@ -18,6 +20,7 @@ interface SummaryRow {
 export function FairPackageModal({ input, onClose }: FairPackageModalProps) {
   const [status, setStatus] = useState<'idle' | 'building' | 'done' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const { firebaseUser } = useAuth()
 
   const { form1, form2Rows, form3Rows, features, balloons } = input
 
@@ -47,6 +50,18 @@ export function FairPackageModal({ input, onClose }: FairPackageModalProps) {
     try {
       await exportFairPackage(input)
       setStatus('done')
+      const uid   = input.ownerUid   ?? firebaseUser?.uid   ?? ''
+      const email = input.ownerEmail ?? firebaseUser?.email ?? ''
+      if (uid) {
+        logFairExported({
+          ownerUid:     uid,
+          ownerEmail:   email,
+          projectId:    input.projectId,
+          projectName:  input.projectName,
+          balloonCount: input.balloons.length,
+          featureCount: input.features.length,
+        }).catch(() => {})
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Export failed')
       setStatus('error')

@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { UserRole } from '../auth/AuthTypes'
+import { logRoleChanged } from './userActivityLogService'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,11 +27,27 @@ export interface UserRecord {
   role:              UserRole
   createdAt:         Timestamp | null
   lastLoginAt:       Timestamp | null
+  lastActivityAt?:   Timestamp | null
   updatedAt:         Timestamp | null
   profileCompleted:  boolean
   subscriptionPlan?: string
-  status?:           string   // 'disabled' when hidden by developer
+
+  // Legacy soft-disable (superseded by lifecycleStatus)
+  status?:           string
   disabledAt?:       string
+
+  // Lifecycle — missing means 'active'
+  lifecycleStatus?:            string
+  blockedAt?:                  Timestamp | null
+  blockedBy?:                  string
+  blockedReason?:              string
+  deletedAt?:                  Timestamp | null
+  deletedBy?:                  string
+  deletedReason?:              string
+  permanentlyDeletedAt?:       Timestamp | null
+  permanentlyDeletedBy?:       string
+  permanentlyDeletedReason?:   string
+
   // Signup origin (set once at profile creation)
   signupDomain?:      string
   signupHostname?:    string
@@ -144,4 +161,9 @@ export async function updateUserRole(params: {
   })
 
   await batch.commit()
+  logRoleChanged({
+    targetUid, targetEmail, previousRole, newRole,
+    actorUid:   changedByUid,
+    actorEmail: changedByEmail,
+  }).catch(() => {})
 }

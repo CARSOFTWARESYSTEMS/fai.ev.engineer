@@ -20,6 +20,11 @@ export interface FairPackageInput {
   statusByBalloonId: ReadonlyMap<string, Form3Status>
   pdfBlobUrl: string
   sourcePdfName: string
+  // Optional: used to log the export event
+  projectId?:   string
+  projectName?: string
+  ownerUid?:    string
+  ownerEmail?:  string
 }
 
 function zipFileName(form1: Partial<Form1Data>): string {

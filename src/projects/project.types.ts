@@ -1,4 +1,5 @@
 import type { ProjectPriority } from './projectPriority'
+import type { LifecycleStatus } from '../auth/AuthTypes'
 
 // ─── Project status ───────────────────────────────────────────────────────────
 // Keep 'in-progress' and 'complete' in union for backward-compat with existing
@@ -92,6 +93,19 @@ export interface FAIProject {
   reviewComment?: string
   reviewedBy?: string
   reviewedAt?: unknown
+
+  // Lifecycle — missing means 'active'
+  lifecycleStatus?: LifecycleStatus
+  lastActivityAt?:  unknown
+  blockedAt?:                  unknown
+  blockedBy?:                  string
+  blockedReason?:              string
+  deletedAt?:                  unknown
+  deletedBy?:                  string
+  deletedReason?:              string
+  permanentlyDeletedAt?:       unknown
+  permanentlyDeletedBy?:       string
+  permanentlyDeletedReason?:   string
 }
 
 // ─── Input shape for createProject() ─────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
+import { logPdfUploaded } from '../services/userActivityLogService'
 import {
   requestDriveToken,
   ensureProjectFolders,
@@ -69,6 +70,13 @@ export async function uploadProjectPdf(
       updatedAt:                  serverTimestamp(),
     })
 
+    logPdfUploaded({
+      ownerUid:      uid,
+      ownerEmail:    userEmail,
+      projectId,
+      fileName:      file.name,
+      fileSizeBytes: file.size,
+    }).catch(() => {})
     console.log('[PDF] Upload success:', projectId, '— driveId:', driveFileId)
   } catch (err) {
     const e = err as { code?: string; message?: string }

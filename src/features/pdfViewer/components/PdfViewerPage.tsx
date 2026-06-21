@@ -661,6 +661,9 @@ export function PdfViewerPage() {
             statusByBalloonId,
             pdfBlobUrl,
             sourcePdfName: project.sourcePdfName || 'drawing.pdf',
+            projectId:   project.projectId,
+            projectName: project.projectName,
+            ownerUid:    project.uid,
           }}
           onClose={() => setIsFairPackageOpen(false)}
         />

@@ -37,10 +37,32 @@ service cloud.firestore {
         get(/databases/$(database)/documents/projects/$(projectId)).data.uid == uid();
     }
 
+    // ── Lifecycle helpers ─────────────────────────────────────────────────────
+
+    // True if the requesting user's lifecycle status prevents access.
+    // Uses 'active' as the default if the field is missing.
+    // Blocked/deleted users retain read access to their own user doc (used by auth flow).
+    function isCurrentUserLifecycleBlocked() {
+      return get(/databases/$(database)/documents/users/$(uid()))
+        .data.get('lifecycleStatus', 'active') in [
+          'blocked',
+          'deleted',
+          'permanently_deleted'
+        ];
+    }
+
+    // True if the project document's lifecycle status prevents normal user access.
+    // Uses resource.data (already loaded for the current document match).
+    function isProjectLifecycleBlocked() {
+      return resource.data.get('lifecycleStatus', 'active') in [
+        'blocked',
+        'deleted',
+        'permanently_deleted'
+      ];
+    }
+
     // ── Partner admin helper ──────────────────────────────────────────────────
 
-    // True if the authenticated user is an active Partner Admin for the given partnerId.
-    // Reads partnerAdmins/{uid} — costs one extra read per partner document access.
     function isPartnerAdminForPartner(partnerId) {
       return isAuth() &&
         exists(/databases/$(database)/documents/partnerAdmins/$(uid())) &&
@@ -73,6 +95,11 @@ service cloud.firestore {
       return isBootstrapDeveloper() || isDeveloperInConfig();
     }
 
+    function isSuperAdmin() {
+      return isBootstrapDeveloper() ||
+        (isAuth() && userRole() == 'super_admin');
+    }
+
     function isDeveloperAdmin() {
       return isBootstrapDeveloper() || (
         isAuth() &&
@@ -87,14 +114,17 @@ service cloud.firestore {
 
     // ── users/{userId} ────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read:   if isAuth() && (isOwner(userId) || isAdmin() || isDeveloper());
-      // G1: prevent self-escalation — users may only create their doc with role 'engineer'.
-      // Admins assign elevated roles via the update path (isAdmin guard above).
+      // Own doc: always readable (needed for auth flow and blocked-page display).
+      // Other docs: require lifecycle is not blocked.
+      allow read: if isAuth() && (
+        isOwner(userId)
+        || ((isAdmin() || isDeveloper()) && !isCurrentUserLifecycleBlocked())
+      );
+      // G1: prevent self-escalation
       allow create: if isAuth() && isOwner(userId)
                        && request.resource.data.get('role', 'engineer') == 'engineer';
-      // Owners can update their own profile fields but cannot change their own role or
-      // signup-origin fields (signupDomain, signupHostname, signupBrandingId, signupPartnerCode,
-      // signupPartnerName). Those are set once at creation and are read-only afterwards.
+      // Owners can update own profile (no role/signup-origin changes).
+      // Admins/Developers can update anything (used for lifecycle state changes).
       allow update: if isAuth() && (
         (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'role', 'signupDomain', 'signupHostname', 'signupBrandingId', 'signupPartnerCode', 'signupPartnerName'
@@ -107,11 +137,8 @@ service cloud.firestore {
 
     // ── developerConfig/{email} ───────────────────────────────────────────────
     match /developerConfig/{email} {
-      // Self-read always allowed; reading other entries requires developer access.
       allow read:   if (isAuth() && request.auth.token.email == email) || isDeveloper();
       allow create: if isDeveloperAdmin() && request.resource.data.email == email;
-      // Admins can update any field.
-      // Developers may only update their own entry and cannot change 'role' or 'enabled'.
       allow update: if isDeveloperAdmin()
         || (
           isDeveloper()
@@ -130,7 +157,6 @@ service cloud.firestore {
     }
 
     // ── roleAuditTrail/{eventId} ──────────────────────────────────────────────
-    // Append-only role change log. Admins+ may read and create; never update or delete.
     match /roleAuditTrail/{eventId} {
       allow read:   if isAdmin();
       allow create: if isAdmin();
@@ -138,11 +164,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── lifecycleAuditTrail/{eventId} ─────────────────────────────────────────
+    // Append-only lifecycle change log for users and projects.
+    // Only admins and developers may read or create; never update or delete.
+    match /lifecycleAuditTrail/{eventId} {
+      allow read:   if isAdmin() || isDeveloper();
+      allow create: if (isAdmin() || isDeveloper()) && !isCurrentUserLifecycleBlocked();
+      allow update: if false;
+      allow delete: if false;
+    }
+
     // ── partners/{partnerId} ─────────────────────────────────────────────────
-    // Partner records are read by: Platform Developers, Platform Admins, and
-    // the Partner Admin for that specific partner.
-    // Only Platform Developers/Admins can create or update partners.
-    // Partners are never hard-deleted; use enabled:false to disable.
     match /partners/{partnerId} {
       allow read:   if isDeveloper() || isAdmin() || isPartnerAdminForPartner(partnerId);
       allow create: if isDeveloper()
@@ -153,9 +185,6 @@ service cloud.firestore {
     }
 
     // ── partnerAdmins/{uid} ───────────────────────────────────────────────────
-    // Stores which partners a user administers.
-    // A user can read their own record (to discover which partners they manage).
-    // Only Platform Developers/Admins can create/update/delete these records.
     match /partnerAdmins/{adminUid} {
       allow read:   if isDeveloper() || isAdmin() || (isAuth() && uid() == adminUid);
       allow create: if isDeveloper()
@@ -166,9 +195,7 @@ service cloud.firestore {
     }
 
     // ── brandings/{brandingId} ───────────────────────────────────────────────
-    // Public read: branding is display-only config (names, contact info, powered-by).
-    // It must load before authentication (landing page) and persist after logout.
-    // Writes remain developer-only.
+    // Public read: branding loads before auth and is needed by the blocked-user page.
     match /brandings/{brandingId} {
       allow read:   if true;
       allow create: if isDeveloper()
@@ -191,34 +218,28 @@ service cloud.firestore {
 
     // ── projects/{projectId} ──────────────────────────────────────────────────
 
-    // Canonical status values — the only strings that may ever be written.
-    // 'complete' is intentionally excluded: it is a legacy read-compat value and
-    // must never be written by any new code path.
     function isValidStatus(s) {
       return s in ['draft', 'in-progress', 'review', 'completed', 'archived'];
     }
 
     match /projects/{projectId} {
-      allow read:   if isAuth() && (isOwner(resource.data.uid) || isManagerOrAbove() || isDeveloper());
-      // Status must be one of the canonical values on every new document.
+      // Normal users (owners) cannot read lifecycle-blocked projects.
+      // Managers, admins, and developers can still read for support/audit.
+      allow read: if isAuth() && !isCurrentUserLifecycleBlocked() && (
+        (isOwner(resource.data.uid) && !isProjectLifecycleBlocked())
+        || isManagerOrAbove()
+        || isDeveloper()
+      );
       allow create: if isAuth() && isOwner(request.resource.data.uid)
-                       && isValidStatus(request.resource.data.status);
-      // Managers+ can update any field; if they change status it must be canonical.
-      // Engineers (owners) can update basic fields AND can transition status within
-      // ['draft','in-progress','review'], but cannot touch priority, dueDate, or
-      // move status to/from 'completed'/'archived'.
-      // The status allowlist is only checked when status is in the affected keys,
-      // preserving backward-compat with legacy 'complete' documents on non-status
-      // updates.
-      allow update: if isAuth() && (
+                       && isValidStatus(request.resource.data.status)
+                       && !isCurrentUserLifecycleBlocked();
+      allow update: if isAuth() && !isCurrentUserLifecycleBlocked() && (
         (
           isManagerOrAbove()
-          // Status allowlist: only canonical values may be written when status changes
           && (
             !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
             || isValidStatus(request.resource.data.status)
           )
-          // Review decision allowlist: only valid values may be written
           && (
             !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reviewDecision'])
             || request.resource.data.reviewDecision in ['approved', 'rejected', 'cancelled', 'needs-rework']
@@ -226,7 +247,6 @@ service cloud.firestore {
         )
         || (
           isOwner(resource.data.uid)
-          // Engineers cannot write planning or review/audit fields
           && !request.resource.data.diff(resource.data)
                 .affectedKeys()
                 .hasAny([
@@ -244,57 +264,68 @@ service cloud.firestore {
             )
           )
         )
-        // TODO: restrict once testing is complete — developers get full update for archive/disable tools
         || isDeveloper()
       );
-      // TODO: restrict to isManagerOrAbove() once testing is complete — remove isDeveloper().
-      allow delete: if isManagerOrAbove() || isOwner(resource.data.uid) || isDeveloper();
+      allow delete: if (isManagerOrAbove() || isOwner(resource.data.uid) || isDeveloper())
+                       && !isCurrentUserLifecycleBlocked();
 
       match /balloons/{balloonId} {
-        allow read:   if isProjectOwner(projectId);
+        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
         allow create: if isProjectOwner(projectId) &&
-                         request.resource.data.createdBy == uid();
-        allow update: if isProjectOwner(projectId);
-        allow delete: if isProjectOwner(projectId);
+                         request.resource.data.createdBy == uid() &&
+                         !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /features/{featureId} {
-        allow read:   if isProjectOwner(projectId);
+        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
         allow create: if isProjectOwner(projectId) &&
-                         request.resource.data.createdBy == uid();
-        allow update: if isProjectOwner(projectId);
-        allow delete: if isProjectOwner(projectId);
+                         request.resource.data.createdBy == uid() &&
+                         !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /form3Results/{featureId} {
-        allow read:   if isProjectOwner(projectId);
+        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
         allow create: if isProjectOwner(projectId) &&
-                         request.resource.data.createdBy == uid();
-        allow update: if isProjectOwner(projectId);
-        allow delete: if isProjectOwner(projectId);
+                         request.resource.data.createdBy == uid() &&
+                         !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /form1/{form1Id} {
-        allow read:   if isProjectOwner(projectId);
-        allow create: if isProjectOwner(projectId);
-        allow update: if isProjectOwner(projectId);
-        allow delete: if isProjectOwner(projectId);
+        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow create: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
       match /form2Rows/{rowId} {
-        allow read:   if isProjectOwner(projectId);
-        allow create: if isProjectOwner(projectId);
-        allow update: if isProjectOwner(projectId);
-        allow delete: if isProjectOwner(projectId);
+        allow read:   if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow create: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow update: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
+        allow delete: if isProjectOwner(projectId) && !isCurrentUserLifecycleBlocked();
       }
 
-      // Audit trail — append-only; no client updates or deletes ever permitted
       match /auditTrail/{eventId} {
         allow read:   if isAuth() && (isProjectOwner(projectId) || isManagerOrAbove());
         allow create: if isManagerOrAbove();
         allow update: if false;
         allow delete: if false;
       }
+    }
+
+    // ── userActivityLogs/{logId} ──────────────────────────────────────────────
+    // Append-only activity log written by authenticated users and services.
+    // Only super_admin and bootstrap developers may read.
+    match /userActivityLogs/{logId} {
+      allow read:   if isSuperAdmin();
+      allow create: if isAuth() && !isCurrentUserLifecycleBlocked();
+      allow update: if false;
+      allow delete: if false;
     }
   }
 }

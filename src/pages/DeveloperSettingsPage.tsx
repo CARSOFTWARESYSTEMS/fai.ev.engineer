@@ -2620,7 +2620,7 @@ function DemoDataTab({
 
 // ─── Partners tab ─────────────────────────────────────────────────────────────
 
-function PartnersTab({ callerUid }: { callerUid: string }) {
+function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmail: string }) {
   const [partners, setPartners]   = useState<Partner[]>([])
   const [feedback, setFeedback]   = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
 
@@ -2708,11 +2708,12 @@ function PartnersTab({ callerUid }: { callerUid: string }) {
     setAssigning(true)
     try {
       await assignPartnerAdmin({
-        uid:         selectedUser.uid,
-        email:       selectedUser.email,
-        displayName: selectedUser.displayName,
-        partnerId:   assignPartnerId,
-        addedBy:     callerUid,
+        uid:          selectedUser.uid,
+        email:        selectedUser.email,
+        displayName:  selectedUser.displayName,
+        partnerId:    assignPartnerId,
+        addedBy:      callerUid,
+        addedByEmail: callerEmail,
       })
       showFeedback('success', `${selectedUser.email} assigned as Partner Admin.`)
       setSelectedUser(null); setUserSearch(''); setSearchResults([])
@@ -3187,7 +3188,7 @@ export function DeveloperSettingsPage() {
         {activeTab === 'developers'     && <DevelopersTab currentEmail={firebaseUser?.email ?? null} canManage={isDeveloperAdmin} />}
         {activeTab === 'configurations' && <ConfigurationsTab />}
         {activeTab === 'partners'       && isDeveloper && (
-          <PartnersTab callerUid={firebaseUser?.uid ?? ''} />
+          <PartnersTab callerUid={firebaseUser?.uid ?? ''} callerEmail={firebaseUser?.email ?? ''} />
         )}
         {activeTab === 'contacts'       && isDeveloper && <ContactsTab />}
         {activeTab === 'users'          && isProductAdmin && (

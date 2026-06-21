@@ -18,6 +18,7 @@ import type { FAIProject, CreateProjectInput, UpdateProjectInput } from './proje
 import { ENGINEER_ALLOWED_STATUSES, VALID_DECISIONS_FOR_STATUS } from './project.types'
 import type { UserRole } from '../auth/AuthTypes'
 import { requestDriveToken, deleteFileFromDrive, deleteProjectFolderFromDrive } from '../lib/googleDrive'
+import { logProjectCreated } from '../services/userActivityLogService'
 
 // Separate write type uses FieldValue for timestamps
 type ProjectWriteDoc = Omit<FAIProject, 'createdAt' | 'updatedAt'> & {
@@ -29,6 +30,7 @@ type ProjectWriteDoc = Omit<FAIProject, 'createdAt' | 'updatedAt'> & {
 
 interface CreateProjectContext {
   uid: string
+  userEmail?: string
   productKey: string
   organizationCode: string
   organizationName: string
@@ -85,6 +87,14 @@ export async function createProject(
   try {
     await setDoc(docRef, writeDoc)
     console.log('[PROJECT] Created successfully:', docRef.id)
+    if (ctx.userEmail) {
+      logProjectCreated({
+        ownerUid:    ctx.uid,
+        ownerEmail:  ctx.userEmail,
+        projectId:   docRef.id,
+        projectName: writeDoc.projectName,
+      }).catch(() => {})
+    }
     return { ...writeDoc, createdAt: null, updatedAt: null }
   } catch (err) {
     const e = err as { code?: string; message?: string }

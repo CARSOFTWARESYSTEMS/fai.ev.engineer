@@ -112,7 +112,8 @@ export function CreateProjectPage() {
           priority: form.priority,
         },
         {
-          uid: firebaseUser!.uid,
+          uid:       firebaseUser!.uid,
+          userEmail: firebaseUser?.email ?? '',
           productKey,
           organizationCode: user?.organizationCode || 'default',
           organizationName: user?.organizationName || organizationConfig.organizationName,

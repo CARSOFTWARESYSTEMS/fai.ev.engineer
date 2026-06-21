@@ -15,6 +15,7 @@ import {
 import { firebaseAuth } from '../firebase/auth'
 import { firestore } from '../firebase/firestore'
 import type { EVEngineerUser, UserRole } from './AuthTypes'
+import { logProfileCreated, logProfileUpdated } from '../services/userActivityLogService'
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
@@ -123,6 +124,7 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
   try {
     await setDoc(doc(firestore, 'users', uid), writeDoc)
     console.log('[AUTH] Profile saved successfully for uid:', uid)
+    logProfileCreated(uid, email).catch(() => {})
   } catch (err: unknown) {
     const { code, message } = extractFirebaseError(err)
     console.error('[AUTH] Profile save failed:')
@@ -165,6 +167,10 @@ export async function updateUserProfile(
 
     await updateDoc(doc(firestore, 'users', uid), patch)
     console.log('[AUTH] Profile updated successfully for uid:', uid)
+    const email = firebaseAuth.currentUser?.email ?? ''
+    const watchedFields = ['mobileNumber', 'organizationName', 'organizationCode', 'gstNumber']
+    const changed = watchedFields.filter(k => k in patch)
+    logProfileUpdated(uid, email, changed).catch(() => {})
   } catch (err: unknown) {
     const { code, message } = extractFirebaseError(err)
     console.error('[AUTH] Profile update failed:')

@@ -10,6 +10,8 @@ import {
   touchLastLogin,
 } from './EVEngineerAuthService'
 import { clearGoogleDriveSession } from '../lib/googleDrive'
+import { activateUserOnLogin } from '../services/lifecycleService'
+import { logAuthLogin, logAuthLogout } from '../services/userActivityLogService'
 
 interface Props {
   children: ReactNode
@@ -51,13 +53,17 @@ export function EVEngineerAuthProvider({ children }: Props) {
 
       if (fbUser) {
         try {
-          const profile = await getUserProfile(fbUser.uid)
+          let profile = await getUserProfile(fbUser.uid)
+          // Returning login reactivates an inactive user
+          if (profile && profile.lifecycleStatus === 'inactive') {
+            activateUserOnLogin(fbUser.uid).catch(() => {})
+            profile = { ...profile, lifecycleStatus: 'active' }
+          }
           setUser(profile)
           // Update last login for returning users
           if (profile) {
-            touchLastLogin(fbUser.uid).catch(() => {
-              // Non-critical — ignore failure
-            })
+            touchLastLogin(fbUser.uid).catch(() => {})
+            logAuthLogin(fbUser.uid, fbUser.email ?? '').catch(() => {})
           }
         } catch {
           setUser(null)
@@ -78,8 +84,10 @@ export function EVEngineerAuthProvider({ children }: Props) {
   }
 
   const signOut = async () => {
+    if (firebaseUser) {
+      logAuthLogout(firebaseUser.uid, firebaseUser.email ?? '').catch(() => {})
+    }
     await signOutUser()
-    // onAuthStateChanged fires automatically and clears state
   }
 
   return (
