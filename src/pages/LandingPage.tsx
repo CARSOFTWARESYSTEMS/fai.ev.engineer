@@ -181,7 +181,7 @@ const plans = [
   {
     name: 'Trial',
     price: 'Free',
-    period: '7 days',
+    period: '7 days / per user',
     description: 'Full access to all features. No credit card required.',
     cta: 'Start Free Trial',
     featured: false,
@@ -197,7 +197,7 @@ const plans = [
   {
     name: 'Monthly',
     price: '$29',
-    period: 'per month',
+    period: 'per month / per user',
     description: 'Full access, cancel any time.',
     cta: 'Get Started',
     featured: true,
@@ -212,7 +212,7 @@ const plans = [
   {
     name: 'Annual',
     price: '$299',
-    period: 'per year',
+    period: 'per year / per user',
     description: 'Save $49 vs monthly. Best for continuous use.',
     cta: 'Get Started',
     featured: false,
@@ -1015,7 +1015,7 @@ export function LandingPage() {
                     </h3>
                     <div className="flex items-end gap-1 mb-1">
                       <span className={`text-4xl font-bold ${plan.featured ? 'text-white' : 'text-text-primary'}`}>{plan.price}</span>
-                      <span className={`text-sm pb-1 ${plan.featured ? 'text-blue-300' : 'text-text-secondary'}`}>/{plan.period}</span>
+                      <span className={`text-sm pb-1 ${plan.featured ? 'text-blue-300' : 'text-text-secondary'}`}>/ {plan.period}</span>
                     </div>
                     <p className={`text-sm ${plan.featured ? 'text-blue-200' : 'text-text-secondary'}`}>{plan.description}</p>
                   </div>

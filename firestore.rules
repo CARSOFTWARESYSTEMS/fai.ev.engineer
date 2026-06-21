@@ -356,5 +356,34 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
+
+    // ── organisations/{organisationId} ────────────────────────────────────────
+    // Platform-admin and bootstrap-developer may read/write all orgs.
+    // Partner admins may read and update orgs that belong to their partner.
+    // Deletes are soft (status set to 'inactive') — hard deletes not allowed.
+    match /organisations/{organisationId} {
+      allow read:   if isDeveloper()
+                    || isAdmin()
+                    || isPartnerAdminForPartner(resource.data.partnerId);
+      allow create: if isDeveloper() || isAdmin();
+      allow update: if isDeveloper()
+                    || isAdmin()
+                    || isPartnerAdminForPartner(resource.data.partnerId);
+      allow delete: if false;
+    }
+
+    // ── organisationMembers/{membershipId} ────────────────────────────────────
+    // Platform-admin and bootstrap-developer may read/write all memberships.
+    // Partner admins may read/write memberships for orgs in their partner scope.
+    // Organisation members may read their own membership record.
+    // Deletes are soft (active set to false) — hard deletes not allowed.
+    match /organisationMembers/{membershipId} {
+      allow read:   if isDeveloper()
+                    || isAdmin()
+                    || (isAuth() && resource.data.userUid == uid());
+      allow create: if isDeveloper() || isAdmin();
+      allow update: if isDeveloper() || isAdmin();
+      allow delete: if false;
+    }
   }
 }

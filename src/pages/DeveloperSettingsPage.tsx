@@ -72,6 +72,15 @@ import {
   type Partner,
 } from '../services/partnerService'
 import {
+  subscribeAllOrganisations,
+  createOrganisation,
+  getOrganisationStatus,
+  formatOrgExpiry,
+  type Organisation,
+  type OrgStatus,
+} from '../services/organisationService'
+import type { ProductId } from '../auth/AuthTypes'
+import {
   assignPartnerAdmin,
   subscribePartnerAccess,
 } from '../services/partnerAccessService'
@@ -3363,6 +3372,312 @@ function DeveloperAccessWrapper({
   )
 }
 
+// ─── Organisations management tab ────────────────────────────────────────────
+
+const ORG_PRODUCT_OPTIONS: { id: ProductId; label: string }[] = [
+  { id: 'fai_reports', label: 'Balloon Drawings + AS9102 FAI Reports' },
+  { id: 'battery_pm',  label: 'Battery Predictive Maintenance'        },
+  { id: 'motor_pm',    label: 'Motor Predictive Maintenance'          },
+  { id: 'energy_mgmt', label: 'Energy Management'                     },
+  { id: 'clean_room',  label: 'Clean Room Solutions'                  },
+]
+
+const ORG_STATUS_STYLES: Record<OrgStatus, string> = {
+  active:    'bg-success/10 text-success border-success/20',
+  trial:     'bg-blue-50 text-blue-700 border-blue-200',
+  suspended: 'bg-red-50 text-error border-red-200',
+  inactive:  'bg-gray-100 text-text-secondary border-border',
+}
+
+const ORG_STATUS_LABELS: Record<OrgStatus, string> = {
+  active:    'Active',
+  trial:     'Trial',
+  suspended: 'Suspended',
+  inactive:  'Inactive',
+}
+
+function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
+  const [organisations, setOrganisations] = useState<Organisation[]>([])
+  const [partners,      setPartners]      = useState<Partner[]>([])
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating,   setCreating]   = useState(false)
+  const [oName,      setOName]      = useState('')
+  const [oCode,      setOCode]      = useState('')
+  const [oOwner,     setOOwner]     = useState('')
+  const [oCurrency,  setOCurrency]  = useState('INR')
+  const [oPartner,   setOPartner]   = useState('')
+  const [oProducts,  setOProducts]  = useState<ProductId[]>(['fai_reports'])
+
+  useEffect(() => {
+    const u1 = subscribeAllOrganisations(setOrganisations)
+    const u2 = subscribePartners(setPartners)
+    return () => { u1(); u2() }
+  }, [])
+
+  useEffect(() => {
+    if (!oName) return
+    const derived = oName.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20)
+    setOCode(derived)
+  }, [oName])
+
+  function showFeedback(type: 'success' | 'error', msg: string) {
+    setFeedback({ type, msg })
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  function toggleProduct(id: ProductId) {
+    setOProducts(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id])
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    if (!oName.trim() || !oCode.trim() || !oPartner) return
+    setCreating(true)
+    try {
+      await createOrganisation({
+        partnerId:       oPartner,
+        name:            oName.trim(),
+        code:            oCode.trim().toLowerCase(),
+        ownerEmail:      oOwner.trim() || undefined,
+        currency:        oCurrency,
+        enabledProducts: oProducts,
+        createdBy:       callerUid,
+      })
+      showFeedback('success', `Organisation "${oName.trim()}" created with 7-day trial.`)
+      setOName(''); setOCode(''); setOOwner(''); setOPartner('')
+      setOProducts(['fai_reports']); setCreateOpen(false)
+    } catch {
+      showFeedback('error', 'Failed to create organisation.')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const total     = organisations.length
+  const trials    = organisations.filter(o => getOrganisationStatus(o) === 'trial').length
+  const actives   = organisations.filter(o => getOrganisationStatus(o) === 'active').length
+  const suspended = organisations.filter(o => getOrganisationStatus(o) === 'suspended').length
+
+  return (
+    <div className="flex flex-col gap-4">
+      {feedback && <FeedbackBanner type={feedback.type} message={feedback.msg} />}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total',     value: total,     cls: 'text-text-primary' },
+          { label: 'Trial',     value: trials,    cls: 'text-blue-700'     },
+          { label: 'Active',    value: actives,   cls: 'text-success'      },
+          { label: 'Suspended', value: suspended, cls: 'text-error'        },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className="card p-4">
+            <p className="text-xs font-semibold text-text-secondary">{label}</p>
+            <p className={`text-3xl font-bold mt-1 ${cls}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* List */}
+      <CollapsibleCard
+        title="Organisations"
+        subtitle={`${total} organisation${total !== 1 ? 's' : ''} on the platform`}
+        icon={Building2}
+        iconBg="bg-primary-light"
+        iconColor="text-primary"
+        defaultOpen={true}
+        badge={
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
+            bg-primary-light text-primary border border-primary/20">{total}</span>
+        }
+      >
+        {organisations.length === 0 ? (
+          <p className="text-sm text-text-secondary italic py-2">No organisations yet. Create one below.</p>
+        ) : (
+          <div className="flex flex-col divide-y divide-border">
+            {organisations.map(org => {
+              const status  = getOrganisationStatus(org)
+              const partner = partners.find(p => p.partnerId === org.partnerId)
+              return (
+                <div key={org.organisationId} className="py-3 first:pt-1 last:pb-0 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-primary-light flex items-center justify-center shrink-0">
+                    <Building2 className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="text-sm font-semibold text-text-primary">{org.name}</span>
+                      <span className="text-[10px] font-mono text-text-secondary">{org.code}</span>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
+                        ${ORG_STATUS_STYLES[status]}`}>
+                        {ORG_STATUS_LABELS[status]}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap text-[11px] text-text-secondary">
+                      {partner && <span>Partner: {partner.name}</span>}
+                      {org.ownerEmail && <span>Owner: {org.ownerEmail}</span>}
+                      <span>Expires: {formatOrgExpiry(org)}</span>
+                      {org.enabledProducts.length > 0 && (
+                        <span>{org.enabledProducts.length} product{org.enabledProducts.length !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                  </div>
+                  <Link
+                    to={`/partner/organisations/${org.organisationId}`}
+                    className="text-xs font-medium text-primary hover:bg-primary-light px-2.5 py-1
+                      rounded-lg border border-primary/20 transition-colors shrink-0"
+                  >
+                    View →
+                  </Link>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </CollapsibleCard>
+
+      {/* Create form */}
+      <CollapsibleCard
+        title="Create Organisation"
+        subtitle="Register a new organisation under a partner with a 7-day trial"
+        icon={Plus}
+        iconBg="bg-success/10"
+        iconColor="text-success"
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      >
+        <form onSubmit={handleCreate} className="flex flex-col gap-4 pt-1">
+
+          {/* Partner */}
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+              Partner <span className="text-error">*</span>
+            </label>
+            <select
+              required
+              value={oPartner}
+              onChange={e => setOPartner(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-white
+                focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+            >
+              <option value="">— Select a partner —</option>
+              {partners.filter(p => p.enabled).map(p => (
+                <option key={p.partnerId} value={p.partnerId}>{p.name} ({p.code})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+                Organisation Name <span className="text-error">*</span>
+              </label>
+              <input
+                required
+                value={oName}
+                onChange={e => setOName(e.target.value)}
+                placeholder="Acme Manufacturing Ltd"
+                className="w-full px-3 py-2 rounded-xl border border-border text-sm
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+                Organisation Code <span className="text-error">*</span>
+              </label>
+              <input
+                required
+                value={oCode}
+                onChange={e => setOCode(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20))}
+                placeholder="acme-manufacturing"
+                className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+              />
+              <p className="text-[10px] text-text-secondary mt-1">Auto-derived · max 20 chars</p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+                Owner Email
+              </label>
+              <input
+                type="email"
+                value={oOwner}
+                onChange={e => setOOwner(e.target.value)}
+                placeholder="owner@company.com"
+                className="w-full px-3 py-2 rounded-xl border border-border text-sm
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+              />
+              <p className="text-[10px] text-text-secondary mt-1">Optional · can assign later</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+                Currency
+              </label>
+              <select
+                value={oCurrency}
+                onChange={e => setOCurrency(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-white
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+              >
+                <option value="INR">INR — Indian Rupee</option>
+                <option value="GBP">GBP — British Pound</option>
+                <option value="USD">USD — US Dollar</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Products */}
+          <div>
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-2">
+              Enabled Products
+            </label>
+            <div className="flex flex-col gap-2">
+              {ORG_PRODUCT_OPTIONS.map(({ id, label }) => (
+                <label key={id} className="flex items-center gap-2.5 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={oProducts.includes(id)}
+                    onChange={() => toggleProduct(id)}
+                    className="w-4 h-4 rounded text-primary border-border focus:ring-primary/30"
+                  />
+                  <span className="text-sm text-text-primary group-hover:text-primary transition-colors">
+                    {label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Trial notice */}
+          <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-blue-50 border border-blue-200">
+            <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-700">
+              Created with a <strong>7-day trial</strong> subscription.
+              Default limits: Managers 2 · Engineers 2 · Inspector / Auditor / Approver / Viewer: 0.
+            </p>
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="submit"
+              disabled={creating || !oName.trim() || !oCode.trim() || !oPartner}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white
+                text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Create Organisation
+            </button>
+          </div>
+        </form>
+      </CollapsibleCard>
+    </div>
+  )
+}
+
 // ─── Partner Management wrapper (sub-tabs) ────────────────────────────────────
 
 function PartnerManagementWrapper({
@@ -3380,7 +3695,7 @@ function PartnerManagementWrapper({
     { id: 'partners',              label: 'Partners',              icon: Handshake  },
     { id: 'branding_domain',       label: 'Branding / Domain',     icon: Palette,   disabled: true },
     { id: 'admin_users',           label: 'Admin Users',           icon: Users2,    disabled: true },
-    { id: 'organisations',         label: 'Organisations',         icon: Building2, disabled: true },
+    { id: 'organisations',         label: 'Organisations',         icon: Building2 },
     { id: 'subscriptions_billing', label: 'Subscriptions',         icon: CreditCard,disabled: true },
     { id: 'product_entitlements',  label: 'Product Entitlements',  icon: Layers,    disabled: true },
   ]
@@ -3406,11 +3721,7 @@ function PartnerManagementWrapper({
         />
       )}
       {activeSubTab === 'organisations' && (
-        <ComingSoonSection
-          title="Organisations"
-          description="Create and manage organisations under this partner, assign owners, and configure subscription plans."
-          icon={Building2}
-        />
+        <OrganisationsManagementTab callerUid={callerUid} />
       )}
       {activeSubTab === 'subscriptions_billing' && (
         <ComingSoonSection

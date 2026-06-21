@@ -24,6 +24,7 @@ import { AutomotiveComponentsPage } from '../pages/fortius/AutomotiveComponentsP
 import { JigsFixturesPage } from '../pages/fortius/JigsFixturesPage'
 import { PressToolsPage } from '../pages/fortius/PressToolsPage'
 // ─── Phase 1.5 — Partner + Organization placeholders ─────────────────────────
+import { OrganisationDetailPage } from '../pages/OrganisationDetailPage'
 import { PartnerPage } from '../pages/PartnerPage'
 import { PartnerOrganizationsPage } from '../pages/PartnerOrganizationsPage'
 import { PartnerRequestsPage } from '../pages/PartnerRequestsPage'
@@ -110,6 +111,10 @@ export const router = createBrowserRouter([
   {
     path: '/partner/branding',
     element: <PartnerRoute><PartnerBrandingPage /></PartnerRoute>,
+  },
+  {
+    path: '/partner/organisations/:id',
+    element: <PartnerRoute><OrganisationDetailPage /></PartnerRoute>,
   },
 
   // ─── Organization (Phase 1.5 — bootstrap only) ────────────────────────────
