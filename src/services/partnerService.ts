@@ -108,3 +108,10 @@ export async function disablePartner(partnerId: string): Promise<void> {
     updatedAt: serverTimestamp(),
   })
 }
+
+export async function enablePartner(partnerId: string): Promise<void> {
+  await updateDoc(doc(firestore, 'partners', partnerId), {
+    enabled: true,
+    updatedAt: serverTimestamp(),
+  })
+}

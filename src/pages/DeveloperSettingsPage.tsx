@@ -6,7 +6,7 @@ import {
   Bell, Flag, Wrench, ChevronDown, Trash2, Info, RotateCcw,
   Type, Palette, UserCog, Search, Filter,
   Database, Play, RotateCw, Download, Package,
-  Handshake, Globe, Mail, Phone, Hash, UserPlus, BookUser,
+  Handshake, Globe, Mail, Phone, Hash, BookUser,
   Grid3x3, Building2, CreditCard, Layers, Users2, BadgeCheck, Zap,
 } from 'lucide-react'
 import { ContactsTab } from '../components/developer/ContactsTab'
@@ -69,6 +69,7 @@ import {
   subscribePartners,
   createPartner,
   disablePartner,
+  enablePartner,
   type Partner,
 } from '../services/partnerService'
 import {
@@ -83,8 +84,11 @@ import {
 import type { ProductId } from '../auth/AuthTypes'
 import {
   assignPartnerAdmin,
-  subscribePartnerAccess,
+  assignPendingPartnerAdmin,
+  subscribePartnerAdmins,
   usePartnerAccess,
+  type PartnerAdminRecord,
+  type PartnerAdminRole,
 } from '../services/partnerAccessService'
 import { listUsers } from '../services/roleManagementService'
 
@@ -2634,13 +2638,70 @@ function DemoDataTab({
 
 // ─── Partners tab ─────────────────────────────────────────────────────────────
 
-function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmail: string }) {
-  const [partners, setPartners]   = useState<Partner[]>([])
-  const [feedback, setFeedback]   = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+type AdminSlot = {
+  email:       string
+  uid:         string | null
+  displayName: string
+  status:      'idle' | 'found' | 'not_found'
+}
+function emptySlot(): AdminSlot { return { email: '', uid: null, displayName: '', status: 'idle' } }
 
-  // ── Create partner form state ──────────────────────────────────────────────
+function PartnerAdminBadges({ partnerId }: { partnerId: string }) {
+  const [admins, setAdmins] = useState<PartnerAdminRecord[]>([])
+  useEffect(() => subscribePartnerAdmins(partnerId, setAdmins), [partnerId])
+
+  if (admins.length === 0) return (
+    <p className="text-[11px] text-text-secondary italic mt-1">No admins assigned</p>
+  )
+
+  const superAdmin  = admins.find(a => a.role === 'partner_super_admin')
+  const otherAdmins = admins.filter(a => a.role !== 'partner_super_admin')
+
+  function statusBadge(s: string) {
+    return s === 'active'
+      ? 'bg-success/10 text-success border-success/20'
+      : s === 'pending'
+      ? 'bg-amber-50 text-amber-700 border-amber-200'
+      : 'bg-gray-100 text-text-secondary border-border'
+  }
+
+  return (
+    <div className="flex flex-col gap-1 mt-1.5">
+      {superAdmin && (
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-purple-600 w-24 shrink-0">
+            Super Admin
+          </span>
+          <span className="text-text-primary truncate">{superAdmin.email}</span>
+          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0
+            ${statusBadge(superAdmin.status)}`}>
+            {superAdmin.status}
+          </span>
+        </div>
+      )}
+      {otherAdmins.map((a, i) => (
+        <div key={a.uid ?? a.email} className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-[9px] font-bold uppercase tracking-widest text-text-secondary w-24 shrink-0">
+            Admin {i + 1}
+          </span>
+          <span className="text-text-primary truncate">{a.email}</span>
+          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0
+            ${statusBadge(a.status)}`}>
+            {a.status}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmail: string }) {
+  const [partners, setPartners] = useState<Partner[]>([])
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+  // Create form
   const [createOpen, setCreateOpen] = useState(false)
-  const [creating, setCreating]     = useState(false)
+  const [creating,   setCreating]   = useState(false)
   const [pName,    setPName]        = useState('')
   const [pCode,    setPCode]        = useState('')
   const [pEmail,   setPEmail]       = useState('')
@@ -2649,65 +2710,78 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
   const [pDomains, setPDomains]     = useState('')
   const [pBranding,setPBranding]    = useState('')
 
-  // ── Assign admin form state ────────────────────────────────────────────────
-  const [assignOpen,   setAssignOpen]   = useState(false)
-  const [assigning,    setAssigning]    = useState(false)
-  const [userSearch,   setUserSearch]   = useState('')
-  const [searchResults,setSearchResults]= useState<{ uid: string; email: string; displayName: string }[]>([])
-  const [selectedUser, setSelectedUser] = useState<{ uid: string; email: string; displayName: string } | null>(null)
-  const [assignPartnerId, setAssignPartnerId] = useState('')
-  const [adminRecord, setAdminRecord]   = useState<string | null>(null)   // existing partnerIds JSON
+  // Admin slots for create form
+  const [superAdmin, setSuperAdmin] = useState<AdminSlot>(emptySlot())
+  const [admin1,     setAdmin1]     = useState<AdminSlot>(emptySlot())
+  const [admin2,     setAdmin2]     = useState<AdminSlot>(emptySlot())
+  const [searching,  setSearching]  = useState<'super' | 'a1' | 'a2' | null>(null)
 
   useEffect(() => subscribePartners(setPartners), [])
-
-  // Check if selected user already has a partnerAdmin record
-  useEffect(() => {
-    if (!selectedUser) { setAdminRecord(null); return }
-    return subscribePartnerAccess(selectedUser.uid, rec => {
-      setAdminRecord(rec ? JSON.stringify(rec.partnerIds) : null)
-    })
-  }, [selectedUser?.uid])
 
   function showFeedback(type: 'success' | 'error', msg: string) {
     setFeedback({ type, msg })
     setTimeout(() => setFeedback(null), 4000)
   }
 
-  async function handleSearchUsers() {
-    if (!userSearch.trim()) return
+  async function resolveEmail(email: string, slot: 'super' | 'a1' | 'a2') {
+    if (!email.trim()) return
+    setSearching(slot)
     try {
-      const all = await listUsers()
-      const q   = userSearch.toLowerCase()
-      setSearchResults(
-        all
-          .filter(u => u.email?.toLowerCase().includes(q) || u.displayName?.toLowerCase().includes(q))
-          .slice(0, 6)
-          .map(u => ({ uid: u.uid, email: u.email, displayName: u.displayName })),
-      )
+      const all   = await listUsers()
+      const match = all.find(u => u.email?.toLowerCase() === email.toLowerCase().trim())
+      const result: AdminSlot = match
+        ? { email: match.email, uid: match.uid, displayName: match.displayName, status: 'found' }
+        : { email: email.trim().toLowerCase(), uid: null, displayName: '', status: 'not_found' }
+      if (slot === 'super') setSuperAdmin(result)
+      if (slot === 'a1')    setAdmin1(result)
+      if (slot === 'a2')    setAdmin2(result)
     } catch {
       showFeedback('error', 'Failed to search users.')
+    } finally {
+      setSearching(null)
+    }
+  }
+
+  async function assignSlot(slot: AdminSlot, role: PartnerAdminRole, partnerId: string) {
+    const resolvedEmail = slot.email.trim().toLowerCase()
+    if (!resolvedEmail) return
+    if (slot.status === 'found' && slot.uid) {
+      await assignPartnerAdmin({
+        uid: slot.uid, email: resolvedEmail, displayName: slot.displayName,
+        partnerId, addedBy: callerUid, addedByEmail: callerEmail,
+      })
+    } else {
+      await assignPendingPartnerAdmin({
+        email: resolvedEmail, role, partnerId,
+        addedBy: callerUid, addedByEmail: callerEmail,
+      })
     }
   }
 
   async function handleCreatePartner(e: React.FormEvent) {
     e.preventDefault()
-    if (!pName.trim() || !pCode.trim()) return
+    if (!pName.trim() || !pCode.trim() || !superAdmin.email.trim()) return
     setCreating(true)
     try {
-      await createPartner({
+      const partnerId = await createPartner({
         name:         pName.trim(),
         code:         pCode.trim().toLowerCase(),
-        supportEmail: pEmail.trim()   || undefined,
-        supportPhone: pPhone.trim()   || undefined,
-        website:      pWeb.trim()     || undefined,
+        supportEmail: pEmail.trim()  || undefined,
+        supportPhone: pPhone.trim()  || undefined,
+        website:      pWeb.trim()    || undefined,
         domains:      pDomains.split('\n').map(d => d.trim()).filter(Boolean),
-        brandingId:   pBranding.trim()|| undefined,
+        brandingId:   pBranding.trim() || undefined,
         enabled:      true,
         createdBy:    callerUid,
       })
+      await assignSlot(superAdmin, 'partner_super_admin', partnerId)
+      if (admin1.email.trim()) await assignSlot(admin1, 'partner_admin', partnerId)
+      if (admin2.email.trim()) await assignSlot(admin2, 'partner_admin', partnerId)
+
       showFeedback('success', `Partner "${pName.trim()}" created.`)
       setPName(''); setPCode(''); setPEmail(''); setPPhone('')
       setPWeb(''); setPDomains(''); setPBranding('')
+      setSuperAdmin(emptySlot()); setAdmin1(emptySlot()); setAdmin2(emptySlot())
       setCreateOpen(false)
     } catch {
       showFeedback('error', 'Failed to create partner.')
@@ -2716,36 +2790,22 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
     }
   }
 
-  async function handleAssignAdmin(e: React.FormEvent) {
-    e.preventDefault()
-    if (!selectedUser || !assignPartnerId) return
-    setAssigning(true)
-    try {
-      await assignPartnerAdmin({
-        uid:          selectedUser.uid,
-        email:        selectedUser.email,
-        displayName:  selectedUser.displayName,
-        partnerId:    assignPartnerId,
-        addedBy:      callerUid,
-        addedByEmail: callerEmail,
-      })
-      showFeedback('success', `${selectedUser.email} assigned as Partner Admin.`)
-      setSelectedUser(null); setUserSearch(''); setSearchResults([])
-      setAssignPartnerId(''); setAssignOpen(false)
-    } catch {
-      showFeedback('error', 'Failed to assign Partner Admin.')
-    } finally {
-      setAssigning(false)
-    }
-  }
-
-  async function handleDisable(partner: Partner) {
-    if (!window.confirm(`Disable partner "${partner.name}"?`)) return
-    try {
-      await disablePartner(partner.partnerId)
-      showFeedback('success', `Partner "${partner.name}" disabled.`)
-    } catch {
-      showFeedback('error', 'Failed to disable partner.')
+  async function handleToggleEnabled(partner: Partner) {
+    if (partner.enabled) {
+      if (!window.confirm(`Disable partner "${partner.name}"?`)) return
+      try {
+        await disablePartner(partner.partnerId)
+        showFeedback('success', `Partner "${partner.name}" disabled.`)
+      } catch {
+        showFeedback('error', 'Failed to disable partner.')
+      }
+    } else {
+      try {
+        await enablePartner(partner.partnerId)
+        showFeedback('success', `Partner "${partner.name}" enabled.`)
+      } catch {
+        showFeedback('error', 'Failed to enable partner.')
+      }
     }
   }
 
@@ -2764,7 +2824,7 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
         </div>
       )}
 
-      {/* ── Existing partners list ─────────────────────────────────────────── */}
+      {/* ── Partner list ──────────────────────────────────────────────────── */}
       <CollapsibleCard
         title="Partners"
         subtitle={`${partners.length} partner${partners.length !== 1 ? 's' : ''} registered on the platform`}
@@ -2774,53 +2834,50 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
         defaultOpen={true}
         badge={
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full
-            bg-primary-light text-primary border border-primary/20">
-            {partners.length}
-          </span>
+            bg-primary-light text-primary border border-primary/20">{partners.length}</span>
         }
       >
         {partners.length === 0 ? (
-          <p className="text-sm text-text-secondary italic py-2">
-            No partners yet. Create one below.
-          </p>
+          <p className="text-sm text-text-secondary italic py-2">No partners yet. Create one below.</p>
         ) : (
           <div className="flex flex-col divide-y divide-border">
             {partners.map(p => (
-              <div key={p.partnerId} className="py-3 first:pt-1 last:pb-0 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-primary-light flex items-center justify-center shrink-0">
-                  <Handshake className="w-4 h-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <span className="text-sm font-semibold text-text-primary">{p.name}</span>
-                    <span className="text-[10px] font-mono text-text-secondary">{p.code}</span>
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
-                      ${p.enabled
-                        ? 'bg-success/10 text-success border-success/20'
-                        : 'bg-gray-100 text-text-secondary border-border'}`}>
-                      {p.enabled ? 'active' : 'disabled'}
-                    </span>
+              <div key={p.partnerId} className="py-3 first:pt-1 last:pb-0">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-primary-light flex items-center justify-center shrink-0 mt-0.5">
+                    <Handshake className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {p.domains.length > 0 && (
-                      <span className="text-[11px] text-text-secondary font-mono">
-                        {p.domains[0]}{p.domains.length > 1 ? ` +${p.domains.length - 1}` : ''}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="text-sm font-semibold text-text-primary">{p.name}</span>
+                      <span className="text-[10px] font-mono text-text-secondary">{p.code}</span>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border
+                        ${p.enabled
+                          ? 'bg-success/10 text-success border-success/20'
+                          : 'bg-gray-100 text-text-secondary border-border'}`}>
+                        {p.enabled ? 'active' : 'disabled'}
                       </span>
-                    )}
-                    {p.supportEmail && (
-                      <span className="text-[11px] text-text-secondary">{p.supportEmail}</span>
-                    )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap mb-0.5">
+                      {p.domains.length > 0 && (
+                        <span className="text-[11px] text-text-secondary font-mono">
+                          {p.domains[0]}{p.domains.length > 1 ? ` +${p.domains.length - 1}` : ''}
+                        </span>
+                      )}
+                      {p.supportEmail && <span className="text-[11px] text-text-secondary">{p.supportEmail}</span>}
+                    </div>
+                    <PartnerAdminBadges partnerId={p.partnerId} />
                   </div>
-                </div>
-                {p.enabled && (
                   <button
-                    onClick={() => handleDisable(p)}
-                    className="text-xs font-medium text-error hover:bg-red-50 px-2.5 py-1
-                      rounded-lg border border-error/20 transition-colors shrink-0"
+                    onClick={() => handleToggleEnabled(p)}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors shrink-0
+                      ${p.enabled
+                        ? 'text-error hover:bg-red-50 border-error/20'
+                        : 'text-success hover:bg-success/10 border-success/20'}`}
                   >
-                    Disable
+                    {p.enabled ? 'Disable' : 'Enable'}
                   </button>
-                )}
+                </div>
               </div>
             ))}
           </div>
@@ -2830,123 +2887,161 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
       {/* ── Create partner ─────────────────────────────────────────────────── */}
       <CollapsibleCard
         title="Create Partner"
-        subtitle="Register a new partner on the platform"
+        subtitle="Register a new partner on the platform with admin users"
         icon={Plus}
         iconBg="bg-emerald-50"
         iconColor="text-emerald-600"
         open={createOpen}
         onOpenChange={setCreateOpen}
       >
-        <form onSubmit={handleCreatePartner} className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                Partner Name <span className="text-error">*</span>
-              </label>
-              <input
-                required
-                value={pName}
-                onChange={e => setPName(e.target.value)}
-                placeholder="iFab Tech"
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm
-                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                Partner Code <span className="text-error">*</span>
-                <span className="text-[10px] font-normal ml-1">(lowercase, no spaces)</span>
-              </label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-                <input
-                  required
-                  value={pCode}
-                  onChange={e => setPCode(e.target.value.toLowerCase().replace(/\s/g, ''))}
-                  placeholder="ifab"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm font-mono
-                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                Website
-              </label>
-              <div className="relative">
-                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-                <input
-                  type="url"
-                  value={pWeb}
-                  onChange={e => setPWeb(e.target.value)}
-                  placeholder="https://ifabtech.com"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm
-                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                Support Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-                <input
-                  type="email"
-                  value={pEmail}
-                  onChange={e => setPEmail(e.target.value)}
-                  placeholder="support@ifabtech.com"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm
-                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                Support Phone
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-                <input
-                  type="tel"
-                  value={pPhone}
-                  onChange={e => setPPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm
-                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                Branding ID
-              </label>
-              <input
-                value={pBranding}
-                onChange={e => setPBranding(e.target.value)}
-                placeholder="brandings/{id} — leave blank for default"
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
-                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-              />
-            </div>
-          </div>
+        <form onSubmit={handleCreatePartner} className="flex flex-col gap-6">
+
+          {/* Branding & Domain */}
           <div>
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-              Domains <span className="text-[10px] font-normal">(one per line)</span>
-            </label>
-            <textarea
-              rows={3}
-              value={pDomains}
-              onChange={e => setPDomains(e.target.value)}
-              placeholder={'fai.ifab.tech\nev.ifab.tech'}
-              className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
-                focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition resize-none"
-            />
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3">
+              Branding &amp; Domain
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
+                  Partner Name <span className="text-error">*</span>
+                </label>
+                <input required value={pName} onChange={e => setPName(e.target.value)}
+                  placeholder="iFab Tech"
+                  className="w-full px-3 py-2 rounded-xl border border-border text-sm
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
+                  Partner Code <span className="text-error">*</span>
+                  <span className="text-[10px] font-normal ml-1">(lowercase)</span>
+                </label>
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                  <input required value={pCode}
+                    onChange={e => setPCode(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                    placeholder="ifab"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm font-mono
+                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Website</label>
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                  <input type="url" value={pWeb} onChange={e => setPWeb(e.target.value)}
+                    placeholder="https://ifabtech.com"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm
+                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Support Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                  <input type="email" value={pEmail} onChange={e => setPEmail(e.target.value)}
+                    placeholder="support@ifabtech.com"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm
+                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Support Phone</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                  <input type="tel" value={pPhone} onChange={e => setPPhone(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm
+                      focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Branding ID</label>
+                <input value={pBranding} onChange={e => setPBranding(e.target.value)}
+                  placeholder="brandings/{id} — leave blank for default"
+                  className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
+                Domains <span className="text-[10px] font-normal">(one per line)</span>
+              </label>
+              <textarea rows={3} value={pDomains} onChange={e => setPDomains(e.target.value)}
+                placeholder={'fai.ifab.tech\nev.ifab.tech'}
+                className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
+                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition resize-none"
+              />
+            </div>
           </div>
-          <div className="flex justify-end">
+
+          {/* Admin Users */}
+          <div>
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3">
+              Admin Users
+            </p>
+            <div className="flex flex-col gap-4">
+              {(
+                [
+                  { label: 'Partner Super Admin', slot: superAdmin, setSlot: setSuperAdmin, key: 'super' as const, required: true },
+                  { label: 'Partner Admin 1',      slot: admin1,     setSlot: setAdmin1,     key: 'a1'    as const, required: false },
+                  { label: 'Partner Admin 2',      slot: admin2,     setSlot: setAdmin2,     key: 'a2'    as const, required: false },
+                ] as const
+              ).map(({ label, slot, setSlot, key, required }) => (
+                <div key={key}>
+                  <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+                    {label}{required && <span className="text-error ml-1">*</span>}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="email"
+                      required={required}
+                      value={slot.email}
+                      onChange={e => setSlot({ ...emptySlot(), email: e.target.value })}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); resolveEmail(slot.email, key) } }}
+                      placeholder="admin@company.com"
+                      className="flex-1 px-3 py-2 rounded-xl border border-border text-sm
+                        focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => resolveEmail(slot.email, key)}
+                      disabled={!slot.email.trim() || searching === key}
+                      className="px-3 py-2 rounded-xl border border-border text-sm font-medium
+                        text-text-primary hover:bg-gray-50 transition-colors shrink-0 disabled:opacity-50"
+                    >
+                      {searching === key ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Find'}
+                    </button>
+                  </div>
+                  {slot.status === 'found' && (
+                    <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-xl
+                      bg-success/5 border border-success/20 text-xs text-success">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      Found: {slot.displayName || slot.email} — will be assigned as active
+                    </div>
+                  )}
+                  {slot.status === 'not_found' && (
+                    <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-xl
+                      bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Not registered — will be saved as pending
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
             <button
               type="submit"
-              disabled={creating || !pName.trim() || !pCode.trim()}
+              disabled={creating || !pName.trim() || !pCode.trim() || !superAdmin.email.trim()}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white
                 text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
@@ -2957,129 +3052,6 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
         </form>
       </CollapsibleCard>
 
-      {/* ── Assign partner admin ───────────────────────────────────────────── */}
-      <CollapsibleCard
-        title="Assign Partner Admin"
-        subtitle="Grant a registered user Partner Admin access for a specific partner"
-        icon={UserPlus}
-        iconBg="bg-purple-50"
-        iconColor="text-purple-600"
-        open={assignOpen}
-        onOpenChange={setAssignOpen}
-        disabled={partners.length === 0}
-      >
-        <form onSubmit={handleAssignAdmin} className="flex flex-col gap-4">
-
-          {/* Step 1 — search user */}
-          <div>
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
-              1 — Search user by email or name
-            </label>
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
-                <input
-                  value={userSearch}
-                  onChange={e => { setUserSearch(e.target.value); setSelectedUser(null) }}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSearchUsers() } }}
-                  placeholder="Search by email or name…"
-                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm
-                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleSearchUsers}
-                className="px-4 py-2 rounded-xl border border-border text-sm font-medium
-                  text-text-primary hover:bg-gray-50 transition-colors shrink-0"
-              >
-                Search
-              </button>
-            </div>
-
-            {searchResults.length > 0 && !selectedUser && (
-              <div className="mt-2 border border-border rounded-xl overflow-hidden divide-y divide-border">
-                {searchResults.map(u => (
-                  <button
-                    key={u.uid}
-                    type="button"
-                    onClick={() => { setSelectedUser(u); setSearchResults([]) }}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-primary-light/50 transition-colors text-left"
-                  >
-                    <div className="w-7 h-7 rounded-full bg-primary-light flex items-center justify-center shrink-0">
-                      <span className="text-[10px] font-bold text-primary">
-                        {(u.displayName || u.email)[0].toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">{u.displayName || u.email}</p>
-                      {u.displayName && <p className="text-[11px] text-text-secondary">{u.email}</p>}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {selectedUser && (
-              <div className="mt-2 flex items-center gap-3 px-3 py-2.5 rounded-xl
-                bg-primary-light/40 border border-primary/20">
-                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center shrink-0">
-                  <span className="text-[10px] font-bold text-white">
-                    {(selectedUser.displayName || selectedUser.email)[0].toUpperCase()}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-primary">{selectedUser.displayName}</p>
-                  <p className="text-[11px] text-text-secondary">{selectedUser.email}</p>
-                  {adminRecord && (
-                    <p className="text-[11px] text-amber-600 mt-0.5">
-                      Already admin for: {adminRecord}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedUser(null); setUserSearch('') }}
-                  className="text-xs text-text-secondary hover:text-text-primary transition-colors shrink-0"
-                >
-                  Change
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Step 2 — select partner */}
-          <div>
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
-              2 — Select partner
-            </label>
-            <select
-              required
-              value={assignPartnerId}
-              onChange={e => setAssignPartnerId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-white
-                focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
-            >
-              <option value="">— Select a partner —</option>
-              {partners.filter(p => p.enabled).map(p => (
-                <option key={p.partnerId} value={p.partnerId}>{p.name} ({p.code})</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={assigning || !selectedUser || !assignPartnerId}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white
-                text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              {assigning ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-              Assign Partner Admin
-            </button>
-          </div>
-        </form>
-      </CollapsibleCard>
     </div>
   )
 }

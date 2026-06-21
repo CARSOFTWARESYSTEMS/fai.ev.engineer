@@ -3,7 +3,10 @@ import {
   doc,
   getDoc,
   setDoc,
+  collection,
   onSnapshot,
+  query,
+  where,
   serverTimestamp,
   type Timestamp,
 } from 'firebase/firestore'
@@ -15,13 +18,16 @@ import { logPartnerAdminAssigned, logPartnerAdminRevoked } from './userActivityL
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
+export type PartnerAdminRole = 'partner_super_admin' | 'partner_admin'
+
 export interface PartnerAdminRecord {
   uid:         string
   email:       string
   displayName: string
-  partnerIds:  string[]                  // may manage multiple partners
-  status:      'active' | 'deactivated'
-  addedBy:     string                   // uid of Platform Admin who granted access
+  partnerIds:  string[]                               // may manage multiple partners
+  role?:       PartnerAdminRole                       // role within partner
+  status:      'active' | 'deactivated' | 'pending'  // pending = email stored, user not yet registered
+  addedBy:     string                                 // uid of Platform Admin who granted access
   addedAt:     Timestamp | null
 }
 
@@ -58,7 +64,8 @@ export function subscribePartnerAccess(
         email:       (d.email        as string) ?? '',
         displayName: (d.displayName  as string) ?? '',
         partnerIds:  (d.partnerIds   as string[]) ?? [],
-        status:      (d.status       as 'active' | 'deactivated') ?? 'deactivated',
+        role:        d.role          as PartnerAdminRole | undefined,
+        status:      (d.status       as 'active' | 'deactivated' | 'pending') ?? 'deactivated',
         addedBy:     (d.addedBy      as string) ?? '',
         addedAt:     (d.addedAt      as Timestamp | null) ?? null,
       })
@@ -145,6 +152,73 @@ export async function revokePartnerAdmin(
       actorUid:    revokedBy.uid,
       actorEmail:  revokedBy.email,
     }).catch(() => {})
+  }
+}
+
+// ─── Subscribe to all admins for a given partner ──────────────────────────────
+
+function toRecord(id: string, d: Record<string, unknown>): PartnerAdminRecord {
+  return {
+    uid:         id,
+    email:       (d.email        as string) ?? '',
+    displayName: (d.displayName  as string) ?? '',
+    partnerIds:  (d.partnerIds   as string[]) ?? [],
+    role:        d.role          as PartnerAdminRole | undefined,
+    status:      (d.status       as 'active' | 'deactivated' | 'pending') ?? 'deactivated',
+    addedBy:     (d.addedBy      as string) ?? '',
+    addedAt:     (d.addedAt      as Timestamp | null) ?? null,
+  }
+}
+
+export function subscribePartnerAdmins(
+  partnerId: string,
+  callback:  (records: PartnerAdminRecord[]) => void,
+): () => void {
+  return onSnapshot(
+    query(
+      collection(firestore, 'partnerAdmins'),
+      where('partnerIds', 'array-contains', partnerId),
+    ),
+    snap => callback(snap.docs.map(d => toRecord(d.id, d.data()))),
+    () => callback([]),
+  )
+}
+
+// ─── Assign a pending (unregistered) email as partner admin ──────────────────
+
+export async function assignPendingPartnerAdmin(opts: {
+  email:        string
+  role:         PartnerAdminRole
+  partnerId:    string
+  addedBy:      string
+  addedByEmail?: string
+}): Promise<void> {
+  // Use a deterministic doc ID so duplicate calls are idempotent
+  const safeId = 'pending_' + opts.email.toLowerCase().replace(/[^a-z0-9]/g, '_')
+  const ref    = doc(firestore, 'partnerAdmins', safeId)
+  const snap   = await getDoc(ref)
+
+  if (snap.exists()) {
+    const current     = snap.data()
+    const existingIds = (current.partnerIds as string[]) ?? []
+    if (!existingIds.includes(opts.partnerId)) {
+      await setDoc(ref, {
+        ...current,
+        partnerIds: [...existingIds, opts.partnerId],
+        role:       opts.role,
+      }, { merge: true })
+    }
+  } else {
+    await setDoc(ref, {
+      uid:         null,
+      email:       opts.email.toLowerCase(),
+      displayName: '',
+      partnerIds:  [opts.partnerId],
+      role:        opts.role,
+      status:      'pending',
+      addedBy:     opts.addedBy,
+      addedAt:     serverTimestamp(),
+    })
   }
 }
 
