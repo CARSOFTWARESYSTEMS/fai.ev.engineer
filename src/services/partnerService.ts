@@ -23,9 +23,11 @@ export interface Partner {
   name:             string
   code:             string          // short lowercase identifier (e.g. "ifab")
   brandingId?:      string          // reference to brandings/{brandingId}
-  domains:          string[]        // hostnames served by this partner
+  primaryDomain:    string          // primary hostname (required; included in domains[])
+  domains:          string[]        // all hostnames served by this partner
   supportEmail?:    string
   supportPhone?:    string
+  whatsappNumber?:  string
   website?:         string
   enabled:          boolean
   lifecycleStatus:  PartnerLifecycleStatus
@@ -47,14 +49,17 @@ export type UpdatePartnerInput = Partial<
 // ─── Internal helpers ──────────────────────────────────────────────────────────
 
 function toPartner(id: string, data: Record<string, unknown>): Partner {
+  const domains = (data.domains as string[]) ?? []
   return {
     partnerId:       id,
     name:            (data.name            as string)                  ?? '',
     code:            (data.code            as string)                  ?? '',
     brandingId:      data.brandingId       as string | undefined,
-    domains:         (data.domains         as string[])                ?? [],
+    primaryDomain:   (data.primaryDomain   as string)                  ?? domains[0] ?? '',
+    domains,
     supportEmail:    data.supportEmail     as string | undefined,
     supportPhone:    data.supportPhone     as string | undefined,
+    whatsappNumber:  data.whatsappNumber   as string | undefined,
     website:         data.website          as string | undefined,
     enabled:         (data.enabled         as boolean)                 ?? true,
     lifecycleStatus: (data.lifecycleStatus as PartnerLifecycleStatus)  ?? 'active',
@@ -66,6 +71,34 @@ function toPartner(id: string, data: Record<string, unknown>): Partner {
     updatedAt:       (data.updatedAt       as Timestamp | null)        ?? null,
     createdBy:       (data.createdBy       as string)                  ?? '',
   }
+}
+
+// ─── Domain helpers ────────────────────────────────────────────────────────────
+
+export function isValidPartnerDomain(d: string): boolean {
+  // Hostname only — reject anything with a protocol, path, or trailing slash
+  if (d.includes('://') || d.includes('/')) return false
+  return /^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)+$/.test(d)
+}
+
+// ─── Error helper ──────────────────────────────────────────────────────────────
+
+export function getReadablePartnerError(err: unknown): string {
+  if (import.meta.env.DEV) console.error('[Partner Error]', err)
+  const code = (err as { code?: string })?.code ?? ''
+  const msg  = err instanceof Error ? err.message : String(err)
+  if (code === 'permission-denied' || msg.includes('permission'))
+    return 'Permission denied — your developer account does not have write access'
+  if (code === 'already-exists')
+    return 'A record with this ID already exists'
+  if (code === 'invalid-argument')
+    return 'Invalid data — check all required fields are correctly formatted'
+  if (code === 'unavailable' || msg.includes('unavailable'))
+    return 'Service temporarily unavailable — please try again'
+  if (code === 'unauthenticated')
+    return 'Session expired — please reload and sign in again'
+  if (msg) return msg
+  return 'Unknown error — check the browser console for details'
 }
 
 // ─── Read operations ───────────────────────────────────────────────────────────

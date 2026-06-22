@@ -129,6 +129,19 @@ export async function assignPartnerAdmin(opts: {
   }
 }
 
+export async function deactivatePartnerAdmin(uid: string): Promise<void> {
+  await setDoc(doc(firestore, 'partnerAdmins', uid), { status: 'deactivated' }, { merge: true })
+}
+
+export async function reactivatePartnerAdmin(uid: string): Promise<void> {
+  const snap = await getDoc(doc(firestore, 'partnerAdmins', uid))
+  if (!snap.exists()) return
+  const partnerIds = (snap.data().partnerIds as string[]) ?? []
+  if (partnerIds.length > 0) {
+    await setDoc(doc(firestore, 'partnerAdmins', uid), { status: 'active' }, { merge: true })
+  }
+}
+
 export async function revokePartnerAdmin(
   uid: string,
   partnerId: string,

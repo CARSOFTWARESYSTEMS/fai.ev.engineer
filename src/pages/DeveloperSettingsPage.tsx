@@ -70,21 +70,21 @@ import {
   subscribeDeletedPartners,
   subscribePartnerById,
   createPartner,
+  updatePartner,
   disablePartner,
   enablePartner,
   softDeletePartner,
   restorePartner,
   updatePartnerEntitlements,
+  getReadablePartnerError,
+  isValidPartnerDomain,
   type Partner,
 } from '../services/partnerService'
 import {
   subscribeAllOrganisations,
   subscribePartnerOrganisations,
-  subscribeDeletedOrganisations,
-  subscribeDeletedPartnerOrganisations,
   createOrganisation,
   softDeleteOrganisation,
-  restoreOrganisation,
   getOrganisationStatus,
   formatOrgExpiry,
   type Organisation,
@@ -97,6 +97,9 @@ import {
   assignPartnerAdmin,
   assignPendingPartnerAdmin,
   subscribePartnerAdmins,
+  deactivatePartnerAdmin,
+  reactivatePartnerAdmin,
+  revokePartnerAdmin,
   usePartnerAccess,
   type PartnerAdminRecord,
   type PartnerAdminRole,
@@ -2783,15 +2786,20 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
   const [deletingPartner, setDeletingPartner] = useState<Partner | null>(null)
 
   // Create form
-  const [createOpen, setCreateOpen] = useState(false)
-  const [creating,   setCreating]   = useState(false)
-  const [pName,    setPName]        = useState('')
-  const [pCode,    setPCode]        = useState('')
-  const [pEmail,   setPEmail]       = useState('')
-  const [pPhone,   setPPhone]       = useState('')
-  const [pWeb,     setPWeb]         = useState('')
-  const [pDomains, setPDomains]     = useState('')
-  const [pBranding,setPBranding]    = useState('')
+  const [createOpen,      setCreateOpen]      = useState(false)
+  const [creating,        setCreating]        = useState(false)
+  const [pName,           setPName]           = useState('')
+  const [pCode,           setPCode]           = useState('')
+  const [pCodeManual,     setPCodeManual]     = useState(false)
+  const [pEmail,          setPEmail]          = useState('')
+  const [pPhone,          setPPhone]          = useState('')
+  const [pWeb,            setPWeb]            = useState('')
+  const [pWhatsApp,       setPWhatsApp]       = useState('')
+  const [pPrimaryDomain,  setPPrimaryDomain]  = useState('')
+  const [pDomains,        setPDomains]        = useState<string[]>([])
+  const [pBrandingOpt,    setPBrandingOpt]    = useState<'auto' | 'existing'>('auto')
+  const [pBrandingId,     setPBrandingId]     = useState('')
+  const [brandingPresets, setBrandingPresets] = useState<import('../services/brandingService').BrandingPreset[]>([])
 
   // Admin slots for create form
   const [superAdmin, setSuperAdmin] = useState<AdminSlot>(emptySlot())
@@ -2802,7 +2810,8 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
   useEffect(() => {
     const u1 = subscribePartners(setPartners)
     const u2 = subscribeDeletedPartners(setDeletedPartners)
-    return () => { u1(); u2() }
+    const u3 = subscribeToBrandingPresets(setBrandingPresets)
+    return () => { u1(); u2(); u3() }
   }, [])
 
   function showFeedback(type: 'success' | 'error', msg: string) {
@@ -2847,18 +2856,68 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
 
   async function handleCreatePartner(e: React.FormEvent) {
     e.preventDefault()
-    if (!pName.trim() || !pCode.trim() || !superAdmin.email.trim()) return
+
+    // ── Client-side validation ────────────────────────────────────────────────
+    if (!superAdmin.email.trim()) {
+      showFeedback('error', 'Failed to create partner: Missing Partner Super Admin')
+      return
+    }
+    if (pPrimaryDomain.trim() && !isValidPartnerDomain(pPrimaryDomain.trim())) {
+      showFeedback('error', 'Failed to create partner: Invalid domain format — use hostname only (e.g. fai.ifab.tech), no https:// or trailing slash')
+      return
+    }
+    for (const d of pDomains) {
+      if (!isValidPartnerDomain(d)) {
+        showFeedback('error', `Failed to create partner: Invalid domain format "${d}" — hostnames only`)
+        return
+      }
+    }
+    const dupCode = partners.find(p => p.code === pCode.trim().toLowerCase())
+    if (dupCode) {
+      showFeedback('error', `Failed to create partner: Partner code "${pCode.trim().toLowerCase()}" already exists — choose a different code`)
+      return
+    }
+    const allDomains = [...new Set([pPrimaryDomain.trim(), ...pDomains].filter(Boolean))]
+    const dupDomain  = partners.find(p => p.domains.some(d => allDomains.includes(d)))
+    if (dupDomain) {
+      showFeedback('error', `Failed to create partner: Domain already assigned to "${dupDomain.name}"`)
+      return
+    }
+
     setCreating(true)
     try {
+      // Auto-create branding if selected
+      let brandingId: string | undefined
+      if (pBrandingOpt === 'auto') {
+        brandingId = await createBrandingPreset({
+          businessName:           pName.trim(),
+          businessCode:           pCode.trim().toLowerCase(),
+          poweredByText:          'EV.ENGINEER',
+          poweredByUrl:           'https://ev.engineer',
+          website:                pWeb.trim(),
+          supportEmail:           pEmail.trim(),
+          supportPhone:           pPhone.trim(),
+          whatsappNumber:         pWhatsApp.trim(),
+          technicalSupportNumber: '',
+          domains:                allDomains,
+          createdBy:              callerEmail,
+        })
+      } else if (pBrandingOpt === 'existing' && pBrandingId) {
+        brandingId = pBrandingId
+      }
+
       const partnerId = await createPartner({
         name:            pName.trim(),
         code:            pCode.trim().toLowerCase(),
-        supportEmail:    pEmail.trim()  || undefined,
-        supportPhone:    pPhone.trim()  || undefined,
-        website:         pWeb.trim()    || undefined,
-        domains:         pDomains.split('\n').map(d => d.trim()).filter(Boolean),
-        brandingId:      pBranding.trim() || undefined,
+        primaryDomain:   pPrimaryDomain.trim(),
+        supportEmail:    pEmail.trim()    || undefined,
+        supportPhone:    pPhone.trim()    || undefined,
+        whatsappNumber:  pWhatsApp.trim() || undefined,
+        website:         pWeb.trim()      || undefined,
+        domains:         allDomains,
+        brandingId,
         enabled:         true,
+        lifecycleStatus: 'active',
         enabledProducts: ['fai_reports', 'battery_pm', 'motor_pm', 'energy_mgmt', 'clean_room'],
         createdBy:       callerUid,
       })
@@ -2867,12 +2926,13 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
       if (admin2.email.trim()) await assignSlot(admin2, 'partner_admin', partnerId)
 
       showFeedback('success', `Partner "${pName.trim()}" created.`)
-      setPName(''); setPCode(''); setPEmail(''); setPPhone('')
-      setPWeb(''); setPDomains(''); setPBranding('')
+      setPName(''); setPCode(''); setPCodeManual(false); setPEmail(''); setPPhone('')
+      setPWeb(''); setPWhatsApp(''); setPPrimaryDomain(''); setPDomains([])
+      setPBrandingOpt('auto'); setPBrandingId('')
       setSuperAdmin(emptySlot()); setAdmin1(emptySlot()); setAdmin2(emptySlot())
       setCreateOpen(false)
-    } catch {
-      showFeedback('error', 'Failed to create partner.')
+    } catch (err) {
+      showFeedback('error', `Failed to create partner: ${getReadablePartnerError(err)}`)
     } finally {
       setCreating(false)
     }
@@ -2986,7 +3046,13 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
                       </span>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap mb-0.5">
-                      {p.domains.length > 0 && (
+                      {p.primaryDomain && (
+                        <span className="text-[11px] text-text-secondary font-mono">
+                          {p.primaryDomain}
+                          {p.domains.length > 1 ? ` +${p.domains.length - 1} more` : ''}
+                        </span>
+                      )}
+                      {!p.primaryDomain && p.domains.length > 0 && (
                         <span className="text-[11px] text-text-secondary font-mono">
                           {p.domains[0]}{p.domains.length > 1 ? ` +${p.domains.length - 1}` : ''}
                         </span>
@@ -3089,17 +3155,21 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
       >
         <form onSubmit={handleCreatePartner} className="flex flex-col gap-6">
 
-          {/* Branding & Domain */}
+          {/* Partner Identity */}
           <div>
             <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3">
-              Branding &amp; Domain
+              Partner Identity
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
                   Partner Name <span className="text-error">*</span>
                 </label>
-                <input required value={pName} onChange={e => setPName(e.target.value)}
+                <input required value={pName}
+                  onChange={e => {
+                    setPName(e.target.value)
+                    if (!pCodeManual) setPCode(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 20))
+                  }}
                   placeholder="iFab Tech"
                   className="w-full px-3 py-2 rounded-xl border border-border text-sm
                     focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
@@ -3108,12 +3178,12 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
               <div>
                 <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
                   Partner Code <span className="text-error">*</span>
-                  <span className="text-[10px] font-normal ml-1">(lowercase)</span>
+                  <span className="text-[10px] font-normal ml-1">(auto-derived)</span>
                 </label>
                 <div className="relative">
                   <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
                   <input required value={pCode}
-                    onChange={e => setPCode(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                    onChange={e => { setPCode(e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, '')); setPCodeManual(true) }}
                     placeholder="ifab"
                     className="w-full pl-9 pr-3 py-2 rounded-xl border border-border text-sm font-mono
                       focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
@@ -3154,23 +3224,85 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Branding ID</label>
-                <input value={pBranding} onChange={e => setPBranding(e.target.value)}
-                  placeholder="brandings/{id} — leave blank for default"
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">WhatsApp Number</label>
+                <input type="tel" value={pWhatsApp} onChange={e => setPWhatsApp(e.target.value)}
+                  placeholder="919108206147"
                   className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
                     focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                 />
+                <p className="text-[10px] text-text-secondary mt-0.5">Digits only, no + prefix</p>
               </div>
             </div>
-            <div className="mt-4">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
-                Domains <span className="text-[10px] font-normal">(one per line)</span>
-              </label>
-              <textarea rows={3} value={pDomains} onChange={e => setPDomains(e.target.value)}
-                placeholder={'fai.ifab.tech\nev.ifab.tech'}
-                className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
-                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition resize-none"
+          </div>
+
+          {/* Domains */}
+          <div>
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3">
+              Domains
+            </p>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
+                  Primary Domain <span className="text-error">*</span>
+                </label>
+                <input
+                  required
+                  value={pPrimaryDomain}
+                  onChange={e => setPPrimaryDomain(e.target.value.toLowerCase().replace(/\s/g, ''))}
+                  placeholder="fai.ifab.tech"
+                  className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                />
+                <p className="text-[10px] text-text-secondary mt-0.5">Hostname only — no https:// or trailing slash</p>
+              </div>
+              <DomainManager
+                domains={pDomains}
+                onChange={setPDomains}
               />
+            </div>
+          </div>
+
+          {/* Branding */}
+          <div>
+            <p className="text-[10px] font-bold text-text-secondary uppercase tracking-widest mb-3">
+              Branding
+            </p>
+            <div className="flex flex-col gap-3">
+              {(['auto', 'existing'] as const).map(opt => (
+                <label key={opt} className={`flex items-start gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all
+                  ${pBrandingOpt === opt ? 'border-primary bg-primary-light/40' : 'border-border hover:border-primary/30'}`}>
+                  <input type="radio" name="brandingOpt" value={opt}
+                    checked={pBrandingOpt === opt}
+                    onChange={() => setPBrandingOpt(opt)}
+                    className="mt-0.5 accent-primary"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-text-primary">
+                      {opt === 'auto' ? 'Create branding automatically' : 'Use existing branding template'}
+                    </p>
+                    <p className="text-[11px] text-text-secondary mt-0.5">
+                      {opt === 'auto'
+                        ? 'A new branding preset will be created from Partner Name, Domain, and support contacts'
+                        : 'Select an existing branding preset from the list below'}
+                    </p>
+                  </div>
+                </label>
+              ))}
+              {pBrandingOpt === 'existing' && (
+                <select
+                  value={pBrandingId}
+                  onChange={e => setPBrandingId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-white
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+                >
+                  <option value="">— Select a branding template —</option>
+                  {brandingPresets.map(b => (
+                    <option key={b.brandingId} value={b.brandingId}>
+                      {b.businessName} ({b.businessCode})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
@@ -3234,7 +3366,7 @@ function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
           <div className="flex justify-end pt-1">
             <button
               type="submit"
-              disabled={creating || !pName.trim() || !pCode.trim() || !superAdmin.email.trim()}
+              disabled={creating || !pName.trim() || !pCode.trim() || !pPrimaryDomain.trim() || !superAdmin.email.trim()}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white
                 text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
@@ -3690,15 +3822,14 @@ const ORG_STATUS_LABELS: Record<OrgStatus, string> = {
   inactive:  'Inactive',
 }
 
-function OrganisationsManagementTab({ callerUid, callerEmail, isDeveloperAdmin }: {
-  callerUid:        string
-  callerEmail:      string
-  isDeveloperAdmin: boolean
+function OrganisationsManagementTab({ callerUid, callerEmail }: {
+  callerUid:   string
+  callerEmail: string
+  isDeveloperAdmin?: boolean
 }) {
   const { isPartnerAdminUser, primaryPartnerId, isLoading: accessLoading } = usePartnerAccess()
 
   const [organisations, setOrganisations] = useState<Organisation[]>([])
-  const [deletedOrgs,   setDeletedOrgs]   = useState<Organisation[]>([])
   const [partners,      setPartners]      = useState<Partner[]>([])
   const [feedback,      setFeedback]      = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
   const [deletingOrg,   setDeletingOrg]   = useState<Organisation | null>(null)
@@ -3724,14 +3855,6 @@ function OrganisationsManagementTab({ callerUid, callerEmail, isDeveloperAdmin }
       ? subscribePartnerById(primaryPartnerId, p => setPartners(p ? [p] : []))
       : subscribePartners(setPartners)
     return () => { u1(); u2() }
-  }, [isPartnerAdminUser, primaryPartnerId, accessLoading])
-
-  useEffect(() => {
-    if (accessLoading) return
-    const u = isPartnerAdminUser && primaryPartnerId
-      ? subscribeDeletedPartnerOrganisations(primaryPartnerId, setDeletedOrgs)
-      : subscribeDeletedOrganisations(setDeletedOrgs)
-    return u
   }, [isPartnerAdminUser, primaryPartnerId, accessLoading])
 
   useEffect(() => {
@@ -3803,24 +3926,6 @@ function OrganisationsManagementTab({ callerUid, callerEmail, isDeveloperAdmin }
       setDeletingOrg(null)
     }
   }
-
-  async function handleRestoreOrg(org: Organisation) {
-    try {
-      await restoreOrganisation(org.organisationId)
-      logOrgActivity({
-        organisationId: org.organisationId,
-        eventType:      'organisation.restored',
-        actorUid:       callerUid,
-        actorEmail:     callerEmail,
-        description:    'Organisation restored',
-      }).catch(() => {})
-      showFeedback('success', `Organisation "${org.name}" restored.`)
-    } catch {
-      showFeedback('error', 'Failed to restore organisation.')
-    }
-  }
-
-  const canDeleteOrg = isDeveloperAdmin || isPartnerAdminUser
 
   const total     = organisations.length
   const trials    = organisations.filter(o => getOrganisationStatus(o) === 'trial').length
@@ -4065,6 +4170,468 @@ function OrganisationsManagementTab({ callerUid, callerEmail, isDeveloperAdmin }
   )
 }
 
+// ─── Branding / Domain tab ────────────────────────────────────────────────────
+
+function BrandingDomainTab({ callerEmail, isDeveloperAdmin }: {
+  callerEmail:      string
+  isDeveloperAdmin: boolean
+}) {
+  const [partners,        setPartners]        = useState<Partner[]>([])
+  const [selectedId,      setSelectedId]      = useState('')
+  const [brandingPresets, setBrandingPresets] = useState<import('../services/brandingService').BrandingPreset[]>([])
+  const [feedback,        setFeedback]        = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [saving,          setSaving]          = useState(false)
+  const [domainPrimary,   setDomainPrimary]   = useState('')
+  const [domainExtras,    setDomainExtras]    = useState<string[]>([])
+  const [domainDirty,     setDomainDirty]     = useState(false)
+  const [brandingOpt,     setBrandingOpt]     = useState<'link' | 'create'>('link')
+  const [brandingSelId,   setBrandingSelId]   = useState('')
+  const [brandingDirty,   setBrandingDirty]   = useState(false)
+
+  useEffect(() => {
+    const u1 = subscribePartners(setPartners)
+    const u2 = subscribeToBrandingPresets(setBrandingPresets)
+    return () => { u1(); u2() }
+  }, [])
+
+  const selected = partners.find(p => p.partnerId === selectedId) ?? null
+
+  useEffect(() => {
+    if (!selected) return
+    setDomainPrimary(selected.primaryDomain)
+    setDomainExtras(selected.domains.filter(d => d !== selected.primaryDomain))
+    setDomainDirty(false)
+    setBrandingSelId(selected.brandingId ?? '')
+    setBrandingOpt(selected.brandingId ? 'link' : 'create')
+    setBrandingDirty(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
+
+  function showFeedback(type: 'success' | 'error', msg: string) {
+    setFeedback({ type, msg })
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  async function handleSaveDomains() {
+    if (!selected) return
+    if (!domainPrimary.trim()) { showFeedback('error', 'Primary domain is required'); return }
+    if (!isValidPartnerDomain(domainPrimary.trim())) { showFeedback('error', 'Invalid primary domain format'); return }
+    for (const d of domainExtras) {
+      if (!isValidPartnerDomain(d)) { showFeedback('error', `Invalid domain format: ${d}`); return }
+    }
+    const allDomains = [...new Set([domainPrimary.trim(), ...domainExtras].filter(Boolean))]
+    setSaving(true)
+    try {
+      await updatePartner(selected.partnerId, { primaryDomain: domainPrimary.trim(), domains: allDomains })
+      showFeedback('success', 'Domains saved.')
+      setDomainDirty(false)
+    } catch (err) {
+      showFeedback('error', `Failed to save domains: ${getReadablePartnerError(err)}`)
+    } finally { setSaving(false) }
+  }
+
+  async function handleSaveBranding() {
+    if (!selected) return
+    setSaving(true)
+    try {
+      let brandingId: string | undefined
+      if (brandingOpt === 'link' && brandingSelId) {
+        brandingId = brandingSelId
+      } else if (brandingOpt === 'create') {
+        const allDomains = [...new Set([domainPrimary || selected.primaryDomain, ...domainExtras].filter(Boolean))]
+        brandingId = await createBrandingPreset({
+          businessName: selected.name, businessCode: selected.code,
+          poweredByText: 'EV.ENGINEER', poweredByUrl: 'https://ev.engineer',
+          website: selected.website ?? '', supportEmail: selected.supportEmail ?? '',
+          supportPhone: selected.supportPhone ?? '', whatsappNumber: selected.whatsappNumber ?? '',
+          technicalSupportNumber: '', domains: allDomains, createdBy: callerEmail,
+        })
+      }
+      await updatePartner(selected.partnerId, { brandingId })
+      showFeedback('success', brandingOpt === 'create' ? 'Branding preset created and linked.' : 'Branding linked.')
+      setBrandingDirty(false)
+    } catch (err) {
+      showFeedback('error', `Failed to save branding: ${getReadablePartnerError(err)}`)
+    } finally { setSaving(false) }
+  }
+
+  const currentBranding = brandingPresets.find(b => b.brandingId === selected?.brandingId)
+
+  return (
+    <div className="flex flex-col gap-4">
+      {feedback && <FeedbackBanner type={feedback.type} message={feedback.msg} />}
+      <div className="card p-4">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">Select Partner</label>
+        <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-white
+            focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition">
+          <option value="">— Choose a partner —</option>
+          {partners.map(p => (
+            <option key={p.partnerId} value={p.partnerId}>{p.name} ({p.code}){!p.enabled ? ' [disabled]' : ''}</option>
+          ))}
+        </select>
+      </div>
+      {!selected && (
+        <div className="flex flex-col items-center justify-center py-14 text-center">
+          <Globe className="w-8 h-8 text-border mb-3" />
+          <p className="text-sm font-medium text-text-secondary">Select a partner to configure branding and domains</p>
+        </div>
+      )}
+      {selected && (
+        <>
+          <CollapsibleCard title="Domain Configuration"
+            subtitle={`Primary: ${selected.primaryDomain || '—'} · ${selected.domains.length} domain${selected.domains.length !== 1 ? 's' : ''} total`}
+            icon={Globe} iconBg="bg-primary-light" iconColor="text-primary" defaultOpen={true}>
+            <div className="flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">
+                  Primary Domain <span className="text-error">*</span>
+                </label>
+                <input value={domainPrimary}
+                  onChange={e => { setDomainPrimary(e.target.value.toLowerCase().replace(/\s/g,'')); setDomainDirty(true) }}
+                  placeholder="fai.ifab.tech" disabled={!isDeveloperAdmin}
+                  className="w-full px-3 py-2 rounded-xl border border-border text-sm font-mono
+                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition
+                    disabled:bg-gray-50 disabled:text-text-secondary" />
+                <p className="text-[10px] text-text-secondary mt-0.5">Hostname only — no https:// or trailing slash</p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">Additional Domains</label>
+                {isDeveloperAdmin
+                  ? <DomainManager domains={domainExtras} onChange={d => { setDomainExtras(d); setDomainDirty(true) }} />
+                  : domainExtras.length === 0
+                    ? <p className="text-xs text-text-secondary italic">No additional domains.</p>
+                    : <div className="flex flex-wrap gap-1.5">{domainExtras.map(d => (
+                        <span key={d} className="text-xs font-mono bg-primary-light text-primary px-2.5 py-1 rounded-full border border-primary/20">{d}</span>
+                      ))}</div>
+                }
+              </div>
+              {isDeveloperAdmin && domainDirty && (
+                <div className="flex justify-end">
+                  <button onClick={handleSaveDomains} disabled={saving}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2
+                      bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Save Domains
+                  </button>
+                </div>
+              )}
+              {!isDeveloperAdmin && <p className="text-xs text-text-secondary italic">View only — developer admin required to edit.</p>}
+            </div>
+          </CollapsibleCard>
+
+          <CollapsibleCard title="Branding Configuration"
+            subtitle={currentBranding ? `Linked: ${currentBranding.businessName} (${currentBranding.businessCode})` : 'No branding linked'}
+            icon={Palette} iconBg="bg-purple-50" iconColor="text-purple-600" defaultOpen={true}>
+            <div className="flex flex-col gap-4">
+              {currentBranding && (
+                <div className="px-3 py-2.5 rounded-xl bg-primary-light/40 border border-primary/20 text-xs">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-text-primary">{currentBranding.businessName}</span>
+                    <span className="font-mono text-primary bg-primary-light px-1.5 py-0.5 rounded-full">{currentBranding.businessCode}</span>
+                  </div>
+                  {currentBranding.domains.length > 0 && (
+                    <p className="text-text-secondary mt-0.5 font-mono">{currentBranding.domains.join(', ')}</p>
+                  )}
+                </div>
+              )}
+              {isDeveloperAdmin && (
+                <>
+                  {(['link', 'create'] as const).map(opt => (
+                    <label key={opt} className={`flex items-start gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all
+                      ${brandingOpt === opt ? 'border-primary bg-primary-light/40' : 'border-border hover:border-primary/30'}`}>
+                      <input type="radio" name="bOpt" value={opt}
+                        checked={brandingOpt === opt}
+                        onChange={() => { setBrandingOpt(opt); setBrandingDirty(true) }}
+                        className="mt-0.5 accent-primary" />
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">
+                          {opt === 'link' ? 'Link existing branding template' : 'Create new branding from partner details'}
+                        </p>
+                        <p className="text-[11px] text-text-secondary mt-0.5">
+                          {opt === 'link'
+                            ? 'Choose a branding preset from the list'
+                            : "Auto-creates a preset from this partner's name, domain, and contacts"}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                  {brandingOpt === 'link' && (
+                    <select value={brandingSelId}
+                      onChange={e => { setBrandingSelId(e.target.value); setBrandingDirty(true) }}
+                      className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-white
+                        focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition">
+                      <option value="">— Select a branding template —</option>
+                      {brandingPresets.map(b => (
+                        <option key={b.brandingId} value={b.brandingId}>
+                          {b.businessName} ({b.businessCode}){b.brandingId === selected.brandingId ? ' ✓ current' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {brandingDirty && (
+                    <div className="flex justify-end">
+                      <button onClick={handleSaveBranding} disabled={saving}
+                        className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2
+                          bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Save Branding
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+              {!isDeveloperAdmin && <p className="text-xs text-text-secondary italic">View only — developer admin required to edit.</p>}
+            </div>
+          </CollapsibleCard>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─── Admin Users tab ──────────────────────────────────────────────────────────
+
+function AdminUsersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
+  callerUid:        string
+  callerEmail:      string
+  isDeveloperAdmin: boolean
+}) {
+  const [partners,   setPartners]   = useState<Partner[]>([])
+  const [selectedId, setSelectedId] = useState('')
+  const [admins,     setAdmins]     = useState<PartnerAdminRecord[]>([])
+  const [feedback,   setFeedback]   = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [addSlot,    setAddSlot]    = useState<AdminSlot>(emptySlot())
+  const [addRole,    setAddRole]    = useState<PartnerAdminRole>('partner_admin')
+  const [searching,  setSearching]  = useState(false)
+  const [addOpen,    setAddOpen]    = useState(false)
+  const [adding,     setAdding]     = useState(false)
+
+  useEffect(() => subscribePartners(setPartners), [])
+  useEffect(() => {
+    if (!selectedId) { setAdmins([]); return }
+    return subscribePartnerAdmins(selectedId, setAdmins)
+  }, [selectedId])
+
+  function showFeedback(type: 'success' | 'error', msg: string) {
+    setFeedback({ type, msg })
+    setTimeout(() => setFeedback(null), 4000)
+  }
+
+  async function resolveAddSlotEmail() {
+    if (!addSlot.email.trim()) return
+    setSearching(true)
+    try {
+      const all   = await listUsers()
+      const match = all.find(u => u.email?.toLowerCase() === addSlot.email.toLowerCase().trim())
+      setAddSlot(match
+        ? { email: match.email, uid: match.uid, displayName: match.displayName, status: 'found' }
+        : { email: addSlot.email.trim().toLowerCase(), uid: null, displayName: '', status: 'not_found' })
+    } catch { showFeedback('error', 'Failed to search users.') }
+    finally { setSearching(false) }
+  }
+
+  const superAdmins   = admins.filter(a => a.role === 'partner_super_admin')
+  const partnerAdmins = admins.filter(a => a.role === 'partner_admin')
+
+  async function handleAdd() {
+    if (!selectedId || !addSlot.email.trim()) return
+    if (addRole === 'partner_super_admin' && superAdmins.length >= 1) {
+      showFeedback('error', 'Only 1 Partner Super Admin allowed per partner.'); return
+    }
+    if (addRole === 'partner_admin' && partnerAdmins.length >= 2) {
+      showFeedback('error', 'Maximum 2 Partner Admins allowed per partner.'); return
+    }
+    setAdding(true)
+    try {
+      if (addSlot.status === 'found' && addSlot.uid) {
+        await assignPartnerAdmin({ uid: addSlot.uid, email: addSlot.email, displayName: addSlot.displayName,
+          partnerId: selectedId, addedBy: callerUid, addedByEmail: callerEmail })
+      } else {
+        await assignPendingPartnerAdmin({ email: addSlot.email, role: addRole,
+          partnerId: selectedId, addedBy: callerUid, addedByEmail: callerEmail })
+      }
+      showFeedback('success', `${addSlot.email} added as ${addRole === 'partner_super_admin' ? 'Partner Super Admin' : 'Partner Admin'}.`)
+      setAddSlot(emptySlot()); setAddOpen(false)
+    } catch (err) {
+      showFeedback('error', `Failed to add admin: ${getReadablePartnerError(err)}`)
+    } finally { setAdding(false) }
+  }
+
+  async function handleDeactivate(a: PartnerAdminRecord) {
+    try { await deactivatePartnerAdmin(a.uid); showFeedback('success', `${a.email} deactivated.`) }
+    catch (err) { showFeedback('error', `Failed: ${getReadablePartnerError(err)}`) }
+  }
+  async function handleReactivate(a: PartnerAdminRecord) {
+    try { await reactivatePartnerAdmin(a.uid); showFeedback('success', `${a.email} reactivated.`) }
+    catch (err) { showFeedback('error', `Failed: ${getReadablePartnerError(err)}`) }
+  }
+  async function handleRemove(a: PartnerAdminRecord) {
+    if (a.role === 'partner_super_admin' && superAdmins.length <= 1) {
+      showFeedback('error', 'Cannot remove the only Partner Super Admin.'); return
+    }
+    try {
+      await revokePartnerAdmin(a.uid, selectedId, { uid: callerUid, email: callerEmail })
+      showFeedback('success', `${a.email} removed from this partner.`)
+    } catch (err) { showFeedback('error', `Failed: ${getReadablePartnerError(err)}`) }
+  }
+
+  function statusBadge(s: string) {
+    return s === 'active' ? 'bg-success/10 text-success border-success/20'
+      : s === 'pending'   ? 'bg-amber-50 text-amber-700 border-amber-200'
+      :                     'bg-gray-100 text-text-secondary border-border'
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {feedback && <FeedbackBanner type={feedback.type} message={feedback.msg} />}
+      <div className="card p-4">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">Select Partner</label>
+        <select value={selectedId} onChange={e => setSelectedId(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl border border-border text-sm bg-white
+            focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition">
+          <option value="">— Choose a partner —</option>
+          {partners.map(p => (
+            <option key={p.partnerId} value={p.partnerId}>{p.name} ({p.code}){!p.enabled ? ' [disabled]' : ''}</option>
+          ))}
+        </select>
+      </div>
+      {!selectedId && (
+        <div className="flex flex-col items-center justify-center py-14 text-center">
+          <Users2 className="w-8 h-8 text-border mb-3" />
+          <p className="text-sm font-medium text-text-secondary">Select a partner to manage admin users</p>
+        </div>
+      )}
+      {selectedId && (
+        <>
+          <CollapsibleCard title="Partner Admins"
+            subtitle={`${admins.length} admin${admins.length !== 1 ? 's' : ''} · max 1 Super Admin + 2 Admins`}
+            icon={Users2} iconBg="bg-purple-50" iconColor="text-purple-600" defaultOpen={true}
+            badge={admins.length > 0
+              ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary-light text-primary border border-primary/20">{admins.length}</span>
+              : undefined}>
+            {admins.length === 0
+              ? <p className="text-sm text-text-secondary italic py-2">No admins assigned yet.</p>
+              : (
+                <div className="flex flex-col divide-y divide-border">
+                  {[...superAdmins, ...partnerAdmins].map(a => (
+                    <div key={a.uid} className="py-3 first:pt-1 last:pb-0 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-primary-light flex items-center justify-center shrink-0">
+                        <UserCog className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-text-primary truncate">{a.email}</span>
+                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${statusBadge(a.status)}`}>{a.status}</span>
+                        </div>
+                        <p className="text-[11px] text-text-secondary">
+                          {a.role === 'partner_super_admin' ? 'Super Admin' : 'Admin'}
+                          {a.displayName ? ` · ${a.displayName}` : ''}
+                        </p>
+                      </div>
+                      {isDeveloperAdmin && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {a.status === 'active' && (
+                            <button onClick={() => handleDeactivate(a)}
+                              className="text-xs font-medium text-amber-700 border border-amber-200 bg-amber-50
+                                hover:bg-amber-100 px-2.5 py-1 rounded-lg transition-colors">
+                              Deactivate
+                            </button>
+                          )}
+                          {a.status === 'deactivated' && (
+                            <button onClick={() => handleReactivate(a)}
+                              className="text-xs font-medium text-success border border-success/20 bg-success/5
+                                hover:bg-success/10 px-2.5 py-1 rounded-lg transition-colors">
+                              Reactivate
+                            </button>
+                          )}
+                          <button onClick={() => handleRemove(a)} title="Remove partner access"
+                            className="p-1.5 text-text-secondary hover:text-error transition-colors rounded-lg">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            }
+          </CollapsibleCard>
+
+          {isDeveloperAdmin && (
+            <CollapsibleCard title="Add Admin User"
+              subtitle="Assign a new partner_super_admin or partner_admin"
+              icon={Plus} iconBg="bg-success/10" iconColor="text-success"
+              open={addOpen} onOpenChange={setAddOpen}>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">Role</label>
+                  <div className="flex gap-3 flex-wrap">
+                    {([
+                      { value: 'partner_super_admin', label: 'Partner Super Admin' },
+                      { value: 'partner_admin',       label: 'Partner Admin'       },
+                    ] as { value: PartnerAdminRole; label: string }[]).map(({ value, label }) => (
+                      <label key={value} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-all
+                        ${addRole === value ? 'border-primary bg-primary-light font-semibold text-primary' : 'border-border text-text-secondary hover:border-primary/30'}`}>
+                        <input type="radio" name="addRole" value={value}
+                          checked={addRole === value} onChange={() => setAddRole(value)} className="sr-only" />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+                    Email <span className="text-error">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input type="email" value={addSlot.email}
+                      onChange={e => setAddSlot({ ...emptySlot(), email: e.target.value })}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void resolveAddSlotEmail() } }}
+                      placeholder="admin@company.com"
+                      className="flex-1 px-3 py-2 rounded-xl border border-border text-sm
+                        focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition" />
+                    <button type="button" onClick={() => void resolveAddSlotEmail()}
+                      disabled={!addSlot.email.trim() || searching}
+                      className="px-3 py-2 rounded-xl border border-border text-sm font-medium
+                        text-text-primary hover:bg-gray-50 transition-colors shrink-0 disabled:opacity-50">
+                      {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Find'}
+                    </button>
+                  </div>
+                  {addSlot.status === 'found' && (
+                    <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-xl bg-success/5 border border-success/20 text-xs text-success">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      Found: {addSlot.displayName || addSlot.email} — will be assigned as active
+                    </div>
+                  )}
+                  {addSlot.status === 'not_found' && (
+                    <div className="mt-1.5 flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Not registered — will be saved as pending
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={() => void handleAdd()}
+                    disabled={adding || !addSlot.email.trim() || addSlot.status === 'idle'}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white
+                      text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                    {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                    Add Admin
+                  </button>
+                </div>
+              </div>
+            </CollapsibleCard>
+          )}
+          {!isDeveloperAdmin && (
+            <p className="text-xs text-text-secondary italic px-1">View only — developer admin access required to manage admins.</p>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // ─── Partner Management wrapper (sub-tabs) ────────────────────────────────────
 
 function PartnerManagementWrapper({
@@ -4082,11 +4649,11 @@ function PartnerManagementWrapper({
 }) {
   const PARTNER_SUB_TABS: { id: PartnerSubTab; label: string; icon: typeof Code2; disabled?: boolean }[] = [
     { id: 'partners',              label: 'Partners',              icon: Handshake  },
-    { id: 'branding_domain',       label: 'Branding / Domain',     icon: Palette,   disabled: true },
-    { id: 'admin_users',           label: 'Admin Users',           icon: Users2,    disabled: true },
-    { id: 'organisations',         label: 'Organisations',         icon: Building2 },
-    { id: 'subscriptions_billing', label: 'Subscriptions',         icon: CreditCard,disabled: true },
-    { id: 'product_entitlements',  label: 'Product Entitlements',  icon: Layers },
+    { id: 'branding_domain',       label: 'Branding / Domain',     icon: Palette    },
+    { id: 'admin_users',           label: 'Admin Users',           icon: Users2     },
+    { id: 'organisations',         label: 'Organisations',         icon: Building2  },
+    { id: 'subscriptions_billing', label: 'Subscriptions',         icon: CreditCard, disabled: true },
+    { id: 'product_entitlements',  label: 'Product Entitlements',  icon: Layers     },
   ]
 
   return (
@@ -4096,18 +4663,10 @@ function PartnerManagementWrapper({
         <PartnersTab callerUid={callerUid} callerEmail={callerEmail} isDeveloperAdmin={isDeveloperAdmin} />
       )}
       {activeSubTab === 'branding_domain' && (
-        <ComingSoonSection
-          title="Branding / Domain"
-          description="Configure per-partner branding, logo, support contacts, and domain assignments. Moved from Configurations tab."
-          icon={Palette}
-        />
+        <BrandingDomainTab callerEmail={callerEmail} isDeveloperAdmin={isDeveloperAdmin} />
       )}
       {activeSubTab === 'admin_users' && (
-        <ComingSoonSection
-          title="Admin Users"
-          description="Manage partner_super_admin and partner_admin assignments from a dedicated section."
-          icon={Users2}
-        />
+        <AdminUsersTab callerUid={callerUid} callerEmail={callerEmail} isDeveloperAdmin={isDeveloperAdmin} />
       )}
       {activeSubTab === 'organisations' && (
         <OrganisationsManagementTab callerUid={callerUid} callerEmail={callerEmail} isDeveloperAdmin={isDeveloperAdmin} />
@@ -4365,6 +4924,7 @@ export function DeveloperSettingsPage() {
           <PartnerManagementWrapper
             callerUid={firebaseUser?.uid ?? ''}
             callerEmail={firebaseUser?.email ?? ''}
+            isDeveloperAdmin={isDeveloperAdmin}
             activeSubTab={partnerSubTab}
             onSubTabChange={setPartnerSubTab}
           />
