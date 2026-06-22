@@ -6,7 +6,7 @@ import {
   getDoc,
   onSnapshot,
   serverTimestamp,
-  type Timestamp,
+  Timestamp,
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { ProductId } from '../auth/AuthTypes'
@@ -16,20 +16,26 @@ const ALL_PRODUCTS: ProductId[] = ['fai_reports', 'battery_pm', 'motor_pm', 'ene
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
+export type PartnerLifecycleStatus = 'active' | 'disabled' | 'deleted'
+
 export interface Partner {
-  partnerId:       string
-  name:            string
-  code:            string          // short lowercase identifier (e.g. "ifab")
-  brandingId?:     string          // reference to brandings/{brandingId}
-  domains:         string[]        // hostnames served by this partner
-  supportEmail?:   string
-  supportPhone?:   string
-  website?:        string
-  enabled:         boolean
-  enabledProducts: ProductId[]     // products available to this partner's orgs; defaults to all
-  createdAt:       Timestamp | null
-  updatedAt:       Timestamp | null
-  createdBy:       string          // uid of Platform Admin who created
+  partnerId:        string
+  name:             string
+  code:             string          // short lowercase identifier (e.g. "ifab")
+  brandingId?:      string          // reference to brandings/{brandingId}
+  domains:          string[]        // hostnames served by this partner
+  supportEmail?:    string
+  supportPhone?:    string
+  website?:         string
+  enabled:          boolean
+  lifecycleStatus:  PartnerLifecycleStatus
+  deletedAt?:       Timestamp
+  deletedBy?:       string          // email of actor who deleted
+  deletedReason?:   string
+  enabledProducts:  ProductId[]     // products available to this partner's orgs; defaults to all
+  createdAt:        Timestamp | null
+  updatedAt:        Timestamp | null
+  createdBy:        string          // uid of Platform Admin who created
 }
 
 export type CreatePartnerInput = Omit<Partner, 'partnerId' | 'createdAt' | 'updatedAt'>
@@ -42,19 +48,23 @@ export type UpdatePartnerInput = Partial<
 
 function toPartner(id: string, data: Record<string, unknown>): Partner {
   return {
-    partnerId:    id,
-    name:         (data.name as string)         ?? '',
-    code:         (data.code as string)         ?? '',
-    brandingId:   data.brandingId  as string | undefined,
-    domains:      (data.domains    as string[]) ?? [],
-    supportEmail: data.supportEmail as string | undefined,
-    supportPhone: data.supportPhone as string | undefined,
-    website:      data.website      as string | undefined,
-    enabled:         (data.enabled         as boolean)     ?? true,
-    enabledProducts: (data.enabledProducts as ProductId[]) ?? [...ALL_PRODUCTS],
-    createdAt:       (data.createdAt       as Timestamp | null) ?? null,
-    updatedAt:    (data.updatedAt  as Timestamp | null) ?? null,
-    createdBy:    (data.createdBy  as string)   ?? '',
+    partnerId:       id,
+    name:            (data.name            as string)                  ?? '',
+    code:            (data.code            as string)                  ?? '',
+    brandingId:      data.brandingId       as string | undefined,
+    domains:         (data.domains         as string[])                ?? [],
+    supportEmail:    data.supportEmail     as string | undefined,
+    supportPhone:    data.supportPhone     as string | undefined,
+    website:         data.website          as string | undefined,
+    enabled:         (data.enabled         as boolean)                 ?? true,
+    lifecycleStatus: (data.lifecycleStatus as PartnerLifecycleStatus)  ?? 'active',
+    deletedAt:       data.deletedAt        as Timestamp | undefined,
+    deletedBy:       data.deletedBy        as string | undefined,
+    deletedReason:   data.deletedReason    as string | undefined,
+    enabledProducts: (data.enabledProducts as ProductId[])             ?? [...ALL_PRODUCTS],
+    createdAt:       (data.createdAt       as Timestamp | null)        ?? null,
+    updatedAt:       (data.updatedAt       as Timestamp | null)        ?? null,
+    createdBy:       (data.createdBy       as string)                  ?? '',
   }
 }
 
@@ -65,7 +75,17 @@ export function subscribePartners(
 ): () => void {
   return onSnapshot(
     collection(firestore, 'partners'),
-    snap => callback(snap.docs.map(d => toPartner(d.id, d.data()))),
+    snap => callback(snap.docs.map(d => toPartner(d.id, d.data())).filter(p => p.lifecycleStatus !== 'deleted')),
+    () => callback([]),
+  )
+}
+
+export function subscribeDeletedPartners(
+  callback: (partners: Partner[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(firestore, 'partners'),
+    snap => callback(snap.docs.map(d => toPartner(d.id, d.data())).filter(p => p.lifecycleStatus === 'deleted')),
     () => callback([]),
   )
 }
@@ -128,6 +148,31 @@ export async function updatePartnerEntitlements(
 ): Promise<void> {
   await updateDoc(doc(firestore, 'partners', partnerId), {
     enabledProducts: products,
+    updatedAt:       serverTimestamp(),
+  })
+}
+
+export async function softDeletePartner(
+  partnerId: string,
+  opts: { reason: string; deletedBy: string },
+): Promise<void> {
+  await updateDoc(doc(firestore, 'partners', partnerId), {
+    lifecycleStatus: 'deleted' satisfies PartnerLifecycleStatus,
+    enabled:         false,
+    deletedAt:       serverTimestamp(),
+    deletedBy:       opts.deletedBy,
+    deletedReason:   opts.reason || null,
+    updatedAt:       serverTimestamp(),
+  })
+}
+
+export async function restorePartner(partnerId: string): Promise<void> {
+  await updateDoc(doc(firestore, 'partners', partnerId), {
+    lifecycleStatus: 'active' satisfies PartnerLifecycleStatus,
+    enabled:         true,
+    deletedAt:       null,
+    deletedBy:       null,
+    deletedReason:   null,
     updatedAt:       serverTimestamp(),
   })
 }

@@ -26,6 +26,10 @@ export type UserActivityEventType =
   | 'fair.exported'
   | 'partner.admin.assigned'
   | 'partner.admin.revoked'
+  | 'partner.deleted'
+  | 'partner.restored'
+  | 'partner.disabled'
+  | 'partner.enabled'
 
 export type ActivityEventCategory =
   | 'auth'
@@ -50,6 +54,10 @@ export const EVENT_CATEGORY: Record<UserActivityEventType, ActivityEventCategory
   'fair.exported':          'export',
   'partner.admin.assigned': 'partner',
   'partner.admin.revoked':  'partner',
+  'partner.deleted':        'partner',
+  'partner.restored':       'partner',
+  'partner.disabled':       'partner',
+  'partner.enabled':        'partner',
 }
 
 export const EVENT_LABEL: Record<UserActivityEventType, string> = {
@@ -65,6 +73,10 @@ export const EVENT_LABEL: Record<UserActivityEventType, string> = {
   'fair.exported':          'FAIR Package Exported',
   'partner.admin.assigned': 'Partner Admin Assigned',
   'partner.admin.revoked':  'Partner Admin Revoked',
+  'partner.deleted':        'Partner Deleted',
+  'partner.restored':       'Partner Restored',
+  'partner.disabled':       'Partner Disabled',
+  'partner.enabled':        'Partner Enabled',
 }
 
 // ─── Document shape ───────────────────────────────────────────────────────────
@@ -362,4 +374,27 @@ export function collectChangedFields(
 
 export function activityLogDocRef(logId: string) {
   return doc(collection(firestore, 'userActivityLogs'), logId)
+}
+
+// ─── Partner lifecycle events ─────────────────────────────────────────────────
+
+export async function logPartnerActivity(opts: {
+  partnerId:   string
+  partnerName: string
+  eventType:   'partner.deleted' | 'partner.restored' | 'partner.disabled' | 'partner.enabled'
+  actorUid:    string
+  actorEmail:  string
+  reason?:     string
+}): Promise<void> {
+  await writeUserActivityLog({
+    targetUid:  opts.actorUid,
+    actorUid:   opts.actorUid,
+    actorEmail: opts.actorEmail,
+    eventType:  opts.eventType,
+    meta: {
+      partnerId:   opts.partnerId,
+      partnerName: opts.partnerName,
+      reason:      opts.reason ?? '',
+    },
+  })
 }

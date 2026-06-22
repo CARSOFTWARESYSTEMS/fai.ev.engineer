@@ -67,16 +67,24 @@ import {
 } from '../services/brandingService'
 import {
   subscribePartners,
+  subscribeDeletedPartners,
+  subscribePartnerById,
   createPartner,
   disablePartner,
   enablePartner,
+  softDeletePartner,
+  restorePartner,
   updatePartnerEntitlements,
   type Partner,
 } from '../services/partnerService'
 import {
   subscribeAllOrganisations,
   subscribePartnerOrganisations,
+  subscribeDeletedOrganisations,
+  subscribeDeletedPartnerOrganisations,
   createOrganisation,
+  softDeleteOrganisation,
+  restoreOrganisation,
   getOrganisationStatus,
   formatOrgExpiry,
   type Organisation,
@@ -84,6 +92,7 @@ import {
 } from '../services/organisationService'
 import type { ProductId } from '../auth/AuthTypes'
 import { logOrgActivity } from '../services/organisationActivityLogService'
+import { logPartnerActivity } from '../services/userActivityLogService'
 import {
   assignPartnerAdmin,
   assignPendingPartnerAdmin,
@@ -133,6 +142,72 @@ function FeedbackBanner({ type, message }: { type: 'success' | 'error'; message:
         ? <CheckCircle2 className="w-4 h-4 shrink-0" />
         : <AlertTriangle className="w-4 h-4 shrink-0" />}
       {message}
+    </div>
+  )
+}
+
+// ─── Confirm delete modal ─────────────────────────────────────────────────────
+
+function ConfirmDeleteModal({
+  title,
+  warning,
+  confirmLabel = 'Delete',
+  onConfirm,
+  onCancel,
+}: {
+  title:        string
+  warning:      string
+  confirmLabel?: string
+  onConfirm:    (reason: string) => Promise<void>
+  onCancel:     () => void
+}) {
+  const [reason,     setReason]     = useState('')
+  const [confirming, setConfirming] = useState(false)
+
+  const handleConfirm = async () => {
+    setConfirming(true)
+    try { await onConfirm(reason) } finally { setConfirming(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 flex flex-col gap-4">
+        <div>
+          <h3 className="text-base font-bold text-text-primary mb-1.5">{title}</h3>
+          <p className="text-sm text-text-secondary">{warning}</p>
+        </div>
+        <div>
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1.5">
+            Reason
+          </label>
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Optional reason for deletion..."
+            rows={3}
+            className="w-full px-3 py-2 rounded-xl border border-border text-sm resize-none
+              focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
+          />
+        </div>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={confirming}
+            className="text-sm font-medium text-text-secondary hover:text-text-primary px-4 py-2 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={confirming}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-white
+              bg-error hover:bg-error/90 px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50"
+          >
+            {confirming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -2697,9 +2772,15 @@ function PartnerAdminBadges({ partnerId }: { partnerId: string }) {
   )
 }
 
-function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmail: string }) {
-  const [partners, setPartners] = useState<Partner[]>([])
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+function PartnersTab({ callerUid, callerEmail, isDeveloperAdmin }: {
+  callerUid:        string
+  callerEmail:      string
+  isDeveloperAdmin: boolean
+}) {
+  const [partners,        setPartners]        = useState<Partner[]>([])
+  const [deletedPartners, setDeletedPartners] = useState<Partner[]>([])
+  const [feedback,        setFeedback]        = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [deletingPartner, setDeletingPartner] = useState<Partner | null>(null)
 
   // Create form
   const [createOpen, setCreateOpen] = useState(false)
@@ -2718,7 +2799,11 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
   const [admin2,     setAdmin2]     = useState<AdminSlot>(emptySlot())
   const [searching,  setSearching]  = useState<'super' | 'a1' | 'a2' | null>(null)
 
-  useEffect(() => subscribePartners(setPartners), [])
+  useEffect(() => {
+    const u1 = subscribePartners(setPartners)
+    const u2 = subscribeDeletedPartners(setDeletedPartners)
+    return () => { u1(); u2() }
+  }, [])
 
   function showFeedback(type: 'success' | 'error', msg: string) {
     setFeedback({ type, msg })
@@ -2798,6 +2883,8 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
       if (!window.confirm(`Disable partner "${partner.name}"?`)) return
       try {
         await disablePartner(partner.partnerId)
+        logPartnerActivity({ partnerId: partner.partnerId, partnerName: partner.name,
+          eventType: 'partner.disabled', actorUid: callerUid, actorEmail: callerEmail }).catch(() => {})
         showFeedback('success', `Partner "${partner.name}" disabled.`)
       } catch {
         showFeedback('error', 'Failed to disable partner.')
@@ -2805,6 +2892,8 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
     } else {
       try {
         await enablePartner(partner.partnerId)
+        logPartnerActivity({ partnerId: partner.partnerId, partnerName: partner.name,
+          eventType: 'partner.enabled', actorUid: callerUid, actorEmail: callerEmail }).catch(() => {})
         showFeedback('success', `Partner "${partner.name}" enabled.`)
       } catch {
         showFeedback('error', 'Failed to enable partner.')
@@ -2812,8 +2901,43 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
     }
   }
 
+  async function handleDeletePartner(reason: string) {
+    if (!deletingPartner) return
+    try {
+      await softDeletePartner(deletingPartner.partnerId, { reason, deletedBy: callerEmail })
+      logPartnerActivity({ partnerId: deletingPartner.partnerId, partnerName: deletingPartner.name,
+        eventType: 'partner.deleted', actorUid: callerUid, actorEmail: callerEmail, reason }).catch(() => {})
+      showFeedback('success', `Partner "${deletingPartner.name}" deleted.`)
+    } catch {
+      showFeedback('error', 'Failed to delete partner.')
+    } finally {
+      setDeletingPartner(null)
+    }
+  }
+
+  async function handleRestorePartner(partner: Partner) {
+    try {
+      await restorePartner(partner.partnerId)
+      logPartnerActivity({ partnerId: partner.partnerId, partnerName: partner.name,
+        eventType: 'partner.restored', actorUid: callerUid, actorEmail: callerEmail }).catch(() => {})
+      showFeedback('success', `Partner "${partner.name}" restored.`)
+    } catch {
+      showFeedback('error', 'Failed to restore partner.')
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
+
+      {deletingPartner && (
+        <ConfirmDeleteModal
+          title={`Delete partner "${deletingPartner.name}"?`}
+          warning="This will mark the partner as deleted. Organisations, users, billing, projects, and audit history will be preserved."
+          confirmLabel="Delete Partner"
+          onConfirm={handleDeletePartner}
+          onCancel={() => setDeletingPartner(null)}
+        />
+      )}
 
       {feedback && (
         <div className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm
@@ -2829,7 +2953,7 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
 
       {/* ── Partner list ──────────────────────────────────────────────────── */}
       <CollapsibleCard
-        title="Partners"
+        title="Active Partners"
         subtitle={`${partners.length} partner${partners.length !== 1 ? 's' : ''} registered on the platform`}
         icon={Handshake}
         iconBg="bg-primary-light"
@@ -2871,21 +2995,87 @@ function PartnersTab({ callerUid, callerEmail }: { callerUid: string; callerEmai
                     </div>
                     <PartnerAdminBadges partnerId={p.partnerId} />
                   </div>
-                  <button
-                    onClick={() => handleToggleEnabled(p)}
-                    className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors shrink-0
-                      ${p.enabled
-                        ? 'text-error hover:bg-red-50 border-error/20'
-                        : 'text-success hover:bg-success/10 border-success/20'}`}
-                  >
-                    {p.enabled ? 'Disable' : 'Enable'}
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleToggleEnabled(p)}
+                      className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors
+                        ${p.enabled
+                          ? 'text-error hover:bg-red-50 border-error/20'
+                          : 'text-success hover:bg-success/10 border-success/20'}`}
+                    >
+                      {p.enabled ? 'Disable' : 'Enable'}
+                    </button>
+                    {isDeveloperAdmin && (
+                      <button
+                        onClick={() => setDeletingPartner(p)}
+                        title="Delete partner"
+                        className="text-text-secondary hover:text-error transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </CollapsibleCard>
+
+      {/* ── Deleted partners ─────────────────────────────────────────────── */}
+      {(isDeveloperAdmin || deletedPartners.length > 0) && (
+        <CollapsibleCard
+          title="Deleted Partners"
+          subtitle={`${deletedPartners.length} soft-deleted partner${deletedPartners.length !== 1 ? 's' : ''}`}
+          icon={Trash2}
+          iconBg="bg-red-50"
+          iconColor="text-error"
+          defaultOpen={false}
+          badge={deletedPartners.length > 0
+            ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-error border border-red-200">{deletedPartners.length}</span>
+            : undefined}
+        >
+          {deletedPartners.length === 0 ? (
+            <p className="text-sm text-text-secondary italic py-2">No deleted partners.</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {deletedPartners.map(p => (
+                <div key={p.partnerId} className="py-3 first:pt-1 last:pb-0">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-red-50 flex items-center justify-center shrink-0 mt-0.5">
+                      <Trash2 className="w-4 h-4 text-error" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span className="text-sm font-semibold text-text-primary line-through opacity-60">{p.name}</span>
+                        <span className="text-[10px] font-mono text-text-secondary">{p.code}</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border bg-red-50 text-error border-red-200">
+                          deleted
+                        </span>
+                      </div>
+                      {p.deletedReason && (
+                        <p className="text-[11px] text-text-secondary italic">Reason: {p.deletedReason}</p>
+                      )}
+                      {p.deletedBy && (
+                        <p className="text-[11px] text-text-secondary">Deleted by: {p.deletedBy}</p>
+                      )}
+                    </div>
+                    {isDeveloperAdmin && (
+                      <button
+                        onClick={() => handleRestorePartner(p)}
+                        className="inline-flex items-center gap-1 text-xs font-medium text-primary
+                          hover:bg-primary-light px-2.5 py-1 rounded-lg border border-primary/20 transition-colors shrink-0"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Restore
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CollapsibleCard>
+      )}
 
       {/* ── Create partner ─────────────────────────────────────────────────── */}
       <CollapsibleCard
@@ -3500,12 +3690,18 @@ const ORG_STATUS_LABELS: Record<OrgStatus, string> = {
   inactive:  'Inactive',
 }
 
-function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
-  const { isPartnerAdminUser, primaryPartnerId } = usePartnerAccess()
+function OrganisationsManagementTab({ callerUid, callerEmail, isDeveloperAdmin }: {
+  callerUid:        string
+  callerEmail:      string
+  isDeveloperAdmin: boolean
+}) {
+  const { isPartnerAdminUser, primaryPartnerId, isLoading: accessLoading } = usePartnerAccess()
 
   const [organisations, setOrganisations] = useState<Organisation[]>([])
+  const [deletedOrgs,   setDeletedOrgs]   = useState<Organisation[]>([])
   const [partners,      setPartners]      = useState<Partner[]>([])
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [feedback,      setFeedback]      = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [deletingOrg,   setDeletingOrg]   = useState<Organisation | null>(null)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [creating,   setCreating]   = useState(false)
@@ -3516,14 +3712,27 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
   const [oPartner,   setOPartner]   = useState('')
   const [oProducts,  setOProducts]  = useState<ProductId[]>(['fai_reports'])
 
+  // Root-cause fix: wait for partner-access to resolve before subscribing.
+  // During accessLoading, isPartnerAdminUser is false regardless of actual role,
+  // which causes subscribeAllOrganisations to run for partner admins (fails rules).
   useEffect(() => {
-    // Partner admins see only their own partner's organisations
+    if (accessLoading) return
     const u1 = isPartnerAdminUser && primaryPartnerId
       ? subscribePartnerOrganisations(primaryPartnerId, setOrganisations)
       : subscribeAllOrganisations(setOrganisations)
-    const u2 = subscribePartners(setPartners)
+    const u2 = isPartnerAdminUser && primaryPartnerId
+      ? subscribePartnerById(primaryPartnerId, p => setPartners(p ? [p] : []))
+      : subscribePartners(setPartners)
     return () => { u1(); u2() }
-  }, [isPartnerAdminUser, primaryPartnerId])
+  }, [isPartnerAdminUser, primaryPartnerId, accessLoading])
+
+  useEffect(() => {
+    if (accessLoading) return
+    const u = isPartnerAdminUser && primaryPartnerId
+      ? subscribeDeletedPartnerOrganisations(primaryPartnerId, setDeletedOrgs)
+      : subscribeDeletedOrganisations(setDeletedOrgs)
+    return u
+  }, [isPartnerAdminUser, primaryPartnerId, accessLoading])
 
   useEffect(() => {
     if (!oName) return
@@ -3559,7 +3768,7 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
         organisationId: orgId,
         eventType:      'subscription.created',
         actorUid:       callerUid,
-        actorEmail:     '',
+        actorEmail:     callerEmail,
         description:    `Trial subscription created (7 days, ${oCurrency})`,
         metadata:       { type: 'trial', currency: oCurrency },
       }).catch(() => {})
@@ -3573,6 +3782,46 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
     }
   }
 
+  async function handleDeleteOrg(reason: string) {
+    if (!deletingOrg) return
+    try {
+      await softDeleteOrganisation(deletingOrg.organisationId, {
+        reason, deletedBy: callerEmail, deletedByUid: callerUid,
+      })
+      logOrgActivity({
+        organisationId: deletingOrg.organisationId,
+        eventType:      'organisation.deleted',
+        actorUid:       callerUid,
+        actorEmail:     callerEmail,
+        description:    `Organisation soft-deleted${reason ? `: ${reason}` : ''}`,
+        metadata:       { reason },
+      }).catch(() => {})
+      showFeedback('success', `Organisation "${deletingOrg.name}" deleted.`)
+    } catch {
+      showFeedback('error', 'Failed to delete organisation.')
+    } finally {
+      setDeletingOrg(null)
+    }
+  }
+
+  async function handleRestoreOrg(org: Organisation) {
+    try {
+      await restoreOrganisation(org.organisationId)
+      logOrgActivity({
+        organisationId: org.organisationId,
+        eventType:      'organisation.restored',
+        actorUid:       callerUid,
+        actorEmail:     callerEmail,
+        description:    'Organisation restored',
+      }).catch(() => {})
+      showFeedback('success', `Organisation "${org.name}" restored.`)
+    } catch {
+      showFeedback('error', 'Failed to restore organisation.')
+    }
+  }
+
+  const canDeleteOrg = isDeveloperAdmin || isPartnerAdminUser
+
   const total     = organisations.length
   const trials    = organisations.filter(o => getOrganisationStatus(o) === 'trial').length
   const actives   = organisations.filter(o => getOrganisationStatus(o) === 'active').length
@@ -3580,8 +3829,26 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
   const revenue   = organisations.reduce((sum, o) => sum + (o.totalAmount ?? 0), 0)
   const currency  = organisations.find(o => o.totalAmount > 0)?.currency ?? 'INR'
 
+  if (accessLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      {deletingOrg && (
+        <ConfirmDeleteModal
+          title={`Delete organisation "${deletingOrg.name}"?`}
+          warning="This will mark the organisation as deleted. Members, projects, billing, and audit history will be preserved."
+          confirmLabel="Delete Organisation"
+          onConfirm={handleDeleteOrg}
+          onCancel={() => setDeletingOrg(null)}
+        />
+      )}
+
       {feedback && <FeedbackBanner type={feedback.type} message={feedback.msg} />}
 
       {/* Stats */}
@@ -3803,13 +4070,15 @@ function OrganisationsManagementTab({ callerUid }: { callerUid: string }) {
 function PartnerManagementWrapper({
   callerUid,
   callerEmail,
+  isDeveloperAdmin,
   activeSubTab,
   onSubTabChange,
 }: {
-  callerUid: string
-  callerEmail: string
-  activeSubTab: PartnerSubTab
-  onSubTabChange: (t: PartnerSubTab) => void
+  callerUid:        string
+  callerEmail:      string
+  isDeveloperAdmin: boolean
+  activeSubTab:     PartnerSubTab
+  onSubTabChange:   (t: PartnerSubTab) => void
 }) {
   const PARTNER_SUB_TABS: { id: PartnerSubTab; label: string; icon: typeof Code2; disabled?: boolean }[] = [
     { id: 'partners',              label: 'Partners',              icon: Handshake  },
@@ -3824,7 +4093,7 @@ function PartnerManagementWrapper({
     <div>
       <SubTabNav tabs={PARTNER_SUB_TABS} active={activeSubTab} onSelect={onSubTabChange} />
       {activeSubTab === 'partners' && (
-        <PartnersTab callerUid={callerUid} callerEmail={callerEmail} />
+        <PartnersTab callerUid={callerUid} callerEmail={callerEmail} isDeveloperAdmin={isDeveloperAdmin} />
       )}
       {activeSubTab === 'branding_domain' && (
         <ComingSoonSection
@@ -3841,7 +4110,7 @@ function PartnerManagementWrapper({
         />
       )}
       {activeSubTab === 'organisations' && (
-        <OrganisationsManagementTab callerUid={callerUid} />
+        <OrganisationsManagementTab callerUid={callerUid} callerEmail={callerEmail} isDeveloperAdmin={isDeveloperAdmin} />
       )}
       {activeSubTab === 'subscriptions_billing' && (
         <ComingSoonSection

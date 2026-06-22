@@ -17,6 +17,7 @@ import type { ProductId, OrganisationRole } from '../auth/AuthTypes'
 
 export type OrgStatus = 'active' | 'inactive' | 'trial' | 'suspended'
 export type OrgSubscriptionType = 'free' | 'trial' | 'monthly' | 'annual'
+export type OrgLifecycleStatus = 'active' | 'deleted'
 
 // Tracks the lifecycle state of a membership record
 export type MembershipStatus = 'pending' | 'active' | 'inactive' | 'removed'
@@ -27,6 +28,10 @@ export interface Organisation {
   name:                   string
   code:                   string
   status:                 OrgStatus
+  lifecycleStatus:        OrgLifecycleStatus
+  deletedAt?:             Timestamp
+  deletedBy?:             string
+  deletedReason?:         string
   ownerUid?:              string
   ownerEmail?:            string
   subscriptionType:       OrgSubscriptionType
@@ -81,6 +86,12 @@ export type UpdateOrganisationInput = Partial<
   Omit<Organisation, 'organisationId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'code' | 'partnerId'>
 >
 
+export interface SoftDeleteOrganisationInput {
+  reason:      string
+  deletedBy:   string   // email
+  deletedByUid: string
+}
+
 // ─── Seat limit helpers ────────────────────────────────────────────────────────
 
 const ROLE_LIMIT_KEY: Record<OrganisationRole, keyof Organisation> = {
@@ -131,6 +142,10 @@ function toOrganisation(id: string, data: Record<string, unknown>): Organisation
     name:                   (data.name                   as string)            ?? '',
     code:                   (data.code                   as string)            ?? '',
     status:                 (data.status                 as OrgStatus)         ?? 'trial',
+    lifecycleStatus:        (data.lifecycleStatus        as OrgLifecycleStatus) ?? 'active',
+    deletedAt:              data.deletedAt               as Timestamp | undefined,
+    deletedBy:              data.deletedBy               as string | undefined,
+    deletedReason:          data.deletedReason           as string | undefined,
     ownerUid:               data.ownerUid                as string | undefined,
     ownerEmail:             data.ownerEmail              as string | undefined,
     subscriptionType:       (data.subscriptionType       as OrgSubscriptionType) ?? 'trial',
@@ -220,7 +235,7 @@ export function subscribeAllOrganisations(
 ): () => void {
   return onSnapshot(
     collection(firestore, 'organisations'),
-    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data()))),
+    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data())).filter(o => o.lifecycleStatus !== 'deleted')),
     () => callback([]),
   )
 }
@@ -231,7 +246,28 @@ export function subscribePartnerOrganisations(
 ): () => void {
   return onSnapshot(
     query(collection(firestore, 'organisations'), where('partnerId', '==', partnerId)),
-    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data()))),
+    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data())).filter(o => o.lifecycleStatus !== 'deleted')),
+    () => callback([]),
+  )
+}
+
+export function subscribeDeletedOrganisations(
+  callback: (orgs: Organisation[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(firestore, 'organisations'),
+    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data())).filter(o => o.lifecycleStatus === 'deleted')),
+    () => callback([]),
+  )
+}
+
+export function subscribeDeletedPartnerOrganisations(
+  partnerId: string,
+  callback: (orgs: Organisation[]) => void,
+): () => void {
+  return onSnapshot(
+    query(collection(firestore, 'organisations'), where('partnerId', '==', partnerId)),
+    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data())).filter(o => o.lifecycleStatus === 'deleted')),
     () => callback([]),
   )
 }
@@ -302,6 +338,29 @@ export async function archiveOrganisation(id: string): Promise<void> {
   await updateDoc(doc(firestore, 'organisations', id), {
     status:    'inactive',
     updatedAt: serverTimestamp(),
+  })
+}
+
+export async function softDeleteOrganisation(
+  id:    string,
+  input: SoftDeleteOrganisationInput,
+): Promise<void> {
+  await updateDoc(doc(firestore, 'organisations', id), {
+    lifecycleStatus: 'deleted' satisfies OrgLifecycleStatus,
+    deletedAt:       serverTimestamp(),
+    deletedBy:       input.deletedBy,
+    deletedReason:   input.reason || null,
+    updatedAt:       serverTimestamp(),
+  })
+}
+
+export async function restoreOrganisation(id: string): Promise<void> {
+  await updateDoc(doc(firestore, 'organisations', id), {
+    lifecycleStatus: 'active' satisfies OrgLifecycleStatus,
+    deletedAt:       null,
+    deletedBy:       null,
+    deletedReason:   null,
+    updatedAt:       serverTimestamp(),
   })
 }
 

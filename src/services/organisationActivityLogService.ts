@@ -14,6 +14,8 @@ import { firestore } from '../firebase/firestore'
 
 export type OrgActivityEventType =
   | 'organisation.created'
+  | 'organisation.deleted'
+  | 'organisation.restored'
   | 'owner.assigned'
   | 'member.added'
   | 'member.removed'
@@ -48,8 +50,10 @@ export const ACTIVITY_FILTER_EVENTS: Record<OrgActivityFilter, OrgActivityEventT
 }
 
 export const EVENT_LABELS: Record<OrgActivityEventType, string> = {
-  'organisation.created': 'Organisation Created',
-  'owner.assigned':       'Owner Assigned',
+  'organisation.created':  'Organisation Created',
+  'organisation.deleted':  'Organisation Deleted',
+  'organisation.restored': 'Organisation Restored',
+  'owner.assigned':        'Owner Assigned',
   'member.added':         'Member Added',
   'member.removed':       'Member Removed',
   'member.role_changed':  'Role Changed',
@@ -64,8 +68,10 @@ export const EVENT_LABELS: Record<OrgActivityEventType, string> = {
 }
 
 export const EVENT_COLOURS: Record<OrgActivityEventType, string> = {
-  'organisation.created': 'text-primary bg-primary-light border-primary/20',
-  'owner.assigned':       'text-amber-700 bg-amber-50 border-amber-200',
+  'organisation.created':  'text-primary bg-primary-light border-primary/20',
+  'organisation.deleted':  'text-error bg-red-50 border-red-200',
+  'organisation.restored': 'text-success bg-success/10 border-success/20',
+  'owner.assigned':        'text-amber-700 bg-amber-50 border-amber-200',
   'member.added':         'text-success bg-success/10 border-success/20',
   'member.removed':       'text-error bg-red-50 border-red-200',
   'member.role_changed':  'text-blue-700 bg-blue-50 border-blue-200',
