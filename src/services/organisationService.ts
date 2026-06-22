@@ -296,6 +296,7 @@ export async function createOrganisation(input: CreateOrganisationInput): Promis
     partnerId:              input.partnerId,
     name:                   input.name,
     code:                   input.code,
+    lifecycleStatus:        'active' satisfies OrgLifecycleStatus,
     status:                 'trial',
     ownerEmail:             input.ownerEmail ?? null,
     ownerUid:               null,
