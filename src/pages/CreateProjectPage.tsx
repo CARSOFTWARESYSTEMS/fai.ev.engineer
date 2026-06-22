@@ -4,7 +4,9 @@ import { ArrowLeft, FolderPlus, AlertCircle, Key, Building2 } from 'lucide-react
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { useBranding } from '../hooks/useBranding'
+import { useOrgReadOnly } from '../hooks/useOrgReadOnly'
 import { createProject } from '../projects/project.service'
+import { ReadOnlyBanner } from '../components/ReadOnlyBanner'
 import type { ProjectPriority } from '../projects/projectPriority'
 import { PRIORITY_LABELS, PRIORITY_BADGE_CLASS } from '../projects/projectPriority'
 
@@ -77,6 +79,7 @@ export function CreateProjectPage() {
   const { user, firebaseUser } = useAuth()
   const { productKey, organizationConfig } = useProductConfig()
   const { branding } = useBranding()
+  const { isReadOnly, reason: readOnlyReason } = useOrgReadOnly()
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [isSaving, setIsSaving] = useState(false)
@@ -185,6 +188,13 @@ export function CreateProjectPage() {
             </p>
           </div>
         </div>
+
+        {/* Read-only banner */}
+        {isReadOnly && (
+          <div className="mb-5">
+            <ReadOnlyBanner reason={readOnlyReason} />
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -333,24 +343,31 @@ export function CreateProjectPage() {
       {/* ── Sticky action bar ─────────────────────────────────────────────────── */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-border shadow-lg">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
-          <button
-            type="submit"
-            form="create-project-form"
-            disabled={isSaving}
-            className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isSaving ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Creating…
-              </>
-            ) : (
-              <>
-                <FolderPlus className="w-4 h-4" />
-                Create Project
-              </>
-            )}
-          </button>
+          {isReadOnly ? (
+            <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-100
+              text-amber-700 text-sm font-semibold cursor-not-allowed opacity-80">
+              Read-only — creation disabled
+            </span>
+          ) : (
+            <button
+              type="submit"
+              form="create-project-form"
+              disabled={isSaving}
+              className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isSaving ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Creating…
+                </>
+              ) : (
+                <>
+                  <FolderPlus className="w-4 h-4" />
+                  Create Project
+                </>
+              )}
+            </button>
+          )}
           <Link to="/dashboard" className="btn-ghost text-sm">Cancel</Link>
         </div>
       </div>

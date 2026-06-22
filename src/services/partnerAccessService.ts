@@ -3,6 +3,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  deleteDoc,
   collection,
   onSnapshot,
   query,
@@ -233,6 +234,50 @@ export async function assignPendingPartnerAdmin(opts: {
       addedAt:     serverTimestamp(),
     })
   }
+}
+
+// ─── Auto-claim pending partner admin record on registration ──────────────────
+// Called during CompleteProfile. If a pending_{email} record exists, promotes it
+// to an active record keyed by the new user's UID. Idempotent — safe to call twice.
+
+export async function claimPendingPartnerAdmin(opts: {
+  email:       string
+  uid:         string
+  displayName: string
+}): Promise<void> {
+  const safeId     = 'pending_' + opts.email.toLowerCase().replace(/[^a-z0-9]/g, '_')
+  const pendingRef = doc(firestore, 'partnerAdmins', safeId)
+  const pendingSnap = await getDoc(pendingRef)
+  if (!pendingSnap.exists()) return
+  const pending = pendingSnap.data()
+  if (pending.status !== 'pending') return
+
+  const activeRef   = doc(firestore, 'partnerAdmins', opts.uid)
+  const activeSnap  = await getDoc(activeRef)
+
+  if (activeSnap.exists()) {
+    // Merge partner IDs into existing active record
+    const existingIds = (activeSnap.data().partnerIds as string[]) ?? []
+    const pendingIds  = (pending.partnerIds as string[]) ?? []
+    const merged      = [...new Set([...existingIds, ...pendingIds])]
+    await setDoc(activeRef, { partnerIds: merged, status: 'active' }, { merge: true })
+  } else {
+    await setDoc(activeRef, {
+      uid:         opts.uid,
+      email:       opts.email.toLowerCase(),
+      displayName: opts.displayName,
+      partnerIds:  (pending.partnerIds as string[]) ?? [],
+      role:        pending.role,
+      status:      'active',
+      addedBy:     pending.addedBy,
+      addedAt:     pending.addedAt,
+      claimedAt:   serverTimestamp(),
+    })
+  }
+
+  // Remove the pending record
+  await deleteDoc(pendingRef)
+  console.log('[PARTNER] Pending admin claimed for:', opts.email)
 }
 
 // ─── Hook: partner access state ────────────────────────────────────────────────

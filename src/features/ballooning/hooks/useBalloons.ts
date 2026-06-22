@@ -10,6 +10,7 @@ import {
 interface UseBalloonProps {
   projectId: string
   userId: string
+  isReadOnly?: boolean
 }
 
 interface PendingBalloonDelete {
@@ -20,7 +21,7 @@ interface PendingBalloonDelete {
 
 const BALLOON_MODE_KEY = 'fai-balloon-placement-enabled'
 
-export function useBalloons({ projectId, userId }: UseBalloonProps) {
+export function useBalloons({ projectId, userId, isReadOnly = false }: UseBalloonProps) {
   const [balloons, setBalloons] = useState<Balloon[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [isBalloonMode, setIsBalloonMode] = useState(false)
@@ -58,20 +59,21 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
   }, [])
 
   const toggleBalloonMode = useCallback(() => {
+    if (isReadOnly) return
     setIsBalloonMode(current => {
       const next = !current
       localStorage.setItem(BALLOON_MODE_KEY, String(next))
       return next
     })
     setSelectedId(null)
-  }, [])
+  }, [isReadOnly])
 
   const addBalloon = useCallback(async (
     pageNumber: number,
     xPercent: number,
     yPercent: number,
   ) => {
-    if (!projectId || !userId) return
+    if (isReadOnly || !projectId || !userId) return
 
     const nextNumber = balloons.length === 0
       ? 1
@@ -114,16 +116,17 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
   }, [balloons, projectId, userId])
 
   const moveBalloon = useCallback(async (id: string, xPercent: number, yPercent: number) => {
+    if (isReadOnly) return
     setBalloons(prev => prev.map(b => b.id === id ? { ...b, xPercent, yPercent } : b))
     try {
       await updateBalloonPositionDoc(projectId, id, xPercent, yPercent)
     } catch (err) {
       console.error('[Balloons] Move failed:', err)
     }
-  }, [projectId])
+  }, [isReadOnly, projectId])
 
   const deleteSelected = useCallback(async () => {
-    if (!selectedId) return
+    if (isReadOnly || !selectedId) return
     const id = selectedId
     const snapshot = balloons.find(b => b.id === id)
     if (!snapshot) return
@@ -162,7 +165,7 @@ export function useBalloons({ projectId, userId }: UseBalloonProps) {
     }, 5000)
 
     pendingDeleteRef.current = { id, snapshot, timerId }
-  }, [selectedId, projectId, balloons])
+  }, [isReadOnly, selectedId, projectId, balloons])
 
   const undoBalloonDelete = useCallback(() => {
     if (!pendingDeleteRef.current) return

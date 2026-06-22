@@ -16,6 +16,7 @@ import { firebaseAuth } from '../firebase/auth'
 import { firestore } from '../firebase/firestore'
 import type { EVEngineerUser, UserRole } from './AuthTypes'
 import { logProfileCreated, logProfileUpdated } from '../services/userActivityLogService'
+import { claimPendingPartnerAdmin } from '../services/partnerAccessService'
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
@@ -125,6 +126,10 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
     await setDoc(doc(firestore, 'users', uid), writeDoc)
     console.log('[AUTH] Profile saved successfully for uid:', uid)
     logProfileCreated(uid, email).catch(() => {})
+    // Auto-promote any pending partner admin record for this email
+    claimPendingPartnerAdmin({ email, uid, displayName }).catch(err => {
+      console.warn('[AUTH] Pending partner admin claim failed (non-critical):', err)
+    })
   } catch (err: unknown) {
     const { code, message } = extractFirebaseError(err)
     console.error('[AUTH] Profile save failed:')

@@ -34,6 +34,7 @@ import { FairPackageModal } from '../../export/components/FairPackageModal'
 import { ProjectLifecycleRestricted, type ProjectLifecycleRestrictedProps } from '../../../components/ui/ProjectLifecycleRestricted'
 import { getProjectAccessSummaryById } from '../../../projects/projectAccessSummary.service'
 import { getProjectLifecycleStatus, isProjectOpenAllowed } from '../../../projects/projectLifecycle'
+import { useOrgReadOnly } from '../../../hooks/useOrgReadOnly'
 
 type PdfLoadPhase = 'project' | 'drive' | 'download'
 type PdfLoadErrorAction = 'retry' | 'reconnect-drive'
@@ -164,8 +165,9 @@ export function PdfViewerPage() {
 
   // Subcollection hooks stay disabled until the full project passes lifecycle validation.
   const accessibleProjectId = project && isProjectOpenAllowed(project, user?.role) ? projectId ?? '' : ''
+  const { isReadOnly: orgIsReadOnly } = useOrgReadOnly()
   const viewer = usePdfViewer()
-  const balloons = useBalloons({ projectId: accessibleProjectId, userId: user?.uid ?? '' })
+  const balloons = useBalloons({ projectId: accessibleProjectId, userId: user?.uid ?? '', isReadOnly: orgIsReadOnly })
   const features = useFeatures({ projectId: accessibleProjectId, userId: user?.uid ?? '' })
   const form1 = useForm1({ projectId: accessibleProjectId })
   const form2 = useForm2({ projectId: accessibleProjectId })

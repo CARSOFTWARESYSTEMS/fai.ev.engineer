@@ -16,7 +16,7 @@ const ALL_PRODUCTS: ProductId[] = ['fai_reports', 'battery_pm', 'motor_pm', 'ene
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export type PartnerLifecycleStatus = 'active' | 'disabled' | 'deleted'
+export type PartnerLifecycleStatus = 'active' | 'inactive' | 'blocked' | 'deleted' | 'permanently_deleted'
 
 export interface Partner {
   partnerId:        string
@@ -31,8 +31,11 @@ export interface Partner {
   website?:         string
   enabled:          boolean
   lifecycleStatus:  PartnerLifecycleStatus
+  blockedAt?:       Timestamp
+  blockedBy?:       string
+  blockedReason?:   string
   deletedAt?:       Timestamp
-  deletedBy?:       string          // email of actor who deleted
+  deletedBy?:       string
   deletedReason?:   string
   enabledProducts:  ProductId[]     // products available to this partner's orgs; defaults to all
   createdAt:        Timestamp | null
@@ -108,7 +111,20 @@ export function subscribePartners(
 ): () => void {
   return onSnapshot(
     collection(firestore, 'partners'),
-    snap => callback(snap.docs.map(d => toPartner(d.id, d.data())).filter(p => p.lifecycleStatus !== 'deleted')),
+    snap => callback(
+      snap.docs.map(d => toPartner(d.id, d.data()))
+        .filter(p => p.lifecycleStatus === 'active' || p.lifecycleStatus === 'inactive')
+    ),
+    () => callback([]),
+  )
+}
+
+export function subscribeBlockedPartners(
+  callback: (partners: Partner[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(firestore, 'partners'),
+    snap => callback(snap.docs.map(d => toPartner(d.id, d.data())).filter(p => p.lifecycleStatus === 'blocked')),
     () => callback([]),
   )
 }
@@ -119,6 +135,16 @@ export function subscribeDeletedPartners(
   return onSnapshot(
     collection(firestore, 'partners'),
     snap => callback(snap.docs.map(d => toPartner(d.id, d.data())).filter(p => p.lifecycleStatus === 'deleted')),
+    () => callback([]),
+  )
+}
+
+export function subscribePermanentlyDeletedPartners(
+  callback: (partners: Partner[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(firestore, 'partners'),
+    snap => callback(snap.docs.map(d => toPartner(d.id, d.data())).filter(p => p.lifecycleStatus === 'permanently_deleted')),
     () => callback([]),
   )
 }
@@ -163,6 +189,7 @@ export async function updatePartner(
 
 export async function disablePartner(partnerId: string): Promise<void> {
   await updateDoc(doc(firestore, 'partners', partnerId), {
+    lifecycleStatus: 'inactive' satisfies PartnerLifecycleStatus,
     enabled: false,
     updatedAt: serverTimestamp(),
   })
@@ -170,8 +197,34 @@ export async function disablePartner(partnerId: string): Promise<void> {
 
 export async function enablePartner(partnerId: string): Promise<void> {
   await updateDoc(doc(firestore, 'partners', partnerId), {
+    lifecycleStatus: 'active' satisfies PartnerLifecycleStatus,
     enabled: true,
     updatedAt: serverTimestamp(),
+  })
+}
+
+export async function blockPartner(
+  partnerId: string,
+  opts: { reason: string; blockedBy: string },
+): Promise<void> {
+  await updateDoc(doc(firestore, 'partners', partnerId), {
+    lifecycleStatus: 'blocked' satisfies PartnerLifecycleStatus,
+    enabled:         false,
+    blockedAt:       serverTimestamp(),
+    blockedBy:       opts.blockedBy,
+    blockedReason:   opts.reason || null,
+    updatedAt:       serverTimestamp(),
+  })
+}
+
+export async function unblockPartner(partnerId: string): Promise<void> {
+  await updateDoc(doc(firestore, 'partners', partnerId), {
+    lifecycleStatus: 'active' satisfies PartnerLifecycleStatus,
+    enabled:         true,
+    blockedAt:       null,
+    blockedBy:       null,
+    blockedReason:   null,
+    updatedAt:       serverTimestamp(),
   })
 }
 
@@ -199,13 +252,37 @@ export async function softDeletePartner(
   })
 }
 
-export async function restorePartner(partnerId: string): Promise<void> {
+export async function permanentlyDeletePartner(
+  partnerId: string,
+  opts: { reason: string; deletedBy: string },
+): Promise<void> {
   await updateDoc(doc(firestore, 'partners', partnerId), {
-    lifecycleStatus: 'active' satisfies PartnerLifecycleStatus,
-    enabled:         true,
-    deletedAt:       null,
-    deletedBy:       null,
-    deletedReason:   null,
-    updatedAt:       serverTimestamp(),
+    lifecycleStatus:          'permanently_deleted' satisfies PartnerLifecycleStatus,
+    enabled:                  false,
+    permanentlyDeletedAt:     serverTimestamp(),
+    permanentlyDeletedBy:     opts.deletedBy,
+    permanentlyDeletedReason: opts.reason || null,
+    updatedAt:                serverTimestamp(),
+  })
+}
+
+// Restore from 'deleted' → 'active'.
+// Restore from 'permanently_deleted' → 'deleted' only (never directly to 'active').
+export async function restorePartner(
+  partnerId: string,
+  fromStatus: PartnerLifecycleStatus,
+): Promise<void> {
+  const targetStatus: PartnerLifecycleStatus =
+    fromStatus === 'permanently_deleted' ? 'deleted' : 'active'
+  await updateDoc(doc(firestore, 'partners', partnerId), {
+    lifecycleStatus:          targetStatus,
+    enabled:                  targetStatus === 'active',
+    deletedAt:                null,
+    deletedBy:                null,
+    deletedReason:            null,
+    permanentlyDeletedAt:     null,
+    permanentlyDeletedBy:     null,
+    permanentlyDeletedReason: null,
+    updatedAt:                serverTimestamp(),
   })
 }

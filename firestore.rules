@@ -293,8 +293,8 @@ service cloud.firestore {
         )
         || isDeveloper()
       );
-      allow delete: if (isManagerOrAbove() || (isOwner(resource.data.uid) && !isProjectLifecycleBlocked()) || isDeveloper())
-                       && !isCurrentUserLifecycleBlocked();
+      // Hard deletes restricted to developer admin only — normal flow uses lifecycleStatus soft-delete.
+      allow delete: if isDeveloperAdmin() && !isCurrentUserLifecycleBlocked();
 
       match /balloons/{balloonId} {
         allow read:   if isProjectOwnerAccessible(projectId) && !isCurrentUserLifecycleBlocked();
@@ -412,14 +412,13 @@ service cloud.firestore {
 
     // ── organisationActivityLogs/{logId} ──────────────────────────────────────
     // Append-only activity log for organisation events.
-    // Platform admins, org owners, and org members may read.
+    // Platform admins and org owners may read. Partner admins read via developer/admin sessions.
     // Anyone authenticated and non-lifecycle-blocked may create (actions fire this).
     // Never update or delete — immutable audit trail.
     match /organisationActivityLogs/{logId} {
       allow read:   if isDeveloper()
                     || isAdmin()
-                    || isOrgOwner(resource.data.organisationId)
-                    || (isAuth() && !isCurrentUserLifecycleBlocked());
+                    || isOrgOwner(resource.data.organisationId);
       allow create: if isAuth()
                     && !isCurrentUserLifecycleBlocked()
                     && request.resource.data.keys().hasAll([

@@ -19,7 +19,9 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useBranding } from '../hooks/useBranding'
+import { useOrgReadOnly } from '../hooks/useOrgReadOnly'
 import { getProjectById, updateProject, deleteProject } from '../projects/project.service'
+import { ReadOnlyBanner } from '../components/ReadOnlyBanner'
 import {
   uploadProjectPdf,
   deleteProjectPdf,
@@ -117,6 +119,7 @@ export function EditProjectPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { branding } = useBranding()
+  const { isReadOnly, reason: readOnlyReason } = useOrgReadOnly()
 
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -510,6 +513,13 @@ export function EditProjectPage() {
           </div>
         )}
 
+        {/* Read-only banner */}
+        {isReadOnly && (
+          <div className="mb-5">
+            <ReadOnlyBanner reason={readOnlyReason} />
+          </div>
+        )}
+
         {/* Save error */}
         {saveError && (
           <div className="mb-5 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-xl flex items-start gap-2.5">
@@ -609,7 +619,7 @@ export function EditProjectPage() {
                     View PDF
                   </Link>
 
-                  {confirmDeletePdf ? (
+                  {!isReadOnly && confirmDeletePdf ? (
                     <div className="flex flex-col items-center gap-2 py-2.5 px-3 bg-red-50 rounded-lg border border-red-100">
                       <span className="text-xs text-text-secondary">Remove this PDF permanently?</span>
                       <div className="flex items-center gap-2">
@@ -631,7 +641,7 @@ export function EditProjectPage() {
                         </button>
                       </div>
                     </div>
-                  ) : (
+                  ) : !isReadOnly ? (
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -656,7 +666,7 @@ export function EditProjectPage() {
                         Delete PDF
                       </button>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             ) : (
@@ -665,24 +675,26 @@ export function EditProjectPage() {
                   <UploadCloud className="w-5 h-5 text-text-secondary" />
                 </div>
                 <p className="text-sm text-text-secondary mb-3">No drawing PDF uploaded yet.</p>
-                <button
-                  type="button"
-                  onClick={handleUploadClick}
-                  disabled={isUploading}
-                  className="btn-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isUploading ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Uploading…
-                    </>
-                  ) : (
-                    <>
-                      <UploadCloud className="w-4 h-4" />
-                      Upload PDF
-                    </>
-                  )}
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    onClick={handleUploadClick}
+                    disabled={isUploading}
+                    className="btn-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isUploading ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Uploading…
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-4 h-4" />
+                        Upload PDF
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             )}
 
@@ -764,27 +776,34 @@ export function EditProjectPage() {
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-border shadow-lg">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              form="edit-project-form"
-              disabled={isSaving || saveSuccess}
-              className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Save Changes
-                </>
-              )}
-            </button>
+            {isReadOnly ? (
+              <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-100
+                text-amber-700 text-sm font-semibold cursor-not-allowed opacity-80">
+                Read-only — editing disabled
+              </span>
+            ) : (
+              <button
+                type="submit"
+                form="edit-project-form"
+                disabled={isSaving || saveSuccess}
+                className="btn-primary disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </>
+                )}
+              </button>
+            )}
             <Link to={`/projects/${projectId}`} className="btn-ghost text-sm">Cancel</Link>
           </div>
-          {isManager && (
+          {isManager && !isReadOnly && (
             <button
               type="button"
               onClick={() => { setDeleteError(''); setShowDelete(true) }}

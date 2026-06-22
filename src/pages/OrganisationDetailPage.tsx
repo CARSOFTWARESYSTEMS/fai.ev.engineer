@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import {
   Building2, ArrowLeft, Users, Package, CreditCard, AlertTriangle,
   Loader2, Plus, UserPlus, CheckCircle2, Activity, ShieldCheck,
-  ChevronDown, Save, XCircle,
+  ChevronDown, Save, XCircle, ShieldX,
 } from 'lucide-react'
 import {
   subscribeOrganisation,
@@ -124,11 +124,30 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-function SectionCard({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+function SectionCard({
+  title,
+  icon: Icon,
+  iconBg    = 'bg-gray-100',
+  iconColor = 'text-text-secondary',
+  children,
+  action,
+}: {
+  title:      string
+  icon?:      React.ComponentType<{ className?: string }>
+  iconBg?:    string
+  iconColor?: string
+  children:   React.ReactNode
+  action?:    React.ReactNode
+}) {
   return (
-    <div className="card">
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-2">
-        <h2 className="text-base font-bold text-text-primary">{title}</h2>
+    <div className="card overflow-hidden">
+      <div className="bg-gray-50 px-5 py-3.5 border-b border-border flex items-center gap-3">
+        {Icon && (
+          <div className={`w-7 h-7 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+            <Icon className={`w-3.5 h-3.5 ${iconColor}`} />
+          </div>
+        )}
+        <h2 className="flex-1 text-sm font-bold text-text-primary">{title}</h2>
         {action}
       </div>
       <div className="px-5 py-4">{children}</div>
@@ -168,13 +187,28 @@ function SuspendedBanner({ partnerName }: { partnerName?: string }) {
   )
 }
 
+function BlockedBanner() {
+  return (
+    <div className="flex items-start gap-3 px-5 py-4 rounded-xl
+      bg-amber-50 border border-amber-200 text-sm text-amber-800">
+      <ShieldX className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+      <div>
+        <p className="font-semibold">Organisation Blocked</p>
+        <p className="text-xs text-amber-700 mt-0.5">
+          This organisation is read-only and cannot be modified. Contact Platform Admin to unblock.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Overview section ─────────────────────────────────────────────────────────
 
 function OverviewSection({ org, partner }: { org: Organisation; partner: Partner | null }) {
   const status = getOrganisationStatus(org)
   return (
     <div className="flex flex-col gap-4">
-      <SectionCard title="Overview">
+      <SectionCard title="Overview" icon={Building2} iconBg="bg-primary-light" iconColor="text-primary">
         <InfoRow label="Name"        value={org.name} />
         <InfoRow label="Code"        value={<span className="font-mono text-xs">{org.code}</span>} />
         <InfoRow label="Status"      value={
@@ -190,7 +224,7 @@ function OverviewSection({ org, partner }: { org: Organisation; partner: Partner
           : '—'} />
       </SectionCard>
 
-      <SectionCard title="Seat Limits">
+      <SectionCard title="Seat Limits" icon={ShieldCheck} iconBg="bg-gray-100" iconColor="text-text-secondary">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { role: 'owner',     limit: org.ownerLimit    },
@@ -296,7 +330,7 @@ function MembersSection({
     <div className="flex flex-col gap-4">
       {feedback && <FeedbackRow type={feedback.type} msg={feedback.msg} />}
 
-      <SectionCard title={`Active Members (${activeMembers.length})`}>
+      <SectionCard title={`Active Members (${activeMembers.length})`} icon={UserPlus} iconBg="bg-success/10" iconColor="text-success">
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
           {byRole.filter(r => r.count > 0 || ['owner','manager','engineer'].includes(r.role)).map(({ role, count }) => (
             <div key={role} className="flex items-center justify-between px-3 py-2 rounded-xl bg-gray-50 border border-border">
@@ -516,7 +550,7 @@ function UsersSection({
       {feedback && <FeedbackRow type={feedback.type} msg={feedback.msg} />}
 
       {visibleMembers.length === 0 ? (
-        <SectionCard title="Users">
+        <SectionCard title="Users" icon={Users} iconBg="bg-success/10" iconColor="text-success">
           <p className="text-sm text-text-secondary italic">No members yet. Add members in the Members tab.</p>
         </SectionCard>
       ) : (
@@ -773,7 +807,7 @@ function SubscriptionSection({
       : '—'
     return (
       <div className="flex flex-col gap-4">
-        <SectionCard title="Subscription">
+        <SectionCard title="Subscription" icon={CreditCard} iconBg="bg-amber-50" iconColor="text-amber-700">
           <InfoRow label="Plan"       value={<span className="capitalize">{org.subscriptionType}</span>} />
           <InfoRow label="Status"     value={
             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_STYLES[status]}`}>
@@ -792,7 +826,7 @@ function SubscriptionSection({
             <p className="text-xs text-amber-700">Developer accounts are view-only for subscription data.</p>
           </div>
         </SectionCard>
-        <SectionCard title="Seat Limits">
+        <SectionCard title="Seat Limits" icon={ShieldCheck} iconBg="bg-gray-100" iconColor="text-text-secondary">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { role: 'Owner',     limit: org.ownerLimit    },
@@ -822,7 +856,7 @@ function SubscriptionSection({
       {feedback && <FeedbackRow type={feedback.type} msg={feedback.msg} />}
 
       {/* Plan & Dates */}
-      <SectionCard title="Plan">
+      <SectionCard title="Plan" icon={CreditCard} iconBg="bg-amber-50" iconColor="text-amber-700">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Plan</label>
@@ -855,7 +889,7 @@ function SubscriptionSection({
       </SectionCard>
 
       {/* Billing */}
-      <SectionCard title="Billing">
+      <SectionCard title="Billing" icon={CreditCard} iconBg="bg-amber-50" iconColor="text-amber-700">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-xs font-semibold text-text-secondary uppercase tracking-wide block mb-1">Currency</label>
@@ -894,7 +928,7 @@ function SubscriptionSection({
       </SectionCard>
 
       {/* Seat Limits */}
-      <SectionCard title="Seat Limits">
+      <SectionCard title="Seat Limits" icon={ShieldCheck} iconBg="bg-gray-100" iconColor="text-text-secondary">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {([
             ['Owner',     ownerLim,     setOwnerLim,    1],
@@ -990,6 +1024,7 @@ function ProductsSection({
 
       <SectionCard
         title="Product Entitlements"
+        icon={Package} iconBg="bg-indigo-50" iconColor="text-indigo-600"
         action={saving ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : undefined}
       >
         {canEdit && (
@@ -1096,7 +1131,7 @@ function ActivitySection({ organisationId }: { organisationId: string }) {
         ))}
       </div>
 
-      <SectionCard title={`Activity Log (${filtered.length})`}>
+      <SectionCard title={`Activity Log (${filtered.length})`} icon={Activity} iconBg="bg-gray-100" iconColor="text-text-secondary">
         {loading ? (
           <div className="flex items-center justify-center py-6">
             <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -1197,8 +1232,10 @@ export function OrganisationDetailPage() {
     )
   }
 
-  const status    = getOrganisationStatus(org)
-  const suspended = status === 'suspended'
+  const status     = getOrganisationStatus(org)
+  const suspended  = status === 'suspended'
+  const blocked    = org.lifecycleStatus === 'blocked'
+  const isReadOnly = suspended || blocked
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -1229,9 +1266,10 @@ export function OrganisationDetailPage() {
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
 
-        {suspended && (
-          <div className="mb-5">
-            <SuspendedBanner partnerName={partner?.name} />
+        {(suspended || blocked) && (
+          <div className="mb-5 flex flex-col gap-3">
+            {suspended && <SuspendedBanner partnerName={partner?.name} />}
+            {blocked   && <BlockedBanner />}
           </div>
         )}
 
@@ -1259,14 +1297,14 @@ export function OrganisationDetailPage() {
           <MembersSection
             org={org} members={members}
             callerUid={callerUid} callerEmail={callerEmail}
-            canManage={canManage}
+            canManage={canManage && !isReadOnly}
           />
         )}
         {section === 'users'        && (
           <UsersSection
             org={org} members={members}
             callerUid={callerUid} callerEmail={callerEmail}
-            canManage={canManage}
+            canManage={canManage && !isReadOnly}
           />
         )}
         {section === 'subscription' && (

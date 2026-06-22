@@ -16,6 +16,7 @@ import { DeveloperSettingsPage } from '../pages/DeveloperSettingsPage'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
 import { BootstrapRoute } from '../auth/BootstrapRoute'
 import { PartnerRoute } from '../auth/PartnerRoute'
+import { ProductRoute } from '../auth/ProductRoute'
 import { CNCMachiningPage } from '../pages/fortius/CNCMachiningPage'
 import { CNCMillingPage } from '../pages/fortius/CNCMillingPage'
 import { CNCTurningPage } from '../pages/fortius/CNCTurningPage'
@@ -66,23 +67,23 @@ export const router = createBrowserRouter([
   },
   {
     path: '/projects',
-    element: <ProtectedRoute><ProjectsPage /></ProtectedRoute>,
+    element: <ProtectedRoute><ProductRoute product="fai_reports"><ProjectsPage /></ProductRoute></ProtectedRoute>,
   },
   {
     path: '/projects/new',
-    element: <ProtectedRoute><CreateProjectPage /></ProtectedRoute>,
+    element: <ProtectedRoute><ProductRoute product="fai_reports"><CreateProjectPage /></ProductRoute></ProtectedRoute>,
   },
   {
     path: '/projects/:projectId',
-    element: <ProtectedRoute><ProjectDetailPage /></ProtectedRoute>,
+    element: <ProtectedRoute><ProductRoute product="fai_reports"><ProjectDetailPage /></ProductRoute></ProtectedRoute>,
   },
   {
     path: '/projects/:projectId/edit',
-    element: <ProtectedRoute><EditProjectPage /></ProtectedRoute>,
+    element: <ProtectedRoute><ProductRoute product="fai_reports"><EditProjectPage /></ProductRoute></ProtectedRoute>,
   },
   {
     path: '/projects/:projectId/pdf',
-    element: <ProtectedRoute><ProjectPdfViewerPage /></ProtectedRoute>,
+    element: <ProtectedRoute><ProductRoute product="fai_reports"><ProjectPdfViewerPage /></ProductRoute></ProtectedRoute>,
   },
 
   // ─── Developer Settings ───────────────────────────────────────────────────

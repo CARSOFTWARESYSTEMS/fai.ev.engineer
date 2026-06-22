@@ -3,7 +3,6 @@ import {
   doc,
   setDoc,
   updateDoc,
-  deleteDoc,
   getDoc,
   getDocs,
   query,
@@ -326,10 +325,13 @@ export async function updateProject(
   }
 }
 
-// ─── Delete (permanent) ───────────────────────────────────────────────────────
+// ─── Delete (soft) ────────────────────────────────────────────────────────────
+// Projects are soft-deleted by setting lifecycleStatus = 'deleted'.
+// Drive files are cleaned up immediately; Firestore record is preserved for audit.
+// Hard delete (deleteDoc) is only performed by developer admin for emergency cleanup.
 
 export async function deleteProject(projectId: string, _uid: string, userEmail: string): Promise<void> {
-  console.log('[PROJECT] Delete started:', projectId)
+  console.log('[PROJECT] Soft delete started:', projectId)
 
   const userSnap = await getDoc(doc(firestore, 'users', _uid))
   const role = userSnap.data()?.role
@@ -337,14 +339,14 @@ export async function deleteProject(projectId: string, _uid: string, userEmail: 
     throw new Error('Insufficient permissions to delete project')
   }
 
-  // Load project to read Drive IDs before deleting
+  // Load project to read Drive IDs
   const snap = await getDoc(doc(firestore, 'projects', projectId))
   const project = snap.exists() ? (snap.data() as FAIProject) : null
 
   const driveFileId   = project?.googleDriveFileId ?? ''
   const driveFolderId = project?.googleDriveProjectFolderId ?? ''
 
-  // Delete Drive file first — permission errors block the entire delete
+  // Clean up Drive file — permission errors block the entire operation
   if (driveFileId) {
     console.log('[DRIVE] Deleting project PDF:', driveFileId)
     try {
@@ -358,12 +360,11 @@ export async function deleteProject(projectId: string, _uid: string, userEmail: 
           'Unable to delete project because the uploaded PDF could not be removed from Google Drive.'
         )
       }
-      // 404 or other transient errors — file may already be gone, continue
       console.warn('[DRIVE] PDF delete skipped:', (err as { message?: string })?.message)
     }
   }
 
-  // Delete Drive project folder (best-effort — never blocks Firestore delete)
+  // Clean up Drive project folder (best-effort — never blocks Firestore soft-delete)
   if (driveFolderId) {
     console.log('[DRIVE] Deleting project folder:', driveFolderId)
     try {
@@ -375,14 +376,18 @@ export async function deleteProject(projectId: string, _uid: string, userEmail: 
     }
   }
 
-  // Delete Firestore document
+  // Soft-delete: mark lifecycleStatus = 'deleted' (record preserved for audit)
   try {
-    await deleteDoc(doc(firestore, 'projects', projectId))
-    console.log('[PROJECT] Firestore project deleted')
-    console.log('[PROJECT] Delete completed:', projectId)
+    await updateDoc(doc(firestore, 'projects', projectId), {
+      lifecycleStatus: 'deleted',
+      deletedAt:       serverTimestamp(),
+      deletedBy:       userEmail,
+      updatedAt:       serverTimestamp(),
+    })
+    console.log('[PROJECT] Soft delete completed:', projectId)
   } catch (err) {
     const e = err as { code?: string; message?: string }
-    console.error('[PROJECT] Delete failed:', e.code, e.message)
+    console.error('[PROJECT] Soft delete failed:', e.code, e.message)
     throw err
   }
 }

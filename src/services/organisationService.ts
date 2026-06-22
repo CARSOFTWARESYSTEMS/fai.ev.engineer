@@ -12,12 +12,13 @@ import {
 } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import type { ProductId, OrganisationRole } from '../auth/AuthTypes'
+import { calculateBalanceAmount, getSubscriptionStatus } from './subscriptionService'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 export type OrgStatus = 'active' | 'inactive' | 'trial' | 'suspended'
 export type OrgSubscriptionType = 'free' | 'trial' | 'monthly' | 'annual'
-export type OrgLifecycleStatus = 'active' | 'deleted'
+export type OrgLifecycleStatus = 'active' | 'blocked' | 'deleted' | 'permanently_deleted'
 
 // Tracks the lifecycle state of a membership record
 export type MembershipStatus = 'pending' | 'active' | 'inactive' | 'removed'
@@ -135,7 +136,7 @@ export function getSeatLimitMessage(role: OrganisationRole): string {
 
 const TRIAL_DURATION_DAYS = 7
 
-function toOrganisation(id: string, data: Record<string, unknown>): Organisation {
+export function toOrganisation(id: string, data: Record<string, unknown>): Organisation {
   return {
     organisationId:         id,
     partnerId:              (data.partnerId              as string)            ?? '',
@@ -202,6 +203,23 @@ export function getOrganisationStatus(org: Organisation): OrgStatus {
   return org.subscriptionType === 'trial' ? 'trial' : 'active'
 }
 
+/**
+ * Throws if the organisation is not in a writable state.
+ * Call this at the service boundary before any write operation.
+ */
+export function assertOrganisationWritable(org: Organisation): void {
+  if (org.lifecycleStatus === 'blocked') {
+    throw new Error('Organisation is currently read-only: organisation is blocked.')
+  }
+  if (org.lifecycleStatus === 'deleted' || org.lifecycleStatus === 'permanently_deleted') {
+    throw new Error('Organisation is currently read-only: organisation is deleted.')
+  }
+  const status = getOrganisationStatus(org)
+  if (status === 'suspended') {
+    throw new Error('Organisation is currently read-only: subscription has expired.')
+  }
+}
+
 export function formatOrgExpiry(org: Organisation): string {
   if (!org.subscriptionExpiryDate) return '—'
   return new Date(org.subscriptionExpiryDate.seconds * 1000).toLocaleDateString('en-GB', {
@@ -235,7 +253,20 @@ export function subscribeAllOrganisations(
 ): () => void {
   return onSnapshot(
     collection(firestore, 'organisations'),
-    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data())).filter(o => o.lifecycleStatus !== 'deleted')),
+    snap => callback(
+      snap.docs.map(d => toOrganisation(d.id, d.data()))
+        .filter(o => o.lifecycleStatus !== 'deleted' && o.lifecycleStatus !== 'permanently_deleted')
+    ),
+    () => callback([]),
+  )
+}
+
+export function subscribeBlockedOrganisations(
+  callback: (orgs: Organisation[]) => void,
+): () => void {
+  return onSnapshot(
+    collection(firestore, 'organisations'),
+    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data())).filter(o => o.lifecycleStatus === 'blocked')),
     () => callback([]),
   )
 }
@@ -246,7 +277,10 @@ export function subscribePartnerOrganisations(
 ): () => void {
   return onSnapshot(
     query(collection(firestore, 'organisations'), where('partnerId', '==', partnerId)),
-    snap => callback(snap.docs.map(d => toOrganisation(d.id, d.data())).filter(o => o.lifecycleStatus !== 'deleted')),
+    snap => callback(
+      snap.docs.map(d => toOrganisation(d.id, d.data()))
+        .filter(o => o.lifecycleStatus !== 'deleted' && o.lifecycleStatus !== 'permanently_deleted')
+    ),
     () => callback([]),
   )
 }
@@ -329,10 +363,17 @@ export async function updateOrganisation(
   id: string,
   updates: UpdateOrganisationInput,
 ): Promise<void> {
-  await updateDoc(doc(firestore, 'organisations', id), {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  })
+  const patch: Record<string, unknown> = { ...updates, updatedAt: serverTimestamp() }
+
+  // Always recompute balanceAmount so it can't drift from the billing totals.
+  const total    = (updates.totalAmount    ?? 0) as number
+  const discount = (updates.discountAmount ?? 0) as number
+  const paid     = (updates.paidAmount     ?? 0) as number
+  if ('totalAmount' in updates || 'discountAmount' in updates || 'paidAmount' in updates) {
+    patch.balanceAmount = calculateBalanceAmount(total, discount, paid)
+  }
+
+  await updateDoc(doc(firestore, 'organisations', id), patch)
 }
 
 export async function archiveOrganisation(id: string): Promise<void> {
@@ -355,13 +396,62 @@ export async function softDeleteOrganisation(
   })
 }
 
-export async function restoreOrganisation(id: string): Promise<void> {
+export async function blockOrganisation(
+  id: string,
+  opts: { reason: string; blockedBy: string },
+): Promise<void> {
+  await updateDoc(doc(firestore, 'organisations', id), {
+    lifecycleStatus: 'blocked' satisfies OrgLifecycleStatus,
+    blockedAt:       serverTimestamp(),
+    blockedBy:       opts.blockedBy,
+    blockedReason:   opts.reason || null,
+    updatedAt:       serverTimestamp(),
+  })
+}
+
+export async function unblockOrganisation(id: string): Promise<void> {
   await updateDoc(doc(firestore, 'organisations', id), {
     lifecycleStatus: 'active' satisfies OrgLifecycleStatus,
-    deletedAt:       null,
-    deletedBy:       null,
-    deletedReason:   null,
+    blockedAt:       null,
+    blockedBy:       null,
+    blockedReason:   null,
     updatedAt:       serverTimestamp(),
+  })
+}
+
+export async function permanentlyDeleteOrganisation(
+  id: string,
+  opts: { reason: string; deletedBy: string },
+): Promise<void> {
+  await updateDoc(doc(firestore, 'organisations', id), {
+    lifecycleStatus:          'permanently_deleted' satisfies OrgLifecycleStatus,
+    permanentlyDeletedAt:     serverTimestamp(),
+    permanentlyDeletedBy:     opts.deletedBy,
+    permanentlyDeletedReason: opts.reason || null,
+    updatedAt:                serverTimestamp(),
+  })
+}
+
+// Restore from 'deleted' → 'active'.
+// Restore from 'permanently_deleted' → 'deleted' only (never directly to 'active').
+export async function restoreOrganisation(
+  id:         string,
+  fromStatus: OrgLifecycleStatus = 'deleted',
+): Promise<void> {
+  const targetStatus: OrgLifecycleStatus =
+    fromStatus === 'permanently_deleted' ? 'deleted' : 'active'
+  await updateDoc(doc(firestore, 'organisations', id), {
+    lifecycleStatus:          targetStatus,
+    deletedAt:                null,
+    deletedBy:                null,
+    deletedReason:            null,
+    permanentlyDeletedAt:     null,
+    permanentlyDeletedBy:     null,
+    permanentlyDeletedReason: null,
+    blockedAt:                null,
+    blockedBy:                null,
+    blockedReason:            null,
+    updatedAt:                serverTimestamp(),
   })
 }
 
@@ -374,6 +464,21 @@ export async function addOrganisationMember(opts: {
   role:           OrganisationRole
   createdBy:      string
 }): Promise<string> {
+  // Subscription enforcement: blocked/deleted orgs cannot have new members.
+  const org = await getOrganisation(opts.organisationId)
+  if (org) {
+    if (org.lifecycleStatus === 'blocked') {
+      throw new Error('Cannot add member: organisation is blocked.')
+    }
+    if (org.lifecycleStatus === 'deleted' || org.lifecycleStatus === 'permanently_deleted') {
+      throw new Error('Cannot add member: organisation is deleted.')
+    }
+    const subStatus = getSubscriptionStatus(org.subscriptionType, org.subscriptionExpiryDate)
+    if (subStatus === 'expired') {
+      throw new Error('Cannot add member: organisation subscription has expired. Renew the subscription first.')
+    }
+  }
+
   const membershipStatus: MembershipStatus = opts.userUid ? 'active' : 'pending'
   const ref = await addDoc(collection(firestore, 'organisationMembers'), {
     organisationId:   opts.organisationId,

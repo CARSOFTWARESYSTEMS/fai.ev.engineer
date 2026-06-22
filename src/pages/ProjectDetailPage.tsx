@@ -20,7 +20,9 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useBranding } from '../hooks/useBranding'
+import { useOrgReadOnly } from '../hooks/useOrgReadOnly'
 import { getProjectById, deleteProject } from '../projects/project.service'
+import { ReadOnlyBanner } from '../components/ReadOnlyBanner'
 import {
   uploadProjectPdf,
   deleteProjectPdf,
@@ -76,6 +78,7 @@ export function ProjectDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { branding } = useBranding()
+  const { isReadOnly, reason: readOnlyReason } = useOrgReadOnly()
 
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -301,14 +304,16 @@ export function ProjectDetailPage() {
               <LayoutDashboard className="w-4 h-4" />
               <span className="hidden sm:inline">Dashboard</span>
             </Link>
-            <Link
-              to={`/projects/${project.projectId}/edit`}
-              className="btn-secondary text-sm"
-            >
-              <Pencil className="w-4 h-4" />
-              <span className="hidden sm:inline">Edit</span>
-            </Link>
-            {isManager && (
+            {!isReadOnly && (
+              <Link
+                to={`/projects/${project.projectId}/edit`}
+                className="btn-secondary text-sm"
+              >
+                <Pencil className="w-4 h-4" />
+                <span className="hidden sm:inline">Edit</span>
+              </Link>
+            )}
+            {isManager && !isReadOnly && (
               <button
                 onClick={() => setShowDelete(true)}
                 className="inline-flex items-center gap-2 px-4 py-2.5 text-red-600 font-semibold text-sm rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
@@ -319,6 +324,12 @@ export function ProjectDetailPage() {
             )}
           </div>
         </div>
+
+        {isReadOnly && (
+          <div className="mb-5">
+            <ReadOnlyBanner reason={readOnlyReason} />
+          </div>
+        )}
 
         {deleteError && (
           <div className="mb-5 px-4 py-3 bg-error/10 border border-error/20 text-error text-sm rounded-xl flex items-start gap-2.5">
@@ -452,7 +463,7 @@ export function ProjectDetailPage() {
                       View PDF
                     </Link>
 
-                    {confirmDeletePdf ? (
+                    {!isReadOnly && confirmDeletePdf ? (
                       <div className="flex flex-col items-center gap-2 py-2.5 px-3 bg-red-50 rounded-lg border border-red-100">
                         <span className="text-xs text-text-secondary">Remove this PDF permanently?</span>
                         <div className="flex items-center gap-2">
@@ -472,7 +483,7 @@ export function ProjectDetailPage() {
                           </button>
                         </div>
                       </div>
-                    ) : (
+                    ) : !isReadOnly ? (
                       <div className="flex gap-2">
                         <button
                           onClick={handleUploadClick}
@@ -495,7 +506,7 @@ export function ProjectDetailPage() {
                           <span className="lg:hidden">Delete PDF</span>
                         </button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ) : (
@@ -507,23 +518,25 @@ export function ProjectDetailPage() {
                   <p className="text-xs text-text-secondary leading-relaxed">
                     No drawing PDF uploaded yet.
                   </p>
-                  <button
-                    onClick={handleUploadClick}
-                    disabled={isUploading}
-                    className="btn-primary text-sm w-full justify-center disabled:opacity-60"
-                  >
-                    {isUploading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Uploading…
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="w-4 h-4" />
-                        Upload PDF
-                      </>
-                    )}
-                  </button>
+                  {!isReadOnly && (
+                    <button
+                      onClick={handleUploadClick}
+                      disabled={isUploading}
+                      className="btn-primary text-sm w-full justify-center disabled:opacity-60"
+                    >
+                      {isUploading ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Uploading…
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud className="w-4 h-4" />
+                          Upload PDF
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
 
