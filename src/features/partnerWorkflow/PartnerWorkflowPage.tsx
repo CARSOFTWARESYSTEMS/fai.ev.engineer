@@ -274,7 +274,7 @@ interface Props {
 export function PartnerWorkflowPage({ mode }: Props) {
   const { firebaseUser } = useAuth()
   const { isDeveloperAdmin } = useDeveloperAccess()
-  const { partner: myPartner, isLoading: partnerLoading } = useCurrentPartner()
+  const { partner: myPartner, partners: myPartners, isLoading: partnerLoading } = useCurrentPartner()
 
   const [level,           setLevel]           = useState<Level>(mode === 'developer' ? 'landing' : 'selected')
   const [listMode,        setListMode]        = useState<ListMode>('active')
@@ -296,11 +296,29 @@ export function PartnerWorkflowPage({ mode }: Props) {
     return () => { u1(); u2(); u3() }
   }, [mode])
 
-  // In partner mode, set selected partner from hook
+  // A single mapping opens directly. Multiple mappings land on a chooser so
+  // every partner associated with the admin account is visible on /partner.
   useEffect(() => {
     if (mode !== 'partner' || partnerLoading) return
-    setSelectedPartner(myPartner)
-  }, [mode, myPartner, partnerLoading])
+    if (myPartners.length <= 1) {
+      setSelectedPartner(myPartner)
+      setLevel('selected')
+      return
+    }
+
+    if (!selectedPartner) {
+      setLevel('list')
+      return
+    }
+
+    const refreshedSelection = myPartners.find(p => p.partnerId === selectedPartner.partnerId)
+    if (refreshedSelection) {
+      setSelectedPartner(refreshedSelection)
+    } else {
+      setSelectedPartner(null)
+      setLevel('list')
+    }
+  }, [mode, myPartner, myPartners, partnerLoading, selectedPartner])
 
   function showFeedback(type: 'success' | 'error', msg: string) {
     setFeedback({ type, msg })
@@ -326,6 +344,12 @@ export function PartnerWorkflowPage({ mode }: Props) {
     setShowCreate(false)
   }
 
+  function goToMappedPartners() {
+    setSelectedPartner(null)
+    setLevel('list')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const callerUid   = firebaseUser?.uid   ?? ''
   const callerEmail = firebaseUser?.email ?? ''
 
@@ -344,12 +368,31 @@ export function PartnerWorkflowPage({ mode }: Props) {
     )
   }
 
-  if (mode === 'partner' && !selectedPartner) {
+  if (mode === 'partner' && myPartners.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
         <Shield className="w-10 h-10 text-text-secondary" />
         <p className="text-sm font-semibold text-text-primary">No partner found</p>
         <p className="text-xs text-text-secondary">Your account is not associated with any partner.</p>
+      </div>
+    )
+  }
+
+  if (mode === 'partner' && myPartners.length > 1 && !selectedPartner) {
+    return (
+      <div className="flex flex-col gap-5">
+        <div>
+          <h1 className="text-lg font-bold text-text-primary">Your Partners</h1>
+          <p className="text-sm text-text-secondary mt-1">
+            {myPartners.length} partners are mapped to {callerEmail || 'your account'}. Select one to manage its configuration.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {myPartners.map(p => (
+            <PartnerCard key={p.partnerId} partner={p} onOpen={openPartner} />
+          ))}
+        </div>
       </div>
     )
   }
@@ -364,8 +407,9 @@ export function PartnerWorkflowPage({ mode }: Props) {
         {/* Partner header */}
         <div className="card p-5">
           <div className="flex items-start gap-4">
-            {mode === 'developer' && (
-              <button onClick={goToLanding}
+            {(mode === 'developer' || myPartners.length > 1) && (
+              <button onClick={mode === 'developer' ? goToLanding : goToMappedPartners}
+                aria-label={mode === 'developer' ? 'Back to partners' : 'Back to mapped partners'}
                 className="mt-0.5 text-text-secondary hover:text-text-primary transition-colors shrink-0">
                 <ChevronLeft className="w-5 h-5" />
               </button>

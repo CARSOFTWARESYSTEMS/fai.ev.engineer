@@ -321,13 +321,13 @@ export function usePartnerAccess(): PartnerAccessState {
 
 export interface CurrentPartnerState {
   partner:   Partner | null
-  partners:  Partner[]   // all partners (for developer accounts)
+  partners:  Partner[]   // every partner the current account may manage
   isLoading: boolean
 }
 
 export function useCurrentPartner(): CurrentPartnerState {
   const { isDeveloper } = useDeveloperAccess()
-  const { primaryPartnerId, isLoading: accessLoading } = usePartnerAccess()
+  const { partnerIds, isLoading: accessLoading } = usePartnerAccess()
   const [partner,  setPartner]  = useState<Partner | null>(null)
   const [partners, setPartners] = useState<Partner[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -335,13 +335,34 @@ export function useCurrentPartner(): CurrentPartnerState {
   useEffect(() => {
     if (accessLoading) return
 
-    if (primaryPartnerId) {
-      // Partner admin (or developer who also has a partnerAdmin record)
-      return subscribePartnerById(primaryPartnerId, p => {
-        setPartner(p)
-        setPartners(p ? [p] : [])
-        setLoading(false)
-      })
+    if (partnerIds.length > 0) {
+      // Resolve every explicit mapping, preserving the order stored on the
+      // partner admin record. Individual document listeners are required here:
+      // Firestore rules deliberately allow admins to read only their partners.
+      setLoading(true)
+      const mappedPartnerIds = [...new Set(partnerIds)]
+      const resolved         = new Map<string, Partner>()
+      const loaded           = new Set<string>()
+
+      const unsubscribers = mappedPartnerIds.map(partnerId =>
+        subscribePartnerById(partnerId, mappedPartner => {
+          loaded.add(partnerId)
+          if (mappedPartner) resolved.set(partnerId, mappedPartner)
+          else resolved.delete(partnerId)
+
+          if (loaded.size === mappedPartnerIds.length) {
+            const list = mappedPartnerIds.flatMap(id => {
+              const item = resolved.get(id)
+              return item ? [item] : []
+            })
+            setPartners(list)
+            setPartner(list[0] ?? null)
+            setLoading(false)
+          }
+        }),
+      )
+
+      return () => unsubscribers.forEach(unsubscribe => unsubscribe())
     }
 
     if (isDeveloper) {
@@ -356,7 +377,7 @@ export function useCurrentPartner(): CurrentPartnerState {
     setPartner(null)
     setPartners([])
     setLoading(false)
-  }, [isDeveloper, primaryPartnerId, accessLoading])
+  }, [isDeveloper, partnerIds, accessLoading])
 
   return { partner, partners, isLoading: loading || accessLoading }
 }
