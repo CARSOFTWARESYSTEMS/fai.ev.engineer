@@ -34,7 +34,14 @@ export type SubscriptionStatus = 'active' | 'expired' | 'pending_payment' | 'sus
 
 // ─── Product catalogue ────────────────────────────────────────────────────────
 
-export type ProductId = 'fai_reports' | 'battery_pm' | 'motor_pm' | 'energy_mgmt' | 'clean_room'
+export type ProductId =
+  | 'fai_reports'
+  | 'battery_pm'
+  | 'motor_pm'
+  | 'energy_mgmt'
+  | 'clean_room'
+  | 'ev_certificates'
+  | 'autonomous'
 
 // ─── Lifecycle status ─────────────────────────────────────────────────────────
 

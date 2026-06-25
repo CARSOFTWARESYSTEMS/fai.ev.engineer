@@ -16,9 +16,17 @@ import {
   ChevronDown,
   X,
   UploadCloud,
+  Package,
+  Lock,
+  ExternalLink,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { useProductConfig } from '../config/hooks/useProductConfig'
+import { useUserOrg } from '../hooks/useUserOrg'
+import { useDeveloperAccess } from '../services/useDeveloperAccess'
+import { useDomainContext } from '../modules/website/DomainContextProvider'
+import { PRODUCT_CATALOGUE, type ProductCatalogueEntry } from '../modules/platform/productCatalogue'
+import type { ProductId } from '../auth/AuthTypes'
 import { UserAvatarMenu } from '../components/ui/UserAvatarMenu'
 import { OrganizationSwitcher } from '../components/ui/OrganizationSwitcher'
 import { DeleteProjectModal } from '../components/ui/DeleteProjectModal'
@@ -51,6 +59,90 @@ import {
 } from '../projects/projectFilters'
 import { fmtDueDate, dueDateStatus } from '../projects/projectDueDate'
 import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../lib/contactMessage'
+
+// ─── Product cards helpers ────────────────────────────────────────────────────
+
+function resolveEffectiveProducts(
+  isDeveloper: boolean,
+  orgProducts: ProductId[],
+  domainProducts: ProductId[],
+  isFallback: boolean,
+): ProductCatalogueEntry[] {
+  if (isDeveloper) {
+    return PRODUCT_CATALOGUE.filter(p => p.status === 'active')
+  }
+  let effective = orgProducts
+  if (!isFallback && domainProducts.length > 0) {
+    effective = orgProducts.filter(pk => domainProducts.includes(pk))
+  }
+  return effective
+    .map(pk => PRODUCT_CATALOGUE.find(p => p.productKey === pk))
+    .filter((p): p is ProductCatalogueEntry => p !== undefined)
+}
+
+function ProductCard({ entry, navigate }: { entry: ProductCatalogueEntry; navigate: (path: string) => void }) {
+  const statusBadge = {
+    active: 'bg-green-50 text-green-700 border-green-200',
+    beta:   'bg-blue-50 text-blue-700 border-blue-200',
+    future: 'bg-gray-100 text-gray-500 border-gray-200',
+  }[entry.status]
+
+  const statusLabel = {
+    active: 'Active',
+    beta:   'Beta',
+    future: 'Coming Soon',
+  }[entry.status]
+
+  const isInternal = !entry.isExternal && entry.status === 'active' && entry.productKey === 'fai_reports'
+  const isFuture   = entry.status === 'future'
+  const isExternal = entry.isExternal
+
+  return (
+    <div className="border border-border rounded-xl p-4 bg-white flex flex-col gap-3 hover:border-primary/20 hover:shadow-sm transition-all">
+      <div className="flex items-start justify-between gap-2">
+        <div className="w-9 h-9 rounded-lg bg-primary-light flex items-center justify-center shrink-0">
+          {isExternal
+            ? <ExternalLink className="w-4 h-4 text-primary" />
+            : <Package className="w-4 h-4 text-primary" />}
+        </div>
+        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusBadge}`}>
+          {statusLabel}
+        </span>
+      </div>
+
+      <div className="flex-1">
+        <p className="text-sm font-bold text-text-primary leading-snug mb-1">{entry.name}</p>
+        <p className="text-xs text-text-secondary leading-relaxed">{entry.description}</p>
+      </div>
+
+      <div className="pt-2 border-t border-border">
+        {isInternal && (
+          <button
+            onClick={() => navigate(entry.routeBase)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Open
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        )}
+        {isFuture && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary/50 px-3 py-1.5 rounded-lg border border-border cursor-not-allowed">
+            Coming Soon
+          </span>
+        )}
+        {isExternal && !isFuture && (
+          <span
+            title="External launch requires secure signing. Not available yet."
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary/50 px-3 py-1.5 rounded-lg border border-border cursor-not-allowed"
+          >
+            <Lock className="w-3 h-3" />
+            External launch requires secure signing
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // ─── Feature badge keys (admin panel only) ────────────────────────────────────
 
@@ -105,8 +197,21 @@ export function DashboardPage() {
   const { user, firebaseUser } = useAuth()
   const { productKey, productConfig, organizationConfig, usingDefaultOrgConfig, canAccess } = useProductConfig()
   const { branding } = useBranding()
+  const { org }                    = useUserOrg()
+  const { isDeveloper }            = useDeveloperAccess()
+  const { domainContext, isFallback } = useDomainContext()
 
   const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
+
+  const effectiveProducts = useMemo(
+    () => resolveEffectiveProducts(
+      isDeveloper,
+      org?.enabledProducts ?? [],
+      domainContext.enabledProducts,
+      isFallback,
+    ),
+    [isDeveloper, org?.enabledProducts, domainContext.enabledProducts, isFallback],
+  )
 
   const [projects, setProjects]               = useState<FAIProject[]>([])
   const [projectsLoading, setProjectsLoading] = useState(true)
@@ -313,7 +418,32 @@ export function DashboardPage() {
           )}
         </div>
 
-        {/* ── 2. Statistics ────────────────────────────────────────────────── */}
+        {/* ── 2. Your Products ─────────────────────────────────────────────── */}
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Package className="w-4 h-4 text-primary" />
+            <h2 className="font-semibold text-text-primary">Your Products</h2>
+          </div>
+
+          {effectiveProducts.length === 0 ? (
+            <div className="text-center py-8 border border-dashed border-border rounded-xl">
+              <Package className="w-8 h-8 text-border mx-auto mb-3" />
+              <p className="text-sm font-medium text-text-primary mb-1">No products configured</p>
+              <p className="text-xs text-text-secondary">
+                No products are currently configured for your account.
+                Please contact your admin team.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {effectiveProducts.map(entry => (
+                <ProductCard key={entry.productKey} entry={entry} navigate={navigate} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── 3. Statistics ────────────────────────────────────────────────── */}
         {!projectsLoading && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {statCards.map((stat) => (
