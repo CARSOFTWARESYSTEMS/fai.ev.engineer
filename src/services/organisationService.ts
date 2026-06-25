@@ -524,17 +524,19 @@ export async function removeOrganisationMember(membershipId: string): Promise<vo
   })
 }
 
-// Promotes any pending org memberships for this email to active with the real UID.
+// Promotes any unlinked org memberships for this email — covers both 'pending'
+// records and 'active' records that were manually activated without a UID set.
 // Call on login and after profile completion, mirroring claimPendingPartnerAdmin.
 export async function claimPendingOrgMemberships(opts: {
   email: string
   uid:   string
 }): Promise<void> {
+  // Match any record for this email where userUid has not been linked yet.
   const snap = await getDocs(
     query(
       collection(firestore, 'organisationMembers'),
-      where('userEmail',        '==', opts.email.toLowerCase()),
-      where('membershipStatus', '==', 'pending'),
+      where('userEmail', '==', opts.email.toLowerCase()),
+      where('userUid',   '==', ''),
     ),
   )
   if (snap.empty) return
@@ -548,5 +550,5 @@ export async function claimPendingOrgMemberships(opts: {
       }),
     ),
   )
-  console.log('[ORG] Claimed', snap.size, 'pending membership(s) for', opts.email)
+  console.log('[ORG] Linked', snap.size, 'unlinked membership(s) for', opts.email)
 }
