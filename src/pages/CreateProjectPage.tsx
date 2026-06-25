@@ -76,7 +76,7 @@ function Field({
 
 export function CreateProjectPage() {
   const navigate = useNavigate()
-  const { user, firebaseUser } = useAuth()
+  const { firebaseUser } = useAuth()
   const { productKey, organizationConfig } = useProductConfig()
   const { branding } = useBranding()
   const { isReadOnly, reason: readOnlyReason, organisation } = useOrgReadOnly()
@@ -118,8 +118,8 @@ export function CreateProjectPage() {
           uid:       firebaseUser!.uid,
           userEmail: firebaseUser?.email ?? '',
           productKey,
-          organizationCode: user?.organizationCode || 'default',
-          organizationName: user?.organizationName || organizationConfig.organizationName,
+          organizationCode: organisation?.code || 'default',
+          organizationName: organisation?.name || organizationConfig.organizationName,
           defaultDueDays: organizationConfig.settings?.defaultDueDays ?? 7,
           org: organisation ?? undefined,
         }
@@ -329,10 +329,10 @@ export function CreateProjectPage() {
                 <Building2 className="w-4 h-4 text-primary shrink-0" />
                 <span>Organization:</span>
                 <span className="font-medium text-text-primary">
-                  {user?.organizationName || organizationConfig.organizationName}
+                  {organisation?.name || organizationConfig.organizationName || 'No organisation assigned'}
                 </span>
                 <span className="font-mono text-xs bg-primary-light text-primary px-2 py-0.5 rounded-full">
-                  {user?.organizationCode || 'default'}
+                  {organisation?.code || 'default'}
                 </span>
               </div>
             </div>

@@ -14,9 +14,11 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { useAccessHelpers } from '../../lib/accessHelpers'
+import { useUserOrg } from '../../hooks/useUserOrg'
 
 export function UserAvatarMenu() {
   const { user, firebaseUser, signOut } = useAuth()
+  const { org } = useUserOrg()
   const navigate    = useNavigate()
   const [open, setOpen] = useState(false)
   const containerRef    = useRef<HTMLDivElement>(null)
@@ -121,12 +123,10 @@ export function UserAvatarMenu() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              {user?.organizationName && (
-                <div className="flex items-center gap-2 text-xs text-text-secondary">
-                  <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                  <span className="truncate">{user.organizationName}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 text-xs text-text-secondary">
+                <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="truncate">{org?.name ?? 'No organisation assigned'}</span>
+              </div>
               {user?.mobileNumber && (
                 <div className="flex items-center gap-2 text-xs text-text-secondary">
                   <Phone className="w-3.5 h-3.5 text-[#25D366] shrink-0" />

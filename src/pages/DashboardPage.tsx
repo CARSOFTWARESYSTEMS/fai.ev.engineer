@@ -613,8 +613,8 @@ export function DashboardPage() {
                   userRole: user?.role,
                   userLifecycleStatus: user?.lifecycleStatus,
                   domain: window.location.hostname,
-                  organizationName: user?.organizationName,
-                  organizationCode: user?.organizationCode,
+                  organizationName: org?.name,
+                  organizationCode: org?.code,
                   projectName: project.projectName,
                   projectId: project.projectId,
                   partNumber: project.partNumber,
@@ -765,8 +765,8 @@ export function DashboardPage() {
               {[
                 { label: 'Product',      value: productConfig.productName },
                 { label: 'Product Key',  value: productKey, mono: true },
-                { label: 'Organization', value: organizationConfig.organizationName },
-                { label: 'Org Code',     value: organizationConfig.organizationCode, mono: true },
+                { label: 'Organization', value: org?.name ?? organizationConfig.organizationName },
+                { label: 'Org Code',     value: org?.code ?? organizationConfig.organizationCode, mono: true },
                 { label: 'Plan',         value: organizationConfig.plan, capitalize: true },
               ].map((item) => (
                 <div key={item.label}>
