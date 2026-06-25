@@ -291,6 +291,34 @@ function MembersSection({
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     if (!addEmail.trim()) return
+
+    // Auto-resolve UID if "Find" was not clicked — enables real-time membership for registered users
+    let resolvedUser = foundUser
+    if (!resolvedUser) {
+      try {
+        setSearching(true)
+        const all   = await listUsers()
+        const q     = addEmail.trim().toLowerCase()
+        const match = all.find(u => u.email?.toLowerCase() === q)
+        if (match) {
+          resolvedUser = { uid: match.uid, email: match.email, displayName: match.displayName }
+          setFoundUser(resolvedUser)
+        }
+      } catch { /* proceed as pending if lookup fails */ } finally {
+        setSearching(false)
+      }
+    }
+
+    // Prevent duplicate membership for the same email in this org
+    const existing = members.find(m =>
+      m.userEmail.toLowerCase() === addEmail.trim().toLowerCase() &&
+      m.membershipStatus !== 'removed'
+    )
+    if (existing) {
+      showFeedback('error', `${addEmail.trim()} is already a ${ROLE_LABELS[existing.role]} in this organisation. Remove the existing membership first if you want to change their role.`)
+      return
+    }
+
     if (!canAddOrganisationMember(org, members, addRole)) {
       showFeedback('error', getSeatLimitMessage(addRole))
       return
@@ -299,7 +327,7 @@ function MembersSection({
     try {
       await addOrganisationMember({
         organisationId: org.organisationId,
-        userUid:        foundUser?.uid ?? '',
+        userUid:        resolvedUser?.uid ?? '',
         userEmail:      addEmail.trim().toLowerCase(),
         role:           addRole,
         createdBy:      callerUid,
@@ -487,7 +515,7 @@ function UsersSection({
   }
 
   async function handleDeactivate(member: OrganisationMember) {
-    if (!window.confirm(`Deactivate ${member.userEmail}?`)) return
+    if (!window.confirm(`Temporarily deactivate ${member.userEmail}? They can be reactivated later.`)) return
     try {
       await deactivateMember(member.membershipId)
       await logOrgActivity({
@@ -591,7 +619,16 @@ function UsersSection({
                               className="text-xs border border-border rounded-lg px-2 py-1 bg-white"
                               autoFocus
                             >
-                              {ORG_ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                              {ORG_ROLES.map(r => {
+                                const isCurrentRole = r === member.role
+                                const othersInOrg = members.filter(m => m.membershipId !== member.membershipId)
+                                const canChange = isCurrentRole || canAddOrganisationMember(org, othersInOrg, r)
+                                return (
+                                  <option key={r} value={r} disabled={!canChange}>
+                                    {ROLE_LABELS[r]}{!canChange ? ' (limit reached)' : ''}
+                                  </option>
+                                )
+                              })}
                             </select>
                             <button
                               onClick={() => handleRoleChange(member)}
@@ -615,7 +652,7 @@ function UsersSection({
                               px-2 py-1 rounded-lg hover:border-primary/30 transition-colors
                               inline-flex items-center gap-1"
                           >
-                            Role <ChevronDown className="w-3 h-3" />
+                            {ROLE_LABELS[member.role]} <ChevronDown className="w-3 h-3" />
                           </button>
                         )}
 
@@ -625,7 +662,7 @@ function UsersSection({
                             className="text-xs text-amber-700 hover:bg-amber-50 px-2 py-1
                               rounded-lg border border-amber-200 transition-colors"
                           >
-                            Pause
+                            Deactivate
                           </button>
                         ) : member.membershipStatus === 'inactive' ? (
                           <button
