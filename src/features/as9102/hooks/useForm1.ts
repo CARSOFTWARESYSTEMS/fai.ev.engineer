@@ -31,7 +31,7 @@ const EMPTY_FORM: Form1Input = {
   comments: '',
 }
 
-export function useForm1({ projectId }: { projectId: string }) {
+export function useForm1({ projectId, isReadOnly = false }: { projectId: string; isReadOnly?: boolean }) {
   const [data, setData] = useState<Form1Input>({ ...EMPTY_FORM, projectId })
   const [isLoaded, setIsLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState<Form1SaveStatus>('idle')
@@ -58,6 +58,7 @@ export function useForm1({ projectId }: { projectId: string }) {
   }, [projectId])
 
   const updateField = useCallback(<K extends keyof Form1Input>(key: K, value: Form1Input[K]) => {
+    if (isReadOnly) return
     setData(prev => {
       const next = { ...prev, [key]: value }
 
@@ -81,7 +82,7 @@ export function useForm1({ projectId }: { projectId: string }) {
 
       return next
     })
-  }, [projectId])
+  }, [projectId, isReadOnly])
 
   useEffect(() => {
     return () => {

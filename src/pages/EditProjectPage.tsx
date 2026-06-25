@@ -119,7 +119,7 @@ export function EditProjectPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { branding } = useBranding()
-  const { isReadOnly, reason: readOnlyReason } = useOrgReadOnly()
+  const { isReadOnly, reason: readOnlyReason, organisation } = useOrgReadOnly()
 
   const [project, setProject] = useState<FAIProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -233,7 +233,8 @@ export function EditProjectPage() {
         user!.uid,
         user!.email ?? '',
         file,
-        project!.googleDriveFileId || undefined
+        project!.googleDriveFileId || undefined,
+        organisation ?? undefined,
       )
       const updated = await getProjectById(project!.projectId)
       if (updated) setProject(updated)
@@ -249,7 +250,7 @@ export function EditProjectPage() {
     setIsDeletingPdf(true)
     setUploadError('')
     try {
-      await deleteProjectPdf(project.projectId, user.uid, project.googleDriveFileId, user.email ?? '')
+      await deleteProjectPdf(project.projectId, user.uid, project.googleDriveFileId, user.email ?? '', organisation ?? undefined)
       const updated = await getProjectById(project.projectId)
       if (updated) setProject(updated)
       setConfirmDeletePdf(false)
@@ -282,7 +283,7 @@ export function EditProjectPage() {
         status:          form.status,
         ...(isManager ? { priority: form.priority, dueDate: form.dueDate } : {}),
         ...(reviewDecision ? { reviewDecision, reviewComment: reviewComment ?? '' } : {}),
-      })
+      }, organisation ?? undefined)
       setSaveSuccess(true)
       setTimeout(() => navigate(`/projects/${projectId}`), 800)
     } catch (err) {
@@ -335,7 +336,7 @@ export function EditProjectPage() {
     setIsDeleting(true)
     setDeleteError('')
     try {
-      await deleteProject(projectId, user.uid, user.email ?? '')
+      await deleteProject(projectId, user.uid, user.email ?? '', organisation ?? undefined)
       setShowDelete(false)
       navigate('/projects', { replace: true })
     } catch (err) {

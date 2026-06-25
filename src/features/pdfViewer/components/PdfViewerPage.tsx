@@ -168,9 +168,9 @@ export function PdfViewerPage() {
   const { isReadOnly: orgIsReadOnly } = useOrgReadOnly()
   const viewer = usePdfViewer()
   const balloons = useBalloons({ projectId: accessibleProjectId, userId: user?.uid ?? '', isReadOnly: orgIsReadOnly })
-  const features = useFeatures({ projectId: accessibleProjectId, userId: user?.uid ?? '' })
-  const form1 = useForm1({ projectId: accessibleProjectId })
-  const form2 = useForm2({ projectId: accessibleProjectId })
+  const features = useFeatures({ projectId: accessibleProjectId, userId: user?.uid ?? '', isReadOnly: orgIsReadOnly })
+  const form1 = useForm1({ projectId: accessibleProjectId, isReadOnly: orgIsReadOnly })
+  const form2 = useForm2({ projectId: accessibleProjectId, isReadOnly: orgIsReadOnly })
   const workspace = useWorkspaceSidebarPreferences()
   const didRestoreBalloonMode = useRef(false)
   const form3 = useForm3Results({
@@ -178,6 +178,7 @@ export function PdfViewerPage() {
     userId: user?.uid ?? '',
     features: features.features,
     balloons: balloons.items,
+    isReadOnly: orgIsReadOnly,
   })
   const statusByFeatureId = useMemo(
     () => new Map(form3.rows.map(row => [row.featureId, row.status])),

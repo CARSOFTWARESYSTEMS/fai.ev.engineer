@@ -59,6 +59,7 @@ import {
 } from '../projects/projectFilters'
 import { fmtDueDate, dueDateStatus } from '../projects/projectDueDate'
 import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../lib/contactMessage'
+import { useOrgReadOnly } from '../hooks/useOrgReadOnly'
 
 // ─── Product cards helpers ────────────────────────────────────────────────────
 
@@ -200,6 +201,7 @@ export function DashboardPage() {
   const { org }                    = useUserOrg()
   const { isDeveloper }            = useDeveloperAccess()
   const { domainContext, isFallback } = useDomainContext()
+  const { isReadOnly: orgIsReadOnly, reason: orgReadOnlyReason } = useOrgReadOnly()
 
   const isManager = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'manager'
 
@@ -396,6 +398,22 @@ export function DashboardPage() {
       )}
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-5">
+
+        {/* ── 0. Read-only org warning ─────────────────────────────────────── */}
+        {orgIsReadOnly && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
+            <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-amber-800">
+                Organisation is read-only — {orgReadOnlyReason}
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Project creation and editing are disabled. Existing projects and reports remain accessible.
+                Contact your administrator to restore access.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* ── 1. Welcome + New Project CTA ────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4">

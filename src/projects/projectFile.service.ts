@@ -1,5 +1,7 @@
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
+import type { Organisation } from '../services/organisationService'
+import { assertOrganisationWritable } from '../services/organisationAccessService'
 import { logPdfUploaded } from '../services/userActivityLogService'
 import {
   requestDriveToken,
@@ -26,12 +28,16 @@ export function validatePdfFile(file: File): string | null {
 // On replace (oldDriveFileId provided): deletes old file before uploading new one.
 
 export async function uploadProjectPdf(
-  projectId:      string,
-  uid:            string,
-  userEmail:      string,
-  file:           File,
-  oldDriveFileId?: string
+  projectId:       string,
+  uid:             string,
+  userEmail:       string,
+  file:            File,
+  oldDriveFileId?: string,
+  org?:            Organisation,
 ): Promise<void> {
+  if (org) {
+    assertOrganisationWritable(org, { uid, actorEmail: userEmail, action: 'uploadProjectPdf' })
+  }
   console.log('[PDF] Upload started:', projectId, file.name)
 
   try {
@@ -93,8 +99,12 @@ export async function deleteProjectPdf(
   projectId:   string,
   _uid:        string,
   driveFileId: string,
-  userEmail?:  string
+  userEmail?:  string,
+  org?:        Organisation,
 ): Promise<void> {
+  if (org) {
+    assertOrganisationWritable(org, { uid: _uid, actorEmail: userEmail, action: 'deleteProjectPdf' })
+  }
   console.log('[PDF] Delete started:', projectId)
 
   try {

@@ -29,7 +29,7 @@ const EMPTY_ROW_FIELDS: Omit<Form2RowInput, 'projectId' | 'rowOrder'> = {
   comments: '',
 }
 
-export function useForm2({ projectId }: { projectId: string }) {
+export function useForm2({ projectId, isReadOnly = false }: { projectId: string; isReadOnly?: boolean }) {
   const [rows, setRows] = useState<Form2Row[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState<Form2SaveStatus>('idle')
@@ -62,7 +62,7 @@ export function useForm2({ projectId }: { projectId: string }) {
   }, [projectId])
 
   const addRow = useCallback(async () => {
-    if (!projectId) return
+    if (isReadOnly || !projectId) return
     const nextOrder = rows.length === 0
       ? 1
       : Math.max(...rows.map(r => r.rowOrder)) + 1
@@ -86,9 +86,10 @@ export function useForm2({ projectId }: { projectId: string }) {
       pendingTempIds.current.delete(tempId)
       setRows(prev => prev.filter(r => r.id !== tempId))
     }
-  }, [projectId, rows])
+  }, [projectId, rows, isReadOnly])
 
   const updateRow = useCallback((rowId: string, data: Form2RowUpdateInput) => {
+    if (isReadOnly) return
     setRows(prev => prev.map(r => r.id === rowId ? { ...r, ...data } : r))
     setSaveStatus('saving')
 
@@ -110,9 +111,10 @@ export function useForm2({ projectId }: { projectId: string }) {
         }
       }
     }, 600))
-  }, [projectId])
+  }, [projectId, isReadOnly])
 
   const deleteRow = useCallback((rowId: string) => {
+    if (isReadOnly) return
     const snapshot = rows.find(r => r.id === rowId)
     if (!snapshot) return
 
@@ -147,7 +149,7 @@ export function useForm2({ projectId }: { projectId: string }) {
     }, 5000)
 
     pendingDeleteRef.current = { id: rowId, snapshot, label, timerId }
-  }, [projectId, rows])
+  }, [projectId, rows, isReadOnly])
 
   const undoRowDelete = useCallback(() => {
     const pending = pendingDeleteRef.current

@@ -28,6 +28,7 @@ export type OrgActivityEventType =
   | 'seat.limit.changed'
   | 'product.enabled'
   | 'product.disabled'
+  | 'organisation.readonly_write_attempt'
 
 export type OrgActivityFilter = 'all' | 'membership' | 'subscription' | 'products'
 
@@ -50,39 +51,41 @@ export const ACTIVITY_FILTER_EVENTS: Record<OrgActivityFilter, OrgActivityEventT
 }
 
 export const EVENT_LABELS: Record<OrgActivityEventType, string> = {
-  'organisation.created':  'Organisation Created',
-  'organisation.deleted':  'Organisation Deleted',
-  'organisation.restored': 'Organisation Restored',
-  'owner.assigned':        'Owner Assigned',
-  'member.added':         'Member Added',
-  'member.removed':       'Member Removed',
-  'member.role_changed':  'Role Changed',
-  'member.deactivated':   'Member Deactivated',
-  'member.reactivated':   'Member Reactivated',
-  'subscription.created': 'Subscription Created',
-  'subscription.updated': 'Subscription Updated',
-  'subscription.expired': 'Subscription Expired',
-  'seat.limit.changed':   'Seat Limits Changed',
-  'product.enabled':      'Product Enabled',
-  'product.disabled':     'Product Disabled',
+  'organisation.created':                'Organisation Created',
+  'organisation.deleted':                'Organisation Deleted',
+  'organisation.restored':               'Organisation Restored',
+  'owner.assigned':                      'Owner Assigned',
+  'member.added':                        'Member Added',
+  'member.removed':                      'Member Removed',
+  'member.role_changed':                 'Role Changed',
+  'member.deactivated':                  'Member Deactivated',
+  'member.reactivated':                  'Member Reactivated',
+  'subscription.created':                'Subscription Created',
+  'subscription.updated':                'Subscription Updated',
+  'subscription.expired':                'Subscription Expired',
+  'seat.limit.changed':                  'Seat Limits Changed',
+  'product.enabled':                     'Product Enabled',
+  'product.disabled':                    'Product Disabled',
+  'organisation.readonly_write_attempt': 'Read-Only Write Attempt',
 }
 
 export const EVENT_COLOURS: Record<OrgActivityEventType, string> = {
-  'organisation.created':  'text-primary bg-primary-light border-primary/20',
-  'organisation.deleted':  'text-error bg-red-50 border-red-200',
-  'organisation.restored': 'text-success bg-success/10 border-success/20',
-  'owner.assigned':        'text-amber-700 bg-amber-50 border-amber-200',
-  'member.added':         'text-success bg-success/10 border-success/20',
-  'member.removed':       'text-error bg-red-50 border-red-200',
-  'member.role_changed':  'text-blue-700 bg-blue-50 border-blue-200',
-  'member.deactivated':   'text-amber-700 bg-amber-50 border-amber-200',
-  'member.reactivated':   'text-success bg-success/10 border-success/20',
-  'subscription.created': 'text-primary bg-primary-light border-primary/20',
-  'subscription.updated': 'text-primary bg-primary-light border-primary/20',
-  'subscription.expired': 'text-error bg-red-50 border-red-200',
-  'seat.limit.changed':   'text-blue-700 bg-blue-50 border-blue-200',
-  'product.enabled':      'text-success bg-success/10 border-success/20',
-  'product.disabled':     'text-text-secondary bg-gray-100 border-border',
+  'organisation.created':                'text-primary bg-primary-light border-primary/20',
+  'organisation.deleted':                'text-error bg-red-50 border-red-200',
+  'organisation.restored':               'text-success bg-success/10 border-success/20',
+  'owner.assigned':                      'text-amber-700 bg-amber-50 border-amber-200',
+  'member.added':                        'text-success bg-success/10 border-success/20',
+  'member.removed':                      'text-error bg-red-50 border-red-200',
+  'member.role_changed':                 'text-blue-700 bg-blue-50 border-blue-200',
+  'member.deactivated':                  'text-amber-700 bg-amber-50 border-amber-200',
+  'member.reactivated':                  'text-success bg-success/10 border-success/20',
+  'subscription.created':                'text-primary bg-primary-light border-primary/20',
+  'subscription.updated':                'text-primary bg-primary-light border-primary/20',
+  'subscription.expired':                'text-error bg-red-50 border-red-200',
+  'seat.limit.changed':                  'text-blue-700 bg-blue-50 border-blue-200',
+  'product.enabled':                     'text-success bg-success/10 border-success/20',
+  'product.disabled':                    'text-text-secondary bg-gray-100 border-border',
+  'organisation.readonly_write_attempt': 'text-amber-700 bg-amber-50 border-amber-200',
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────

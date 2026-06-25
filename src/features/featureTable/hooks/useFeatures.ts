@@ -8,8 +8,9 @@ import {
 } from '../services/featureService'
 
 interface UseFeaturesProps {
-  projectId: string
-  userId: string
+  projectId:   string
+  userId:      string
+  isReadOnly?: boolean
 }
 
 interface PendingFeatureDelete {
@@ -18,7 +19,7 @@ interface PendingFeatureDelete {
   timerId: ReturnType<typeof setTimeout>
 }
 
-export function useFeatures({ projectId, userId }: UseFeaturesProps) {
+export function useFeatures({ projectId, userId, isReadOnly = false }: UseFeaturesProps) {
   const [features, setFeatures] = useState<Feature[]>([])
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [pendingDeleteLabel, setPendingDeleteLabel] = useState<string | null>(null)
@@ -49,6 +50,7 @@ export function useFeatures({ projectId, userId }: UseFeaturesProps) {
   }, [projectId])
 
   const addFeature = useCallback(async (input: FeatureInput) => {
+    if (isReadOnly) return
     if (!projectId || !userId) return
     const tempId = `__temp_${Date.now()}`
     pendingTempIds.current.add(tempId)
@@ -66,6 +68,7 @@ export function useFeatures({ projectId, userId }: UseFeaturesProps) {
   }, [projectId, userId])
 
   const updateFeature = useCallback(async (featureId: string, data: FeatureUpdateInput) => {
+    if (isReadOnly) return
     setFeatures(prev => prev.map(f => f.id === featureId ? { ...f, ...data } : f))
     try {
       await updateFeatureDoc(projectId, featureId, data)
@@ -75,6 +78,7 @@ export function useFeatures({ projectId, userId }: UseFeaturesProps) {
   }, [projectId])
 
   const deleteFeature = useCallback(async (featureId: string) => {
+    if (isReadOnly) return
     const snapshot = features.find(f => f.id === featureId)
     if (!snapshot) return
 

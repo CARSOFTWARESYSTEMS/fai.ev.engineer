@@ -16,6 +16,8 @@ import { firestore } from '../firebase/firestore'
 import type { FAIProject, CreateProjectInput, UpdateProjectInput } from './project.types'
 import { ENGINEER_ALLOWED_STATUSES, VALID_DECISIONS_FOR_STATUS } from './project.types'
 import type { UserRole } from '../auth/AuthTypes'
+import type { Organisation } from '../services/organisationService'
+import { assertOrganisationWritable } from '../services/organisationAccessService'
 import { requestDriveToken, deleteFileFromDrive, deleteProjectFolderFromDrive } from '../lib/googleDrive'
 import { logProjectCreated } from '../services/userActivityLogService'
 import { getOwnerProjectAccessSummaries } from './projectAccessSummary.service'
@@ -35,12 +37,17 @@ interface CreateProjectContext {
   organizationCode: string
   organizationName: string
   defaultDueDays?: number
+  org?: Organisation
 }
 
 export async function createProject(
   input: CreateProjectInput,
   ctx: CreateProjectContext
 ): Promise<FAIProject> {
+  if (ctx.org) {
+    assertOrganisationWritable(ctx.org, { uid: ctx.uid, actorEmail: ctx.userEmail, action: 'createProject' })
+  }
+
   const docRef = doc(collection(firestore, 'projects'))
 
   const defaultDueDays = ctx.defaultDueDays ?? 7
@@ -208,8 +215,12 @@ export async function updateProject(
   projectId: string,
   uid: string,
   callerRole: UserRole,
-  data: UpdateProjectInput
+  data: UpdateProjectInput,
+  org?: Organisation,
 ): Promise<void> {
+  if (org) {
+    assertOrganisationWritable(org, { uid, action: 'updateProject' })
+  }
   console.log('[PROJECT] Update started:', projectId)
 
   const patch: Record<string, unknown> = {
@@ -330,7 +341,15 @@ export async function updateProject(
 // Drive files are cleaned up immediately; Firestore record is preserved for audit.
 // Hard delete (deleteDoc) is only performed by developer admin for emergency cleanup.
 
-export async function deleteProject(projectId: string, _uid: string, userEmail: string): Promise<void> {
+export async function deleteProject(
+  projectId: string,
+  _uid: string,
+  userEmail: string,
+  org?: Organisation,
+): Promise<void> {
+  if (org) {
+    assertOrganisationWritable(org, { uid: _uid, actorEmail: userEmail, action: 'deleteProject' })
+  }
   console.log('[PROJECT] Soft delete started:', projectId)
 
   const userSnap = await getDoc(doc(firestore, 'users', _uid))

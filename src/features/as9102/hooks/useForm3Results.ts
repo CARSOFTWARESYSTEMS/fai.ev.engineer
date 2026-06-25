@@ -12,10 +12,11 @@ import { subscribeToForm3Results, upsertForm3ResultDoc } from '../services/form3
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface UseForm3ResultsProps {
-  projectId: string
-  userId: string
-  features: Feature[]
-  balloons: Balloon[]
+  projectId:  string
+  userId:     string
+  features:   Feature[]
+  balloons:   Balloon[]
+  isReadOnly?: boolean
 }
 
 function buildDesignRequirement(f: {
@@ -38,6 +39,7 @@ export function useForm3Results({
   userId,
   features,
   balloons,
+  isReadOnly = false,
 }: UseForm3ResultsProps) {
   const [results, setResults] = useState<Map<string, Form3Result>>(new Map())
   const [isLoaded, setIsLoaded] = useState(false)
@@ -119,6 +121,7 @@ export function useForm3Results({
     characteristicNumber: number,
     fields: Form3ResultFields,
   ) => {
+    if (isReadOnly) return
     // Optimistic update
     setResults(prev => {
       const m = new Map(prev)
@@ -172,7 +175,7 @@ export function useForm3Results({
         }
       }, 800),
     )
-  }, [projectId, userId])
+  }, [projectId, userId, isReadOnly])
 
   // Flush pending writes immediately when the tab becomes hidden
   useEffect(() => {

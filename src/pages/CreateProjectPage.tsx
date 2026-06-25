@@ -79,7 +79,7 @@ export function CreateProjectPage() {
   const { user, firebaseUser } = useAuth()
   const { productKey, organizationConfig } = useProductConfig()
   const { branding } = useBranding()
-  const { isReadOnly, reason: readOnlyReason } = useOrgReadOnly()
+  const { isReadOnly, reason: readOnlyReason, organisation } = useOrgReadOnly()
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [isSaving, setIsSaving] = useState(false)
@@ -121,6 +121,7 @@ export function CreateProjectPage() {
           organizationCode: user?.organizationCode || 'default',
           organizationName: user?.organizationName || organizationConfig.organizationName,
           defaultDueDays: organizationConfig.settings?.defaultDueDays ?? 7,
+          org: organisation ?? undefined,
         }
       )
       navigate(`/projects/${project.projectId}`, { replace: true })
