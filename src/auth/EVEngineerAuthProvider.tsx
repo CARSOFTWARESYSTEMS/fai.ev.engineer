@@ -12,6 +12,7 @@ import {
 import { clearGoogleDriveSession } from '../lib/googleDrive'
 import { activateUserOnLogin } from '../services/lifecycleService'
 import { logAuthLogin, logAuthLogout } from '../services/userActivityLogService'
+import { claimPendingOrgMemberships } from '../services/organisationService'
 
 interface Props {
   children: ReactNode
@@ -64,6 +65,7 @@ export function EVEngineerAuthProvider({ children }: Props) {
           if (profile) {
             touchLastLogin(fbUser.uid).catch(() => {})
             logAuthLogin(fbUser.uid, fbUser.email ?? '').catch(() => {})
+            claimPendingOrgMemberships({ uid: fbUser.uid, email: fbUser.email ?? '' }).catch(() => {})
           }
         } catch {
           setUser(null)

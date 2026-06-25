@@ -4,6 +4,7 @@ import {
   addDoc,
   updateDoc,
   getDoc,
+  getDocs,
   onSnapshot,
   serverTimestamp,
   query,
@@ -521,4 +522,31 @@ export async function removeOrganisationMember(membershipId: string): Promise<vo
     membershipStatus: 'removed' satisfies MembershipStatus,
     active:           false,
   })
+}
+
+// Promotes any pending org memberships for this email to active with the real UID.
+// Call on login and after profile completion, mirroring claimPendingPartnerAdmin.
+export async function claimPendingOrgMemberships(opts: {
+  email: string
+  uid:   string
+}): Promise<void> {
+  const snap = await getDocs(
+    query(
+      collection(firestore, 'organisationMembers'),
+      where('userEmail',        '==', opts.email.toLowerCase()),
+      where('membershipStatus', '==', 'pending'),
+    ),
+  )
+  if (snap.empty) return
+
+  await Promise.all(
+    snap.docs.map(d =>
+      updateDoc(d.ref, {
+        userUid:          opts.uid,
+        membershipStatus: 'active' satisfies MembershipStatus,
+        active:           true,
+      }),
+    ),
+  )
+  console.log('[ORG] Claimed', snap.size, 'pending membership(s) for', opts.email)
 }

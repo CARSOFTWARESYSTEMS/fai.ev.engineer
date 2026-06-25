@@ -17,6 +17,7 @@ import { firestore } from '../firebase/firestore'
 import type { EVEngineerUser, UserRole } from './AuthTypes'
 import { logProfileCreated, logProfileUpdated } from '../services/userActivityLogService'
 import { claimPendingPartnerAdmin } from '../services/partnerAccessService'
+import { claimPendingOrgMemberships } from '../services/organisationService'
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
@@ -129,6 +130,10 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
     // Auto-promote any pending partner admin record for this email
     claimPendingPartnerAdmin({ email, uid, displayName }).catch(err => {
       console.warn('[AUTH] Pending partner admin claim failed (non-critical):', err)
+    })
+    // Auto-promote any pending org memberships for this email
+    claimPendingOrgMemberships({ uid, email }).catch(err => {
+      console.warn('[AUTH] Pending org membership claim failed (non-critical):', err)
     })
   } catch (err: unknown) {
     const { code, message } = extractFirebaseError(err)
