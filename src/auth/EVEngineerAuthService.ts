@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore'
 import { firebaseAuth } from '../firebase/auth'
 import { firestore } from '../firebase/firestore'
-import type { EVEngineerUser, UserRole } from './AuthTypes'
+import type { EVEngineerUser } from './AuthTypes'
 import { logProfileCreated, logProfileUpdated } from '../services/userActivityLogService'
 import { claimPendingPartnerAdmin } from '../services/partnerAccessService'
 import { claimPendingOrgMemberships } from '../services/organisationService'
@@ -23,12 +23,6 @@ const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function toOrgCode(orgName: string): string {
-  const trimmed = orgName.trim()
-  if (!trimmed) return 'default'
-  return trimmed.split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, '') || 'default'
-}
 
 function extractFirebaseError(err: unknown): { code: string; message: string } {
   const e = err as { code?: string; message?: string }
@@ -60,8 +54,6 @@ export interface CompleteProfileParams {
   email: string
   photoURL: string
   mobileNumber: string
-  organizationName?: string
-  gstNumber?: string
   signupBrandingId?:  string
   signupPartnerCode?: string
   signupPartnerName?: string
@@ -81,23 +73,18 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
     email,
     photoURL,
     mobileNumber,
-    organizationName = '',
-    gstNumber = '',
     signupBrandingId,
     signupPartnerCode,
     signupPartnerName,
   } = params
 
   const signupDomain = typeof window !== 'undefined' ? window.location.hostname : undefined
-  const orgName = organizationName.trim()
 
   console.log('[AUTH] Saving profile to Firestore...')
   console.log('[AUTH] Collection: users')
   console.log('[AUTH] Document ID (uid):', uid)
   console.log('[AUTH] Email:', email)
   console.log('[AUTH] Mobile Number:', mobileNumber)
-  console.log('[AUTH] Organization Name:', orgName || '(none)')
-  console.log('[AUTH] GST Number:', gstNumber || '(none)')
 
   const baseDoc: UserWriteDoc = {
     uid,
@@ -105,9 +92,9 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
     email,
     photoURL,
     mobileNumber: mobileNumber.trim(),
-    organizationCode: toOrgCode(orgName),
-    organizationName: orgName,
-    gstNumber: gstNumber.trim(),
+    organizationCode: 'default',
+    organizationName: '',
+    gstNumber: '',
     role: 'engineer',
     profileCompleted: true,
     subscriptionPlan: 'trial',
@@ -149,10 +136,6 @@ export async function completeProfile(params: CompleteProfileParams): Promise<vo
 
 export interface UpdateProfileParams {
   mobileNumber: string
-  organizationName: string
-  organizationCode: string
-  gstNumber: string
-  role?: Exclude<UserRole, 'super_admin'>
 }
 
 export async function updateUserProfile(
@@ -160,27 +143,17 @@ export async function updateUserProfile(
   data: UpdateProfileParams
 ): Promise<void> {
   console.log('[AUTH] Updating profile for uid:', uid)
-  console.log('[AUTH] Fields:', JSON.stringify(data, null, 2))
 
   try {
     const patch: Record<string, unknown> = {
       mobileNumber: data.mobileNumber.trim(),
-      organizationName: data.organizationName.trim(),
-      organizationCode: data.organizationCode.trim(),
-      gstNumber: data.gstNumber.trim(),
       updatedAt: serverTimestamp(),
-    }
-    if (data.role) {
-      const currentProfile = await getDoc(doc(firestore, 'users', uid))
-      if (currentProfile.data()?.role !== 'super_admin') patch.role = data.role
     }
 
     await updateDoc(doc(firestore, 'users', uid), patch)
     console.log('[AUTH] Profile updated successfully for uid:', uid)
     const email = firebaseAuth.currentUser?.email ?? ''
-    const watchedFields = ['mobileNumber', 'organizationName', 'organizationCode', 'gstNumber']
-    const changed = watchedFields.filter(k => k in patch)
-    logProfileUpdated(uid, email, changed).catch(() => {})
+    logProfileUpdated(uid, email, ['mobileNumber']).catch(() => {})
   } catch (err: unknown) {
     const { code, message } = extractFirebaseError(err)
     console.error('[AUTH] Profile update failed:')

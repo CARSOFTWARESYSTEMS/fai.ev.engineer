@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { collection, query, where, doc, onSnapshot } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import { useAuth } from '../auth/hooks/useAuth'
-import { toOrganisation, type Organisation } from '../services/organisationService'
+import { toOrganisation, type Organisation, type OrganisationMember } from '../services/organisationService'
+import type { OrganisationRole } from '../auth/AuthTypes'
 
 // ─── Hook: current user's organisation ───────────────────────────────────────
 // Subscribes to the user's active OrganisationMember records in real time.
@@ -10,18 +11,22 @@ import { toOrganisation, type Organisation } from '../services/organisationServi
 // Returns null if the user has no active org membership.
 
 export interface UserOrgState {
-  org:       Organisation | null
-  isLoading: boolean
+  org:        Organisation | null
+  member:     OrganisationMember | null   // the user's own membership record
+  orgRole:    OrganisationRole | null     // shorthand for member.role
+  isLoading:  boolean
 }
 
 export function useUserOrg(): UserOrgState {
   const { firebaseUser } = useAuth()
   const [org,       setOrg]       = useState<Organisation | null>(null)
+  const [member,    setMember]    = useState<OrganisationMember | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     if (!firebaseUser?.uid) {
       setOrg(null)
+      setMember(null)
       setIsLoading(false)
       return
     }
@@ -41,11 +46,26 @@ export function useUserOrg(): UserOrgState {
 
         if (memberSnap.empty) {
           setOrg(null)
+          setMember(null)
           setIsLoading(false)
           return
         }
 
-        const organisationId = memberSnap.docs[0].data().organisationId as string
+        const memberDoc = memberSnap.docs[0]
+        const memberData = memberDoc.data()
+        setMember({
+          membershipId:     memberDoc.id,
+          organisationId:   memberData.organisationId as string,
+          userUid:          memberData.userUid as string,
+          userEmail:        memberData.userEmail as string,
+          role:             (memberData.role as OrganisationRole) ?? 'viewer',
+          membershipStatus: memberData.membershipStatus as OrganisationMember['membershipStatus'],
+          active:           memberData.active as boolean ?? true,
+          createdAt:        memberData.createdAt ?? null,
+          createdBy:        memberData.createdBy as string ?? '',
+        })
+
+        const organisationId = memberData.organisationId as string
         unsubOrg = onSnapshot(
           doc(firestore, 'organisations', organisationId),
           snap => {
@@ -55,7 +75,7 @@ export function useUserOrg(): UserOrgState {
           () => { setOrg(null); setIsLoading(false) },
         )
       },
-      () => { setOrg(null); setIsLoading(false) },
+      () => { setOrg(null); setMember(null); setIsLoading(false) },
     )
 
     return () => {
@@ -64,5 +84,5 @@ export function useUserOrg(): UserOrgState {
     }
   }, [firebaseUser?.uid])
 
-  return { org, isLoading }
+  return { org, member, orgRole: member?.role ?? null, isLoading }
 }

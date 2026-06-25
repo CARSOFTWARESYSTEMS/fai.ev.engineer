@@ -22,8 +22,6 @@ export function CompleteProfilePage() {
   const { branding, activeBrandingId, isFallback } = useBranding()
 
   const [mobile, setMobile] = useState('')
-  const [orgName, setOrgName] = useState('')
-  const [gst, setGst] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [errorCode, setErrorCode] = useState('')
@@ -62,8 +60,6 @@ export function CompleteProfilePage() {
         email: firebaseUser.email ?? '',
         photoURL: firebaseUser.photoURL ?? '',
         mobileNumber: trimmedMobile,
-        organizationName: orgName,
-        gstNumber: gst,
         signupBrandingId:  !isFallback ? activeBrandingId : undefined,
         signupPartnerCode: !isFallback ? branding.businessCode : undefined,
         signupPartnerName: !isFallback ? branding.businessName : undefined,
@@ -191,49 +187,9 @@ export function CompleteProfilePage() {
                 </p>
               </div>
 
-              {/* Divider */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center">
-                  <span className="bg-white px-3 text-xs text-text-secondary">Optional details</span>
-                </div>
-              </div>
-
-              {/* Organization Name — optional */}
-              <div>
-                <label htmlFor="org" className="block text-sm font-medium text-text-primary mb-1.5">
-                  Organization Name
-                  <span className="text-text-secondary font-normal ml-1.5 text-xs">optional</span>
-                </label>
-                <input
-                  id="org"
-                  type="text"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  placeholder="e.g. Fortius Machining Solutions"
-                  className="input-field placeholder-slate-300"
-                  autoComplete="organization"
-                />
-              </div>
-
-              {/* GST Number — optional */}
-              <div>
-                <label htmlFor="gst" className="block text-sm font-medium text-text-primary mb-1.5">
-                  GST Number
-                  <span className="text-text-secondary font-normal ml-1.5 text-xs">optional</span>
-                </label>
-                <input
-                  id="gst"
-                  type="text"
-                  value={gst}
-                  onChange={(e) => setGst(e.target.value)}
-                  placeholder="e.g. 29ABCDE1234F1Z5"
-                  className="input-field font-mono placeholder-slate-300"
-                  autoComplete="off"
-                  maxLength={15}
-                />
+              {/* Organisation note */}
+              <div className="rounded-lg border border-border bg-gray-50 px-4 py-3 text-xs text-text-secondary leading-relaxed">
+                Your organisation will be assigned by your administrator after registration.
               </div>
 
               <button

@@ -8,89 +8,47 @@ import {
   AlertCircle,
   Phone,
   Building2,
-  Hash,
-  FileText,
   User,
   Shield,
+  Info,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
 import { updateUserProfile } from '../auth/EVEngineerAuthService'
+import { useUserOrg } from '../hooks/useUserOrg'
+import type { OrganisationRole } from '../auth/AuthTypes'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function suggestOrgCode(orgName: string): string {
-  const trimmed = orgName.trim()
-  if (!trimmed) return 'default'
-  return (
-    trimmed.split(/\s+/)[0]
-      .toLowerCase()
-      .replace(/[^a-z0-9\-_]/g, '') || 'default'
-  )
+const ORG_ROLE_LABELS: Record<OrganisationRole, string> = {
+  owner:    'Owner',
+  manager:  'Manager',
+  engineer: 'Engineer',
+  inspector: 'Inspector',
+  auditor:  'Auditor',
+  approver: 'Approver',
+  viewer:   'Viewer',
 }
-
-function validateOrgCode(code: string): string | null {
-  if (!code.trim()) return 'Organization Code is required.'
-  if (!/^[a-z0-9\-_]+$/.test(code.trim()))
-    return 'Only lowercase letters, numbers, hyphens, and underscores are allowed.'
-  return null
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ProfilePage() {
   const navigate = useNavigate()
   const { user, firebaseUser, isLoading, isProfileComplete, refreshProfile } = useAuth()
   const { branding } = useBranding()
+  const { org, member, isLoading: orgLoading } = useUserOrg()
 
-  // Guard
   useEffect(() => {
     if (isLoading) return
     if (!firebaseUser) { navigate('/login', { replace: true }); return }
     if (!isProfileComplete) { navigate('/complete-profile', { replace: true }); return }
   }, [isLoading, firebaseUser, isProfileComplete, navigate])
 
-  // Editable fields — initialised from Firestore profile
   const [mobile, setMobile] = useState(user?.mobileNumber ?? '')
-  const [orgName, setOrgName] = useState(user?.organizationName ?? '')
-  const [orgCode, setOrgCode] = useState(user?.organizationCode ?? 'default')
-  const [gst, setGst] = useState(user?.gstNumber ?? '')
-  // Role is read-only — assigned by Developer Admin, not self-service
-  const displayRole = user?.role === 'super_admin' ? 'Super Admin'
-    : user?.role === 'admin' ? 'Admin'
-    : user?.role === 'manager' ? 'Manager'
-    : 'Engineer'
-
-  // Track whether user manually edited orgCode
-  const [orgCodeCustomized, setOrgCodeCustomized] = useState(false)
-
   const [isSaving, setIsSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
   const [errorCode, setErrorCode] = useState('')
 
-  // Sync fields when user profile loads (e.g. on first render)
   useEffect(() => {
     if (!user) return
     setMobile(user.mobileNumber ?? '')
-    setOrgName(user.organizationName ?? '')
-    setOrgCode(user.organizationCode ?? 'default')
-    setGst(user.gstNumber ?? '')
   }, [user])
-
-  // Auto-update orgCode when orgName changes (unless manually customized)
-  const handleOrgNameChange = (value: string) => {
-    setOrgName(value)
-    if (!orgCodeCustomized) {
-      setOrgCode(suggestOrgCode(value))
-    }
-  }
-
-  const handleOrgCodeChange = (value: string) => {
-    // Allow only valid chars while typing
-    const sanitized = value.toLowerCase().replace(/[^a-z0-9\-_]/g, '')
-    setOrgCode(sanitized)
-    setOrgCodeCustomized(true)
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,21 +65,9 @@ export function ProfilePage() {
       return
     }
 
-    const orgCodeErr = validateOrgCode(orgCode)
-    if (orgCodeErr) {
-      setError(orgCodeErr)
-      return
-    }
-
     setIsSaving(true)
     try {
-      await updateUserProfile(firebaseUser!.uid, {
-        mobileNumber: mobile.trim(),
-        organizationName: orgName.trim(),
-        organizationCode: orgCode.trim() || 'default',
-        gstNumber: gst.trim(),
-        // role is not sent — it is managed by Developer Admin only
-      })
+      await updateUserProfile(firebaseUser!.uid, { mobileNumber: mobile.trim() })
       await refreshProfile()
       setSuccess(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -146,6 +92,9 @@ export function ProfilePage() {
 
   const displayName = user.displayName || firebaseUser.displayName || 'User'
   const photoURL = user.photoURL || firebaseUser.photoURL
+  const platformRole = user.role === 'super_admin' ? 'Super Admin'
+    : user.role === 'admin' ? 'Admin'
+    : null
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -186,7 +135,7 @@ export function ProfilePage() {
         <div className="mb-7">
           <h1 className="text-2xl font-bold text-text-primary">Edit Profile</h1>
           <p className="text-sm text-text-secondary mt-1">
-            Update your contact details and organization information.
+            Update your contact details.
           </p>
         </div>
 
@@ -234,145 +183,95 @@ export function ProfilePage() {
             <div>
               <p className="font-semibold text-text-primary">{displayName}</p>
               <p className="text-sm text-text-secondary mt-0.5">{user.email}</p>
-              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                <span className="text-xs text-text-secondary font-mono bg-gray-50 px-2 py-0.5 rounded">
-                  {user.subscriptionPlan} plan
+              {platformRole && (
+                <span className="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
+                  <Shield className="w-3 h-3" />
+                  {platformRole}
                 </span>
-                {(user.role === 'admin' || user.role === 'super_admin') && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-100 px-2 py-0.5 rounded">
-                    <Shield className="w-3 h-3" />
-                    {user.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                  </span>
-                )}
-              </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Editable fields */}
-        <form id="edit-profile-form" onSubmit={handleSubmit} className="card p-6">
+        {/* Mobile Number — editable */}
+        <form id="edit-profile-form" onSubmit={handleSubmit} className="card p-6 mb-5">
           <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-5">
-            Contact &amp; Organization
+            Contact
+          </h2>
+          <div>
+            <label htmlFor="mobile" className="block text-sm font-medium text-text-primary mb-1.5">
+              Mobile Number
+              <span className="text-error ml-1">*</span>
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+              <input
+                id="mobile"
+                type="tel"
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value)}
+                placeholder="+91 98765 43210"
+                className="input-field pl-10 placeholder-slate-300"
+                autoComplete="tel"
+                required
+              />
+            </div>
+          </div>
+        </form>
+
+        {/* Organisation — read-only from membership */}
+        <div className="card p-6">
+          <h2 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-4">
+            Organisation (read-only)
           </h2>
 
-          <div className="flex flex-col gap-5">
-            {/* Mobile Number */}
-            <div>
-              <label htmlFor="mobile" className="block text-sm font-medium text-text-primary mb-1.5">
-                Mobile Number
-                <span className="text-error ml-1">*</span>
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-                <input
-                  id="mobile"
-                  type="tel"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="input-field pl-10 placeholder-slate-300"
-                  autoComplete="tel"
-                  required
-                />
-              </div>
+          {orgLoading ? (
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+              Loading organisation…
             </div>
-
-            {/* Organization Name */}
-            <div>
-              <label htmlFor="orgName" className="block text-sm font-medium text-text-primary mb-1.5">
-                Organization Name
-                <span className="text-text-secondary font-normal ml-1.5 text-xs">optional</span>
-              </label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-                <input
-                  id="orgName"
-                  type="text"
-                  value={orgName}
-                  onChange={(e) => handleOrgNameChange(e.target.value)}
-                  placeholder="e.g. Fortius Machining Solutions"
-                  className="input-field pl-10 placeholder-slate-300"
-                  autoComplete="organization"
-                />
-              </div>
-            </div>
-
-            {/* Organization Code */}
-            <div>
-              <label htmlFor="orgCode" className="block text-sm font-medium text-text-primary mb-1.5">
-                Organization Code
-                <span className="text-error ml-1">*</span>
-              </label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-                <input
-                  id="orgCode"
-                  type="text"
-                  value={orgCode}
-                  onChange={(e) => handleOrgCodeChange(e.target.value)}
-                  placeholder="e.g. fortius"
-                  className="input-field pl-10 font-mono placeholder-slate-300"
-                  autoComplete="off"
-                  required
-                />
-              </div>
-              <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
-                Auto-generated from organization name. You can override it.
-                Only <span className="font-mono">a–z</span>, <span className="font-mono">0–9</span>,{' '}
-                <span className="font-mono">-</span>, <span className="font-mono">_</span> are allowed.
-              </p>
-              {orgCode && orgCode !== 'default' && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="text-xs text-text-secondary">Preview:</span>
-                  <span className="text-xs bg-primary-light text-primary px-2.5 py-1 rounded-full font-mono font-semibold">
-                    {orgCode}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* GST Number */}
-            <div>
-              <label htmlFor="gst" className="block text-sm font-medium text-text-primary mb-1.5">
-                GST Number
-                <span className="text-text-secondary font-normal ml-1.5 text-xs">optional</span>
-              </label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
-                <input
-                  id="gst"
-                  type="text"
-                  value={gst}
-                  onChange={(e) => setGst(e.target.value.toUpperCase())}
-                  placeholder="e.g. 29ABCDE1234F1Z5"
-                  className="input-field pl-10 font-mono placeholder-slate-300"
-                  autoComplete="off"
-                  maxLength={15}
-                />
-              </div>
-            </div>
-
-            {/* Role — read-only, managed by Developer Admin */}
-            <div className="pt-5 border-t border-border">
+          ) : org && member ? (
+            <div className="flex flex-col gap-4">
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-                  <Shield className="w-4 h-4 text-purple-700" />
+                <div className="w-9 h-9 rounded-lg bg-primary-light flex items-center justify-center shrink-0">
+                  <Building2 className="w-4 h-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-text-primary">Account Role</p>
-                  <div className="mt-2 rounded-lg border border-border bg-gray-50 px-3 py-2.5 flex items-center justify-between">
-                    <span className="text-sm text-text-primary font-medium">{displayRole}</span>
-                    <span className="text-xs text-text-secondary">Assigned by admin</span>
-                  </div>
-                  <p className="text-xs text-text-secondary mt-1.5 leading-relaxed">
-                    Role changes are managed by your organization administrator.
+                  <p className="text-sm font-semibold text-text-primary">{org.name}</p>
+                  <p className="text-xs font-mono text-text-secondary mt-0.5">{org.code}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider mb-1">Role</p>
+                  <p className="text-sm font-semibold text-text-primary">
+                    {ORG_ROLE_LABELS[member.role] ?? member.role}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-gray-50 px-3 py-2.5">
+                  <p className="text-[10px] font-semibold text-text-secondary uppercase tracking-wider mb-1">Status</p>
+                  <p className="text-sm font-semibold text-text-primary capitalize">
+                    {member.membershipStatus}
                   </p>
                 </div>
               </div>
+              <p className="text-xs text-text-secondary flex items-start gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                Organisation details and role are managed by your administrator.
+              </p>
             </div>
-
-          </div>
-        </form>
+          ) : (
+            <div className="flex items-start gap-3 rounded-lg border border-dashed border-border bg-gray-50 px-4 py-4">
+              <Info className="w-4 h-4 text-text-secondary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-text-primary">No organisation assigned</p>
+                <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">
+                  Please contact your administrator to be added to an organisation.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
       </main>
 
       {/* ── Sticky action bar ─────────────────────────────────────────────────── */}
