@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect, useCallback } from 'react'
 import { doc, getDoc } from 'firebase/firestore'
 import { firestore } from '../firebase/firestore'
 import { useAuth } from '../auth/hooks/useAuth'
+import { useOrgContext } from '../modules/organisation/OrgContextProvider'
 import { ProductConfigContext } from './ProductConfigContext'
 import { readProductKey } from './productKey'
 import { canAccessFeature } from './featureAccess'
@@ -44,7 +45,8 @@ async function fetchOrgConfig(orgCode: string): Promise<OrganizationConfig | nul
 }
 
 export function ProductConfigProvider({ children }: { children: ReactNode }) {
-  const { user, isLoading: authLoading } = useAuth()
+  const { isLoading: authLoading } = useAuth()
+  const { org, isLoading: orgLoading } = useOrgContext()
 
   const [productConfig, setProductConfig] = useState<ProductConfig>(DEFAULT_PRODUCT_CONFIG)
   const [organizationConfig, setOrganizationConfig] = useState<OrganizationConfig>(DEFAULT_ORG_CONFIG)
@@ -69,12 +71,12 @@ export function ProductConfigProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Wait for auth to resolve before deciding org code
-    if (authLoading) return
+    // Wait for both auth and org context to resolve before deciding org code
+    if (authLoading || orgLoading) return
 
-    const orgCode = user?.organizationCode || 'default'
+    const orgCode = org?.code || 'default'
     loadConfigs(orgCode)
-  }, [authLoading, user?.organizationCode, loadConfigs])
+  }, [authLoading, orgLoading, org?.code, loadConfigs])
 
   const canAccess = useCallback(
     (feature: FeatureKey) => canAccessFeature(feature, productConfig, organizationConfig),

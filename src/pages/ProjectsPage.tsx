@@ -19,6 +19,7 @@ import {
   UploadCloud,
 } from 'lucide-react'
 import { useAuth } from '../auth/hooks/useAuth'
+import { useOrgContext } from '../modules/organisation/OrgContextProvider'
 import { useProductConfig } from '../config/hooks/useProductConfig'
 import { useBranding } from '../hooks/useBranding'
 import { getOwnerAccessibleProjects, getUserProjects, deleteProject } from '../projects/project.service'
@@ -143,6 +144,7 @@ function RestrictedProjectCard({ project, supportEmail, supportPhone, supportWha
   supportWhatsapp?: string
 }) {
   const { user, firebaseUser } = useAuth()
+  const { org } = useOrgContext()
   const lifecycle = getProjectLifecycleStatus(project)
   const blocked = lifecycle === 'blocked'
   const contactContext: ContactMessageContext = {
@@ -152,8 +154,8 @@ function RestrictedProjectCard({ project, supportEmail, supportPhone, supportWha
     userRole: user?.role,
     userLifecycleStatus: user?.lifecycleStatus,
     domain: window.location.hostname,
-    organizationName: user?.organizationName,
-    organizationCode: user?.organizationCode,
+    organizationName: org?.name,
+    organizationCode: org?.code,
     projectName: project.projectName,
     projectId: project.projectId,
     partNumber: project.partNumber,

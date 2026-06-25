@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useBranding } from '../../hooks/useBranding'
 import type { ProjectLifecycleStatus } from '../../projects/projectLifecycle'
 import { useAuth } from '../../auth/hooks/useAuth'
+import { useOrgContext } from '../../modules/organisation/OrgContextProvider'
 import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../../lib/contactMessage'
 
 export interface ProjectLifecycleRestrictedProps {
@@ -16,6 +17,7 @@ export interface ProjectLifecycleRestrictedProps {
 export function ProjectLifecycleRestricted({ status, projectName, projectId, partNumber, drawingNumber, projectStatus }: ProjectLifecycleRestrictedProps) {
   const { branding } = useBranding()
   const { user, firebaseUser } = useAuth()
+  const { org } = useOrgContext()
   const label = status === 'permanently_deleted' ? 'permanently deleted' : status
   const resolvedProjectId = projectId || window.location.pathname.split('/projects/')[1]?.split('/')[0]
   const contactContext: ContactMessageContext = {
@@ -26,8 +28,8 @@ export function ProjectLifecycleRestricted({ status, projectName, projectId, par
     userLifecycleStatus: user?.lifecycleStatus,
     domain: window.location.hostname,
     partnerName: branding.businessName,
-    organizationName: user?.organizationName,
-    organizationCode: user?.organizationCode,
+    organizationName: org?.name,
+    organizationCode: org?.code,
     projectName,
     projectId: resolvedProjectId,
     partNumber,

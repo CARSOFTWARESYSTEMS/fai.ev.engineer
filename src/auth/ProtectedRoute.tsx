@@ -2,6 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { Mail, Phone, MessageCircle, ShieldX, LogOut } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useBranding } from '../hooks/useBranding'
+import { useOrgContext } from '../modules/organisation/OrgContextProvider'
 import { isLifecycleAccessBlocked } from '../services/lifecycleService'
 import type { LifecycleStatus } from './AuthTypes'
 import { buildMailtoLink, buildWhatsAppLink, type ContactMessageContext } from '../lib/contactMessage'
@@ -51,6 +52,7 @@ interface BlockedPageProps {
 function AccessBlockedPage({ status, email, onSignOut }: BlockedPageProps) {
   const { branding } = useBranding()
   const { user } = useAuth()
+  const { org } = useOrgContext()
   const content = ACCESS_BLOCKED_CONTENT[status] ?? ACCESS_BLOCKED_CONTENT.blocked
   const contactContext: ContactMessageContext = {
     userName: user?.displayName,
@@ -60,8 +62,8 @@ function AccessBlockedPage({ status, email, onSignOut }: BlockedPageProps) {
     userLifecycleStatus: status,
     domain: window.location.hostname,
     partnerName: branding.businessName,
-    organizationName: user?.organizationName,
-    organizationCode: user?.organizationCode,
+    organizationName: org?.name,
+    organizationCode: org?.code,
     issue: `My FAI Engineer account is ${content.actionVerb}. Please review.`,
   }
 
