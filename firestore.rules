@@ -425,6 +425,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── domainMappings/{hostname} ─────────────────────────────────────────────
+    // Maps a hostname to its partner/branding/enabledProducts config.
+    // Any authenticated user may read (needed by DomainContextProvider on load).
+    // Only bootstrap developers may write.
+    match /domainMappings/{hostname} {
+      allow read:  if isAuth();
+      allow write: if isDeveloper();
+    }
+
+    // ── websiteConfigs/{configId} ─────────────────────────────────────────────
+    // CMS-style website content blocks. Public read (loads on landing page before auth).
+    // Only bootstrap developers may write.
+    match /websiteConfigs/{configId} {
+      allow read:  if true;
+      allow write: if isDeveloper();
+    }
+
     // ── organisationActivityLogs/{logId} ──────────────────────────────────────
     // Append-only activity log for organisation events.
     // Platform admins and org owners may read. Partner admins read via developer/admin sessions.
