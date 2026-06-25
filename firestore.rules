@@ -394,19 +394,34 @@ service cloud.firestore {
     // ── organisationMembers/{membershipId} ────────────────────────────────────
     // Platform-admin and bootstrap-developer may read/write all memberships.
     // Org owners may create/update memberships within their organisation.
-    // Any member may read their own membership record.
+    // Any member may read their own membership record (by UID or by verified email,
+    // the latter covering pending records where userUid has not been linked yet).
+    // A user may self-claim a pending record: link their UID into a record where
+    // userEmail matches their token email and userUid is still empty.
     // Deletes are soft (membershipStatus / active field) — hard deletes not allowed.
     match /organisationMembers/{membershipId} {
       allow read:   if isDeveloper()
                     || isAdmin()
                     || (isAuth() && resource.data.userUid == uid())
+                    || (isAuth() && resource.data.userEmail == request.auth.token.email)
                     || isOrgOwner(resource.data.organisationId);
       allow create: if isDeveloper()
                     || isAdmin()
                     || isOrgOwner(request.resource.data.organisationId);
       allow update: if isDeveloper()
                     || isAdmin()
-                    || isOrgOwner(resource.data.organisationId);
+                    || isOrgOwner(resource.data.organisationId)
+                    // Self-claim: user may link their own UID into an unlinked record
+                    || (
+                      isAuth()
+                      && resource.data.userEmail == request.auth.token.email
+                      && resource.data.userUid == ''
+                      && request.resource.data.diff(resource.data)
+                           .affectedKeys()
+                           .hasOnly(['userUid', 'membershipStatus', 'active'])
+                      && request.resource.data.userUid == uid()
+                      && request.resource.data.membershipStatus == 'active'
+                    );
       allow delete: if false;
     }
 
