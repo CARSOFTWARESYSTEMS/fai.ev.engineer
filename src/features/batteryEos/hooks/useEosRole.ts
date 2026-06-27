@@ -27,22 +27,22 @@ export function useEosRole(): EosRoleAccess {
   const { isPartnerAdminUser } = usePartnerAccess()
 
   return useMemo((): EosRoleAccess => {
-    // Developers always have full access
+    // Developers always have full access and can assign arbitrary emails
     if (isDeveloper) {
-      return { canInfo: true, canDemo: true, canEngineering: true, isEngineer: true, isReviewer: true, isManager: true, isQA: true }
+      return { canInfo: true, canDemo: true, canEngineering: true, isEngineer: true, isReviewer: true, isManager: true, isQA: true, canInviteNew: true }
     }
 
     const platformRole = user?.role
     const isAdmin      = platformRole === 'super_admin' || platformRole === 'admin'
 
-    // Platform admins have full access
+    // Platform admins have full access and can assign arbitrary emails
     if (isAdmin) {
-      return { canInfo: true, canDemo: true, canEngineering: true, isEngineer: true, isReviewer: true, isManager: true, isQA: true }
+      return { canInfo: true, canDemo: true, canEngineering: true, isEngineer: true, isReviewer: true, isManager: true, isQA: true, canInviteNew: true }
     }
 
-    // Partner admins → full access (Sprint 1: no role subdivision)
+    // Partner admins → full access, can assign arbitrary emails
     if (isPartnerAdminUser) {
-      return { canInfo: true, canDemo: true, canEngineering: true, isEngineer: false, isReviewer: true, isManager: true, isQA: true }
+      return { canInfo: true, canDemo: true, canEngineering: true, isEngineer: false, isReviewer: true, isManager: true, isQA: true, canInviteNew: true }
     }
 
     // Org-level roles
@@ -53,6 +53,7 @@ export function useEosRole(): EosRoleAccess {
     const isReviewer     = role === 'owner' || role === 'manager' || role === 'approver'
     const isEngineer     = role === 'engineer'
     const isQA           = role === 'inspector'
+    const canInviteNew   = role === 'owner'   // only owners can assign outside the member list
 
     return {
       canInfo:        true,
@@ -62,6 +63,7 @@ export function useEosRole(): EosRoleAccess {
       isReviewer,
       isManager,
       isQA,
+      canInviteNew,
     }
   }, [isDeveloper, user?.role, orgRole, isPartnerAdminUser])
 }

@@ -288,7 +288,7 @@ interface Props {
 
 const DEFAULT_ACCESS: EosRoleAccess = {
   canInfo: true, canDemo: true, canEngineering: false,
-  isEngineer: false, isReviewer: false, isManager: false, isQA: false,
+  isEngineer: false, isReviewer: false, isManager: false, isQA: false, canInviteNew: false,
 }
 
 export function WorkPackageDetail({ wp, storyStates = {}, access = DEFAULT_ACCESS, onClose }: Props) {

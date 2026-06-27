@@ -199,6 +199,7 @@ export interface EosRoleAccess {
   isReviewer:     boolean           // can score + approve stories
   isManager:      boolean           // can assign stories, view team dashboard
   isQA:           boolean           // can verify stories (inspector role)
+  canInviteNew:   boolean           // can assign emails outside the org member list
 }
 
 // ─── Engineering Evidence (metadata links only — no file storage) ─────────────

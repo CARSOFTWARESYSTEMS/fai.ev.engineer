@@ -8,9 +8,16 @@ const WA_GREEN = '#25D366'
 const HIDDEN_PATHS = new Set(['/Fortius'])
 
 export function WhatsAppCTA() {
-  const [open,     setOpen]     = useState(false)
-  const [pathname, setPathname] = useState(window.location.pathname)
+  const [open,      setOpen]      = useState(false)
+  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem('wa_cta_dismissed') === '1')
+  const [pathname,  setPathname]  = useState(window.location.pathname)
   const ref = useRef<HTMLDivElement>(null)
+
+  function dismiss() {
+    sessionStorage.setItem('wa_cta_dismissed', '1')
+    setDismissed(true)
+    setOpen(false)
+  }
   const { branding } = useBranding()
   const contactContext: ContactMessageContext = {
     domain: window.location.hostname,
@@ -45,7 +52,7 @@ export function WhatsAppCTA() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  if (HIDDEN_PATHS.has(pathname) || /^\/projects\/[^/]+\/pdf/.test(pathname)) return null
+  if (HIDDEN_PATHS.has(pathname) || /^\/projects\/[^/]+\/pdf/.test(pathname) || dismissed) return null
 
   // Build the contact list from branding:
   //   - partner sales/marketing number (whatsappNumber)
@@ -150,23 +157,34 @@ export function WhatsAppCTA() {
         powered by {branding.poweredByText}
       </a>
 
-      {/* Main CTA button */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full shadow-2xl text-white font-semibold text-sm transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95"
-        style={{
-          background:  WA_GREEN,
-          boxShadow:   `0 4px 24px 0 rgba(37,211,102,0.45)`,
-        }}
-        aria-label="Contact us on WhatsApp"
-      >
-        <WhatsAppIcon size={20} color="white" />
-        <span className="whitespace-nowrap">Chat on WhatsApp</span>
-        <ChevronDown
-          className="w-4 h-4 transition-transform duration-200"
-          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        />
-      </button>
+      {/* Main CTA button + dismiss */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-2.5 pl-4 pr-5 py-3 rounded-full shadow-2xl text-white font-semibold text-sm transition-all duration-200 hover:shadow-xl hover:scale-105 active:scale-95"
+          style={{
+            background: WA_GREEN,
+            boxShadow:  `0 4px 24px 0 rgba(37,211,102,0.45)`,
+          }}
+          aria-label="Contact us on WhatsApp"
+        >
+          <WhatsAppIcon size={20} color="white" />
+          <span className="whitespace-nowrap">Chat on WhatsApp</span>
+          <ChevronDown
+            className="w-4 h-4 transition-transform duration-200"
+            style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
+        </button>
+
+        {/* Dismiss widget for this session */}
+        <button
+          onClick={dismiss}
+          aria-label="Dismiss WhatsApp widget"
+          className="w-7 h-7 rounded-full bg-white/90 shadow border border-border flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-white transition-colors"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
 
       <style>{`
         @keyframes waSlideUp {
