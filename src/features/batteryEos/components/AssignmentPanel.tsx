@@ -144,7 +144,6 @@ export function AssignmentPanel({ storyId, workPackageId, productKey, storyState
   const { org }                 = useUserOrg()
   const [members, setMembers]   = useState<OrganisationMember[]>([])
 
-  const [editing,       setEditing]       = useState(false)
   const [engineerEmail, setEngineerEmail] = useState(storyState?.assignedEngineerEmail ?? '')
   const [reviewerEmail, setReviewerEmail] = useState(storyState?.assignedReviewerEmail ?? '')
   const [approverEmail, setApproverEmail] = useState(storyState?.assignedApproverEmail ?? '')
@@ -160,18 +159,17 @@ export function AssignmentPanel({ storyId, workPackageId, productKey, storyState
     })
   }, [org?.organisationId])
 
-  function startEdit() {
+  // Sync picker values when storyState updates from Firestore
+  useEffect(() => {
     setEngineerEmail(storyState?.assignedEngineerEmail ?? '')
     setReviewerEmail(storyState?.assignedReviewerEmail ?? '')
     setApproverEmail(storyState?.assignedApproverEmail ?? '')
-    setEditing(true)
-    setSaved(false)
-    setError(null)
-  }
+  }, [storyState?.assignedEngineerEmail, storyState?.assignedReviewerEmail, storyState?.assignedApproverEmail])
 
   async function handleSave() {
     if (!firebaseUser?.email) return
     setSaving(true)
+    setSaved(false)
     setError(null)
     try {
       await assignStory(
@@ -185,7 +183,6 @@ export function AssignmentPanel({ storyId, workPackageId, productKey, storyState
         { email: firebaseUser.email, name: firebaseUser.displayName ?? firebaseUser.email },
       )
       setSaved(true)
-      setEditing(false)
     } catch (err) {
       console.error('[AssignmentPanel] assignStory failed:', err)
       setError('Failed to save assignments. Please try again.')
@@ -207,19 +204,9 @@ export function AssignmentPanel({ storyId, workPackageId, productKey, storyState
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold text-text-primary">Assignments</span>
-        </div>
-        {access.isManager && !editing && (
-          <button
-            onClick={startEdit}
-            className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-          >
-            {storyState?.assignedEngineerEmail ? 'Edit' : 'Assign'}
-          </button>
-        )}
+      <div className="flex items-center gap-2">
+        <Users className="w-3.5 h-3.5 text-primary" />
+        <h3 className="text-xs font-bold text-text-primary uppercase tracking-wide">Assignments</h3>
       </div>
 
       {error && (
@@ -235,82 +222,54 @@ export function AssignmentPanel({ storyId, workPackageId, productKey, storyState
         </div>
       )}
 
-      {editing ? (
-        <div className="flex flex-col gap-3">
-          {!access.canInviteNew && members.length === 0 && (
-            <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              No org members found. Join an organisation to assign team members.
-            </p>
-          )}
+      {!access.canInviteNew && members.length === 0 && (
+        <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          No org members found. Join an organisation to assign team members.
+        </p>
+      )}
 
-          <MemberPicker
-            label="Engineer"
-            value={engineerEmail}
-            onChange={setEngineerEmail}
-            members={engineerMembers}
-            canInviteNew={access.canInviteNew}
-            placeholder="Select engineer…"
-          />
-          <MemberPicker
-            label="Reviewer"
-            value={reviewerEmail}
-            onChange={setReviewerEmail}
-            members={reviewerMembers}
-            canInviteNew={access.canInviteNew}
-            placeholder="Select reviewer…"
-          />
-          <MemberPicker
-            label="Approver"
-            value={approverEmail}
-            onChange={setApproverEmail}
-            members={approverMembers}
-            canInviteNew={access.canInviteNew}
-            placeholder="Select approver…"
-          />
+      <MemberPicker
+        label="Engineer"
+        value={engineerEmail}
+        onChange={setEngineerEmail}
+        members={engineerMembers}
+        canInviteNew={access.canInviteNew}
+        placeholder="Select engineer…"
+      />
+      <MemberPicker
+        label="Reviewer"
+        value={reviewerEmail}
+        onChange={setReviewerEmail}
+        members={reviewerMembers}
+        canInviteNew={access.canInviteNew}
+        placeholder="Select reviewer…"
+      />
+      <MemberPicker
+        label="Approver"
+        value={approverEmail}
+        onChange={setApproverEmail}
+        members={approverMembers}
+        canInviteNew={access.canInviteNew}
+        placeholder="Select approver…"
+      />
 
-          {!access.canInviteNew && (
-            <p className="text-[10px] text-text-secondary italic">
-              Only existing org members can be assigned. Contact your owner or admin to invite new members.
-            </p>
-          )}
+      {!access.canInviteNew && (
+        <p className="text-[10px] text-text-secondary italic">
+          Only existing org members can be assigned.
+        </p>
+      )}
 
-          <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
-            <button onClick={() => setEditing(false)}
-              className="text-xs font-medium text-text-secondary hover:text-text-primary transition-colors">
-              Cancel
-            </button>
-            <button onClick={handleSave} disabled={saving}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl
-                bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50">
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Save Assignments
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          <AssignmentRow label="Engineer" value={storyState?.assignedEngineerEmail} name={storyState?.assignedEngineerName} />
-          <AssignmentRow label="Reviewer" value={storyState?.assignedReviewerEmail} />
-          <AssignmentRow label="Approver" value={storyState?.assignedApproverEmail} />
-          {!storyState?.assignedEngineerEmail && !storyState?.assignedReviewerEmail && (
-            <p className="text-xs text-text-secondary italic">
-              No assignments yet.{access.isManager ? ' Click "Assign" to assign team members.' : ''}
-            </p>
-          )}
+      {access.isManager && (
+        <div className="flex items-center justify-end pt-2 border-t border-border">
+          <button onClick={handleSave} disabled={saving}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl
+              bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50">
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            Save Assignments
+          </button>
         </div>
       )}
     </div>
   )
 }
 
-function AssignmentRow({ label, value, name }: { label: string; value?: string | null; name?: string | null }) {
-  if (!value) return null
-  const displayName = name && name !== value ? name : null
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="text-text-secondary w-16 shrink-0">{label}</span>
-      <span className="font-medium text-text-primary">{displayName ?? value}</span>
-      {displayName && <span className="text-text-secondary/70">({value})</span>}
-    </div>
-  )
-}

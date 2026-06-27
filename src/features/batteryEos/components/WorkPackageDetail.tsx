@@ -19,16 +19,33 @@ import { ActivityTimeline } from './ActivityTimeline'
 
 type Tab = 'overview' | 'milestones' | 'stories' | 'kanban' | 'documents'
 
-const KANBAN_COLUMNS: { status: EosStory['status']; label: string }[] = [
-  { status: 'planned',                label: 'Planned'        },
-  { status: 'assigned',               label: 'Assigned'       },
-  { status: 'in_development',         label: 'In Development' },
-  { status: 'ready_for_verification', label: 'Ready for QA'   },
-  { status: 'verification',           label: 'Verification'   },
-  { status: 'technical_review',       label: 'Tech Review'    },
-  { status: 'rework_required',        label: 'Rework'         },
-  { status: 'approved',               label: 'Approved'       },
-  { status: 'blocked',                label: 'Blocked'        },
+type KanbanGroup = 'active' | 'attention' | 'done' | 'closed'
+
+interface KanbanColumn {
+  status: EosStory['status']
+  label:  string
+  group:  KanbanGroup
+}
+
+const KANBAN_COLUMNS: KanbanColumn[] = [
+  { status: 'planned',                label: 'Planned',         group: 'active'    },
+  { status: 'assigned',               label: 'Assigned',        group: 'active'    },
+  { status: 'in_development',         label: 'In Development',  group: 'active'    },
+  { status: 'ready_for_verification', label: 'Ready for QA',    group: 'active'    },
+  { status: 'verification',           label: 'Verification',    group: 'active'    },
+  { status: 'technical_review',       label: 'Tech Review',     group: 'active'    },
+  { status: 'blocked',                label: 'Blocked',         group: 'attention' },
+  { status: 'rework_required',        label: 'Rework Required', group: 'attention' },
+  { status: 'approved',               label: 'Approved',        group: 'done'      },
+  { status: 'released',               label: 'Released',        group: 'done'      },
+  { status: 'cancelled',              label: 'Cancelled',       group: 'closed'    },
+]
+
+const KANBAN_GROUPS: { id: KanbanGroup; label: string; headerCls: string; cardCls: string }[] = [
+  { id: 'active',    label: 'In Progress', headerCls: 'bg-blue-50 text-blue-700 border-blue-200',     cardCls: '' },
+  { id: 'attention', label: 'Needs Attention', headerCls: 'bg-amber-50 text-amber-700 border-amber-200', cardCls: 'border-amber-200 bg-amber-50/30' },
+  { id: 'done',      label: 'Done',        headerCls: 'bg-green-50 text-green-700 border-green-200',   cardCls: 'border-green-200 bg-green-50/30' },
+  { id: 'closed',    label: 'Closed',      headerCls: 'bg-gray-100 text-gray-500 border-gray-200',     cardCls: 'border-gray-200 bg-gray-50/50 opacity-60' },
 ]
 
 // ─── Story Detail Panel ───────────────────────────────────────────────────────
@@ -123,6 +140,17 @@ function StoryDetailPanel({ story, storyState, access, onClose, onStateChange }:
           {/* ── Lifecycle tab ──────────────────────────────────────────────── */}
           {tab === 'lifecycle' && (
             <>
+              {/* Assignments first — manager assigns before triggering CTA */}
+              <AssignmentPanel
+                storyId={story.storyId}
+                workPackageId={story.workPackageId}
+                productKey="battery_pm"
+                storyState={storyState}
+                access={access}
+              />
+
+              <div className="border-t border-border" />
+
               <Section icon={Clock} title="Lifecycle Status">
                 <StoryLifecyclePanel
                   storyId={story.storyId}
@@ -131,16 +159,6 @@ function StoryDetailPanel({ story, storyState, access, onClose, onStateChange }:
                   storyState={storyState}
                   access={access}
                   onTransitioned={onStateChange}
-                />
-              </Section>
-
-              <Section icon={CheckSquare} title="Assignments">
-                <AssignmentPanel
-                  storyId={story.storyId}
-                  workPackageId={story.workPackageId}
-                  productKey="battery_pm"
-                  storyState={storyState}
-                  access={access}
                 />
               </Section>
             </>
@@ -512,36 +530,53 @@ function StoriesTab({ stories, onSelectStory }: { stories: EosStory[]; onSelectS
 
 function KanbanTab({ stories, onSelectStory }: { stories: EosStory[]; onSelectStory: (s: EosStory) => void }) {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
-      {KANBAN_COLUMNS.map(col => {
-        const colStories = stories.filter(s => s.status === col.status)
+    <div className="flex flex-col gap-5 pb-4">
+      {KANBAN_GROUPS.map(group => {
+        const groupCols = KANBAN_COLUMNS.filter(c => c.group === group.id)
+        const groupTotal = groupCols.reduce((n, c) => n + stories.filter(s => s.status === c.status).length, 0)
         return (
-          <div key={col.status} className="min-w-[200px] flex flex-col gap-2">
-            <div className="flex items-center justify-between px-1 mb-1">
-              <span className="text-xs font-semibold text-text-secondary">{col.label}</span>
-              <span className="text-[10px] font-bold text-text-secondary bg-gray-100 px-1.5 py-0.5 rounded-full">
-                {colStories.length}
-              </span>
+          <div key={group.id}>
+            {/* Group header */}
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border mb-3 w-fit ${group.headerCls}`}>
+              <span className="text-[10px] font-bold uppercase tracking-wider">{group.label}</span>
+              <span className="text-[10px] font-bold opacity-70">({groupTotal})</span>
             </div>
-            {colStories.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border px-3 py-6 text-center">
-                <p className="text-[10px] text-text-secondary/50">Empty</p>
-              </div>
-            ) : (
-              colStories.map(s => (
-                <div
-                  key={s.storyId}
-                  onClick={() => onSelectStory(s)}
-                  className="rounded-xl border border-border bg-white p-3 cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all"
-                >
-                  <p className="text-[10px] font-mono text-text-secondary mb-1">{s.storyId}</p>
-                  <p className="text-xs font-semibold text-text-primary line-clamp-2">{s.title}</p>
-                  <span className={`mt-2 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${EOS_PRIORITY_COLORS[s.priority]}`}>
-                    {s.priority}
-                  </span>
-                </div>
-              ))
-            )}
+
+            {/* Columns row */}
+            <div className="flex gap-3 overflow-x-auto pb-1">
+              {groupCols.map(col => {
+                const colStories = stories.filter(s => s.status === col.status)
+                return (
+                  <div key={col.status} className="min-w-[190px] flex flex-col gap-2 shrink-0">
+                    <div className="flex items-center justify-between px-1 mb-1">
+                      <span className="text-xs font-semibold text-text-secondary">{col.label}</span>
+                      <span className="text-[10px] font-bold text-text-secondary bg-gray-100 px-1.5 py-0.5 rounded-full">
+                        {colStories.length}
+                      </span>
+                    </div>
+                    {colStories.length === 0 ? (
+                      <div className="rounded-xl border border-dashed border-border px-3 py-5 text-center">
+                        <p className="text-[10px] text-text-secondary/40">Empty</p>
+                      </div>
+                    ) : (
+                      colStories.map(s => (
+                        <div
+                          key={s.storyId}
+                          onClick={() => onSelectStory(s)}
+                          className={`rounded-xl border p-3 cursor-pointer hover:shadow-sm transition-all ${group.cardCls || 'border-border bg-white hover:border-primary/30'}`}
+                        >
+                          <p className="text-[10px] font-mono text-text-secondary mb-1">{s.storyId}</p>
+                          <p className="text-xs font-semibold text-text-primary line-clamp-2">{s.title}</p>
+                          <span className={`mt-2 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${EOS_PRIORITY_COLORS[s.priority]}`}>
+                            {s.priority}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )
       })}
