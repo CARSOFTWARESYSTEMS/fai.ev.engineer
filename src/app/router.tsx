@@ -35,6 +35,7 @@ import { OrganizationPage } from '../pages/OrganizationPage'
 import { OrganizationTeamPage } from '../pages/OrganizationTeamPage'
 import { OrganizationProjectsPage } from '../pages/OrganizationProjectsPage'
 import { OrganizationSettingsPage } from '../pages/OrganizationSettingsPage'
+import { BatteryIntelligencePage } from '../pages/BatteryIntelligencePage'
 
 export const router = createBrowserRouter([
   // ─── Public ───────────────────────────────────────────────────────────────
@@ -84,6 +85,18 @@ export const router = createBrowserRouter([
   {
     path: '/projects/:projectId/pdf',
     element: <ProtectedRoute><ProductRoute product="fai_reports"><ProjectPdfViewerPage /></ProductRoute></ProtectedRoute>,
+  },
+
+  // ─── Battery Intelligence & Cybersecurity ─────────────────────────────────
+  {
+    path: '/products/battery-intelligence',
+    element: (
+      <ProtectedRoute>
+        <ProductRoute product="battery_pm">
+          <BatteryIntelligencePage />
+        </ProductRoute>
+      </ProtectedRoute>
+    ),
   },
 
   // ─── Developer Settings ───────────────────────────────────────────────────

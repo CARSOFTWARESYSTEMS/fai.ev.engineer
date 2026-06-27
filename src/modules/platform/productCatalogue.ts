@@ -12,6 +12,8 @@ export interface ProductCatalogueEntry {
   routeBase:     string
   status:        'active' | 'beta' | 'future'
   isExternal:    boolean   // true = launched via secure token handoff to external domain
+  badge?:        string    // optional display badge, e.g. 'NEW'
+  category?:     string    // optional product category label
 }
 
 // ─── Catalogue ────────────────────────────────────────────────────────────────
@@ -41,14 +43,16 @@ export const PRODUCT_CATALOGUE: ProductCatalogueEntry[] = [
   },
   {
     productKey:    'battery_pm',
-    name:          'Battery Predictive Maintenance',
-    shortName:     'BPM',
-    description:   'Battery health monitoring and predictive failure alerts.',
+    name:          'Battery Intelligence & Cybersecurity',
+    shortName:     'Battery Intelligence',
+    description:   'Battery identity, health, safety, cybersecurity, and predictive intelligence for mission-critical energy systems.',
     domainPrefix:  'battery',
     defaultDomain: 'battery.ev.engineer',
-    routeBase:     '/battery',
-    status:        'future',
+    routeBase:     '/products/battery-intelligence',
+    status:        'active',
     isExternal:    false,
+    badge:         'NEW',
+    category:      'Energy Intelligence',
   },
   {
     productKey:    'motor_pm',

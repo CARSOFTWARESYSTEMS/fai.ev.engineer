@@ -42,7 +42,7 @@ function NoOrganisationPage() {
 function ProductNotAvailablePage({ product }: { product: ProductId }) {
   const labels: Record<ProductId, string> = {
     fai_reports:     'FAI Reports',
-    battery_pm:      'Battery Predictive Maintenance',
+    battery_pm:      'Battery Intelligence & Cybersecurity',
     motor_pm:        'Motor Predictive Maintenance',
     energy_mgmt:     'Energy Management',
     clean_room:      'Clean Room',

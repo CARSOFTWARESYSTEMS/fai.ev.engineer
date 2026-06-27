@@ -94,7 +94,7 @@ function ProductCard({ entry, navigate }: { entry: ProductCatalogueEntry; naviga
     future: 'Coming Soon',
   }[entry.status]
 
-  const isInternal = !entry.isExternal && entry.status === 'active' && entry.productKey === 'fai_reports'
+  const isInternal = !entry.isExternal && entry.status === 'active'
   const isFuture   = entry.status === 'future'
   const isExternal = entry.isExternal
 
@@ -106,9 +106,16 @@ function ProductCard({ entry, navigate }: { entry: ProductCatalogueEntry; naviga
             ? <ExternalLink className="w-4 h-4 text-primary" />
             : <Package className="w-4 h-4 text-primary" />}
         </div>
-        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusBadge}`}>
-          {statusLabel}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {entry.badge && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+              {entry.badge}
+            </span>
+          )}
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusBadge}`}>
+            {statusLabel}
+          </span>
+        </div>
       </div>
 
       <div className="flex-1">
@@ -116,13 +123,13 @@ function ProductCard({ entry, navigate }: { entry: ProductCatalogueEntry; naviga
         <p className="text-xs text-text-secondary leading-relaxed">{entry.description}</p>
       </div>
 
-      <div className="pt-2 border-t border-border">
+      <div className="pt-2 border-t border-border flex items-center gap-2">
         {isInternal && (
           <button
             onClick={() => navigate(entry.routeBase)}
             className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
           >
-            Open
+            Open Product
             <ArrowRight className="w-3 h-3" />
           </button>
         )}

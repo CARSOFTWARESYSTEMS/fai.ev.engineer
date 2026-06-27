@@ -98,9 +98,9 @@ const MEMBERSHIP_STYLES: Record<MembershipStatus, string> = {
   removed:  'bg-red-50 text-error border-red-200',
 }
 
-const ALL_PRODUCTS: { id: ProductId; label: string }[] = [
+const ALL_PRODUCTS: { id: ProductId; label: string; description?: string }[] = [
   { id: 'fai_reports', label: 'Balloon Drawings + AS9102 FAI Reports' },
-  { id: 'battery_pm',  label: 'Battery Predictive Maintenance' },
+  { id: 'battery_pm',  label: 'Battery Intelligence & Cybersecurity', description: 'Battery identity, health, safety, cybersecurity, and predictive intelligence.' },
   { id: 'motor_pm',    label: 'Motor Predictive Maintenance' },
   { id: 'energy_mgmt', label: 'Energy Management' },
   { id: 'clean_room',  label: 'Clean Room Solutions' },
@@ -1070,7 +1070,7 @@ function ProductsSection({
           </p>
         )}
         <div className="flex flex-col gap-2">
-          {ALL_PRODUCTS.map(({ id, label }) => {
+          {ALL_PRODUCTS.map(({ id, label, description }) => {
             const partnerAllows = partnerProducts.includes(id)
             const isEnabled     = enabled.includes(id)
             return (
@@ -1098,6 +1098,9 @@ function ProductsSection({
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-text-primary">{label}</p>
+                  {description && (
+                    <p className="text-[10px] text-text-secondary mt-0.5">{description}</p>
+                  )}
                   <p className="text-[10px] font-mono text-text-secondary">{id}</p>
                 </div>
                 {!partnerAllows && (

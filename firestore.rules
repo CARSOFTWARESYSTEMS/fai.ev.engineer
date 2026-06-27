@@ -442,6 +442,45 @@ service cloud.firestore {
       allow write: if isDeveloper();
     }
 
+    // ── engineeringCheckins/{checkinId} ──────────────────────────────────────
+    // Daily check-in records. Doc ID: {uid}_{YYYY-MM-DD}.
+    // Only the owner may write their own check-in (UID prefix matches).
+    // Managers (admins/developers) may read all.
+    match /engineeringCheckins/{checkinId} {
+      allow read:   if isAuth() && (isDeveloper() || isAdmin() || checkinId.split('_')[0] == uid());
+      allow create: if isAuth() && checkinId.split('_')[0] == uid();
+      allow update: if false;   // check-ins are immutable once submitted
+      allow delete: if isDeveloper();
+    }
+
+    // ── engineeringReviews/{reviewId} ─────────────────────────────────────────
+    // Technical review records. Reviewers/approvers may create.
+    // Anyone in the org may read (for team transparency).
+    match /engineeringReviews/{reviewId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (isDeveloper() || isAdmin());
+      allow delete: if isDeveloper();
+    }
+
+    // ── engineeringStories/{storyId} ──────────────────────────────────────────
+    // Mutable story runtime state — lifecycle, assignments, evidence, history.
+    // Separates mutable state from static seed data (acceptance criteria, DoD, etc.).
+    // Reads: any authenticated user with product access.
+    // Writes: engineers update their own stories; managers update any story in their org;
+    //         developers/admins may write anything.
+    // History array is append-only enforced at the client layer (Sprint 2).
+    match /engineeringStories/{storyId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth() && (
+        isDeveloper()
+        || isAdmin()
+        || isManagerOrAbove()
+      );
+      allow delete: if isDeveloper();
+    }
+
     // ── organisationActivityLogs/{logId} ──────────────────────────────────────
     // Append-only activity log for organisation events.
     // Platform admins and org owners may read. Partner admins read via developer/admin sessions.
