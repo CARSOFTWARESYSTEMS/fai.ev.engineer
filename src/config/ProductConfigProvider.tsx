@@ -45,7 +45,7 @@ async function fetchOrgConfig(orgCode: string): Promise<OrganizationConfig | nul
 }
 
 export function ProductConfigProvider({ children }: { children: ReactNode }) {
-  const { isLoading: authLoading } = useAuth()
+  const { isLoading: authLoading, firebaseUser } = useAuth()
   const { org, isLoading: orgLoading } = useOrgContext()
 
   const [productConfig, setProductConfig] = useState<ProductConfig>(DEFAULT_PRODUCT_CONFIG)
@@ -71,12 +71,15 @@ export function ProductConfigProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Wait for both auth and org context to resolve before deciding org code
+    // Wait for both auth and org context to resolve, and ensure a user is authenticated.
+    // Without the firebaseUser guard, a brief unauthenticated state during account
+    // switching fires Firestore reads that return permission-denied.
     if (authLoading || orgLoading) return
+    if (!firebaseUser) { setIsLoading(false); return }
 
     const orgCode = org?.code || 'default'
     loadConfigs(orgCode)
-  }, [authLoading, orgLoading, org?.code, loadConfigs])
+  }, [authLoading, orgLoading, firebaseUser, org?.code, loadConfigs])
 
   const canAccess = useCallback(
     (feature: FeatureKey) => canAccessFeature(feature, productConfig, organizationConfig),

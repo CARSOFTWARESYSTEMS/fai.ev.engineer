@@ -43,7 +43,8 @@ export function DailyCheckinPanel({ onSubmitted }: Props) {
         estimatedHoursToday: estimatedHours,
       })
       onSubmitted()
-    } catch {
+    } catch (err) {
+      console.error('[CheckIn] submitDailyCheckin failed:', err)
       setError('Failed to submit check-in. Please try again.')
     } finally {
       setSubmitting(false)

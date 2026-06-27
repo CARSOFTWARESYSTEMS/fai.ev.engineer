@@ -444,12 +444,13 @@ service cloud.firestore {
 
     // ── engineeringCheckins/{checkinId} ──────────────────────────────────────
     // Daily check-in records. Doc ID: {uid}_{YYYY-MM-DD}.
-    // Only the owner may write their own check-in (UID prefix matches).
-    // Managers (admins/developers) may read all.
+    // Owner identity verified via the uid field in the document body (safer than
+    // splitting the doc ID, which breaks if Firebase UIDs ever contain underscores).
+    // setDoc with merge:true on an existing doc is an update — developers may re-submit.
     match /engineeringCheckins/{checkinId} {
-      allow read:   if isAuth() && (isDeveloper() || isAdmin() || checkinId.split('_')[0] == uid());
-      allow create: if isAuth() && checkinId.split('_')[0] == uid();
-      allow update: if false;   // check-ins are immutable once submitted
+      allow read:   if isAuth() && (isDeveloper() || isAdmin() || resource.data.uid == uid());
+      allow create: if isAuth() && request.resource.data.uid == uid();
+      allow update: if isAuth() && (isDeveloper() || resource.data.uid == uid());
       allow delete: if isDeveloper();
     }
 

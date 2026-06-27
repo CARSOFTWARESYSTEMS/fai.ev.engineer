@@ -45,7 +45,12 @@ export async function submitDailyCheckin(
     createdAt:   now,
   }
 
-  await setDoc(doc(firestore, COLLECTION, checkinId), full, { merge: true })
+  // Firestore rejects `undefined` values — strip any optional fields that weren't provided
+  const payload = Object.fromEntries(
+    Object.entries(full).filter(([, v]) => v !== undefined),
+  )
+
+  await setDoc(doc(firestore, COLLECTION, checkinId), payload, { merge: true })
   return full
 }
 
