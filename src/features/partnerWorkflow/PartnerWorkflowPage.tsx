@@ -23,13 +23,13 @@ import { PartnerAdminUsersSection }     from './sections/PartnerAdminUsersSectio
 import { PartnerOrganisationsSection }  from './sections/PartnerOrganisationsSection'
 import { PartnerSubscriptionSection }   from './sections/PartnerSubscriptionSection'
 import { PartnerEntitlementsSection }   from './sections/PartnerEntitlementsSection'
-import type { ProductId }               from '../../auth/AuthTypes'
+
 
 type Level    = 'landing' | 'list' | 'selected'
 type ListMode = 'active'  | 'blocked' | 'deleted'
 type Section  = 'branding' | 'admins' | 'orgs' | 'subscription' | 'entitlements'
 
-const ALL_PRODUCTS: ProductId[] = ['fai_reports', 'battery_pm', 'motor_pm', 'energy_mgmt', 'clean_room']
+
 
 // ─── Partner Card (Level 2) ───────────────────────────────────────────────────
 
@@ -190,7 +190,7 @@ function CreatePartnerForm({ callerUid, onCreated, onCancel }: CreateFormProps) 
         supportEmail:    support.trim() || undefined,
         enabled:         true,
         lifecycleStatus: 'active',
-        enabledProducts: [...ALL_PRODUCTS],
+        enabledProducts: [],
         createdBy:       callerUid,
       })
       // Build a minimal partner to pass back (real data arrives via subscription)
@@ -203,7 +203,7 @@ function CreatePartnerForm({ callerUid, onCreated, onCancel }: CreateFormProps) 
         supportEmail:    support.trim() || undefined,
         enabled:         true,
         lifecycleStatus: 'active',
-        enabledProducts: [...ALL_PRODUCTS],
+        enabledProducts: [],
         createdAt:       null,
         updatedAt:       null,
         createdBy:       callerUid,
