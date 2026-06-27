@@ -144,43 +144,46 @@ function CollapsibleCard({
 
   return (
     <div className="card overflow-hidden">
-      <button
-        type="button"
-        onClick={() => !disabled && setOpen(!open)}
-        className={[
-          'w-full flex items-center gap-3 p-4 sm:p-5 text-left transition-colors bg-gray-50/60',
-          disabled ? 'cursor-default opacity-60' : 'hover:bg-gray-100/70',
-        ].join(' ')}
-      >
-        <div className={`w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
-          <Icon className={`w-4 h-4 ${iconColor}`} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-bold text-text-primary leading-tight">{title}</h2>
-            {badge}
+      {/* Header row — toggle button + optional action sibling (never nested inside button) */}
+      <div className={[
+        'flex items-center bg-gray-50/60',
+        disabled ? 'opacity-60' : '',
+      ].join(' ')}>
+        <button
+          type="button"
+          onClick={() => !disabled && setOpen(!open)}
+          className={[
+            'flex-1 flex items-center gap-3 p-4 sm:p-5 text-left transition-colors min-w-0',
+            disabled ? 'cursor-default' : 'hover:bg-gray-100/70',
+          ].join(' ')}
+        >
+          <div className={`w-8 h-8 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+            <Icon className={`w-4 h-4 ${iconColor}`} />
           </div>
-          <p className="text-[11px] text-text-secondary mt-0.5">{subtitle}</p>
-        </div>
-        {/* Right action — stop propagation so it doesn't toggle the section */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-bold text-text-primary leading-tight">{title}</h2>
+              {badge}
+            </div>
+            <p className="text-[11px] text-text-secondary mt-0.5">{subtitle}</p>
+          </div>
+          {!disabled && (
+            <ChevronDown className={`w-4 h-4 text-text-secondary transition-transform duration-200 shrink-0
+              ${open ? 'rotate-180' : ''}`} />
+          )}
+          {disabled && (
+            <span className="text-[10px] font-semibold bg-gray-100 text-text-secondary px-2 py-0.5 rounded-full shrink-0">
+              Soon
+            </span>
+          )}
+        </button>
+        {/* headerRight sits outside the toggle button to avoid button-in-button */}
         {headerRight && (
-          <div
-            onClick={e => e.stopPropagation()}
-            className="shrink-0"
-          >
+          <div className="shrink-0 pr-4 sm:pr-5">
             {headerRight}
           </div>
         )}
-        {!disabled && (
-          <ChevronDown className={`w-4 h-4 text-text-secondary transition-transform duration-200 shrink-0
-            ${open ? 'rotate-180' : ''}`} />
-        )}
-        {disabled && (
-          <span className="text-[10px] font-semibold bg-gray-100 text-text-secondary px-2 py-0.5 rounded-full shrink-0">
-            Soon
-          </span>
-        )}
-      </button>
+      </div>
 
       {open && !disabled && (
         <div className="px-4 sm:px-5 pb-5 border-t border-border pt-4">

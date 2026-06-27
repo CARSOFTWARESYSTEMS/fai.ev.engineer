@@ -45,7 +45,7 @@ export function LoginPage() {
           </div>
           <div className="flex flex-col leading-none">
             <span className="font-bold text-text-primary text-sm">FAI Engineer</span>
-            <span className="text-[10px] text-text-secondary font-medium">by{' '}<a href="https://ev.engineer" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-primary transition-colors">EV.ENGINEER</a></span>
+            <span className="text-[10px] text-text-secondary font-medium">by{' '}<span className="hover:underline hover:text-primary transition-colors cursor-pointer">EV.ENGINEER</span></span>
           </div>
         </Link>
         <Link
