@@ -43,6 +43,7 @@ function ProductNotAvailablePage({ product }: { product: ProductId }) {
   const labels: Record<ProductId, string> = {
     fai_reports:     'FAI Reports',
     battery_pm:      'Battery Intelligence & Cybersecurity',
+    battery_trust:   'Battery Trust Platform',
     motor_pm:        'Motor Predictive Maintenance',
     energy_mgmt:     'Energy Management',
     clean_room:      'Clean Room',

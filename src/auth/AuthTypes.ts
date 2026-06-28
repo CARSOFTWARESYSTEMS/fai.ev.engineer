@@ -37,6 +37,7 @@ export type SubscriptionStatus = 'active' | 'expired' | 'pending_payment' | 'sus
 export type ProductId =
   | 'fai_reports'
   | 'battery_pm'
+  | 'battery_trust'
   | 'motor_pm'
   | 'energy_mgmt'
   | 'clean_room'

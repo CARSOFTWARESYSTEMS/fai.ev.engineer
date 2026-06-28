@@ -36,6 +36,12 @@ import { OrganizationTeamPage } from '../pages/OrganizationTeamPage'
 import { OrganizationProjectsPage } from '../pages/OrganizationProjectsPage'
 import { OrganizationSettingsPage } from '../pages/OrganizationSettingsPage'
 import { BatteryIntelligencePage } from '../pages/BatteryIntelligencePage'
+import { BatteryTrustRoute } from '../auth/BatteryTrustRoute'
+import {
+  BatteryTrustDashboardPage,
+  BatteryTrustWorkPackagePage,
+  BatteryStoryDetailPage,
+} from '../products/battery_trust'
 
 export const router = createBrowserRouter([
   // ─── Public ───────────────────────────────────────────────────────────────
@@ -95,6 +101,38 @@ export const router = createBrowserRouter([
         <ProductRoute product="battery_pm">
           <BatteryIntelligencePage />
         </ProductRoute>
+      </ProtectedRoute>
+    ),
+  },
+
+  // ─── Battery Trust Platform (private, partner/org/user gated) ───────────
+  {
+    path: '/battery-trust',
+    element: (
+      <ProtectedRoute>
+        <BatteryTrustRoute>
+          <BatteryTrustDashboardPage />
+        </BatteryTrustRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/battery-trust/wp-001',
+    element: (
+      <ProtectedRoute>
+        <BatteryTrustRoute>
+          <BatteryTrustWorkPackagePage />
+        </BatteryTrustRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/battery-trust/wp-001/:slug',
+    element: (
+      <ProtectedRoute>
+        <BatteryTrustRoute>
+          <BatteryStoryDetailPage />
+        </BatteryTrustRoute>
       </ProtectedRoute>
     ),
   },

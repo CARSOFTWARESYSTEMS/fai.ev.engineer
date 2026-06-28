@@ -17,6 +17,13 @@ import { calculateBalanceAmount, getSubscriptionStatus } from './subscriptionSer
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
+export interface ProductAccessConfig {
+  enabled:           boolean
+  allowedEmails?:    string[]
+  allowedRoles?:     string[]
+  assignedStoryIds?: string[]
+}
+
 export type OrgStatus = 'active' | 'inactive' | 'trial' | 'suspended'
 export type OrgSubscriptionType = 'free' | 'trial' | 'monthly' | 'annual'
 export type OrgLifecycleStatus = 'active' | 'blocked' | 'deleted' | 'permanently_deleted'
@@ -55,6 +62,7 @@ export interface Organisation {
   approverLimit:          number
   viewerLimit:            number
   enabledProducts:        ProductId[]
+  productAccess?:         Record<string, ProductAccessConfig>
   createdAt:              Timestamp | null
   createdBy:              string
   updatedAt:              Timestamp | null
@@ -167,6 +175,7 @@ export function toOrganisation(id: string, data: Record<string, unknown>): Organ
     approverLimit:          (data.approverLimit           as number)           ?? 0,
     viewerLimit:            (data.viewerLimit             as number)           ?? 0,
     enabledProducts:        (data.enabledProducts         as ProductId[])      ?? [],
+    productAccess:          data.productAccess            as Record<string, ProductAccessConfig> | undefined,
     createdAt:              (data.createdAt               as Timestamp | null) ?? null,
     createdBy:              (data.createdBy               as string)           ?? '',
     updatedAt:              (data.updatedAt               as Timestamp | null) ?? null,
