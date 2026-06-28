@@ -33,15 +33,9 @@ export const WP005_BATTERY_CYBERSECURITY: EosWorkPackage = {
   // ─── Milestones ────────────────────────────────────────────────────────────
 
   milestones: [
-      {
-      milestoneId: 'WP-006-M0',
-      workPackageId: 'WP-001',
-      title: 'M0 — Automated Balloon Drawings and AS9102 FAI Reports',
-      description: 'Implement AI-assisted PDF drawing scan, characteristic extraction, automated balloon drawings, and AS9102 First Article Inspection Report generation covering Forms 1, 2, and 3.',
-      status: 'development',
-      dueDate: '2026-08-31',
-      storyIds: ['WP-006-S0'],
-     },
+    
+    
+
     {
       milestoneId:  'WP-005-M1',
       workPackageId: 'WP-005',
@@ -468,10 +462,11 @@ export const WP005_BATTERY_CYBERSECURITY: EosWorkPackage = {
         },
       ],
     },
-    // ── Story 6 ──────────────────────────────────────────────────────────────
-     {
+
+// ── Story 6 ──────────────────────────────────────────────────────────────
+    {
   storyId: 'WP-006-S0',
-  workPackageId: 'WP-006',
+  workPackageId: 'WP-005',
   milestoneId: 'WP-006-M0',
   title: 'M0 — Automated Balloon Drawings and AS9102 FAI Reports',
   description:
@@ -736,7 +731,6 @@ export const WP005_BATTERY_CYBERSECURITY: EosWorkPackage = {
         'Replacement is blocked. New revision or new FAIR workflow is required.',
     },
   ],
-}
+  },
   ],
 }
-
