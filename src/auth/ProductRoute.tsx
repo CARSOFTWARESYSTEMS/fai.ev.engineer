@@ -3,6 +3,7 @@ import { Lock, Building2 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useUserOrg } from '../hooks/useUserOrg'
 import { useDeveloperAccess } from '../services/useDeveloperAccess'
+import { isAvailableWithoutOrg } from '../modules/platform/productCatalogue'
 import type { ProductId } from './AuthTypes'
 
 function Spinner() {
@@ -108,8 +109,13 @@ export function ProductRoute({ product, children }: Props) {
   // Developers always have access
   if (isDeveloper) return <>{children}</>
 
-  // Users with no org membership cannot access product routes
-  if (!org) return <NoOrganisationPage />
+  // Beta users with no org membership yet still get the products that are
+  // available pre-assignment (e.g. FAI Reports) — mirrors the Dashboard's
+  // resolveEffectiveProducts policy so the card and the route agree.
+  if (!org) {
+    if (isAvailableWithoutOrg(product)) return <>{children}</>
+    return <NoOrganisationPage />
+  }
 
   // Check product entitlement
   if (!org.enabledProducts.includes(product)) {

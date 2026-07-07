@@ -1,15 +1,18 @@
 import type { ProductConfig, OrganizationConfig } from './productConfig.types'
 
+// Default-org (no organisation assigned yet) features — beta users get full
+// FAI Reports access as an Engineer: create/edit projects, upload PDFs, run
+// ballooning, and export. adminPortal stays off — that's an admin-only surface.
 const BASE_FEATURES = {
   dashboard: true,
   createProject: true,
-  projectList: false,
-  pdfViewer: false,
-  manualBallooning: false,
-  featureTable: false,
-  form3Export: false,
-  googleDriveSave: false,
-  ocrExtraction: false,
+  projectList: true,
+  pdfViewer: true,
+  manualBallooning: true,
+  featureTable: true,
+  form3Export: true,
+  googleDriveSave: true,
+  ocrExtraction: true,
   adminPortal: false,
 }
 

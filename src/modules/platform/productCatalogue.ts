@@ -126,3 +126,12 @@ export function getActiveProducts(): ProductCatalogueEntry[] {
 export function getExternalProducts(): ProductCatalogueEntry[] {
   return PRODUCT_CATALOGUE.filter(p => p.isExternal)
 }
+
+// Products a beta user can access before being assigned to an organisation.
+// Keep in sync with DashboardPage's resolveEffectiveProducts and ProductRoute's
+// no-org check — both must agree on what's reachable pre-assignment.
+const NO_ORG_PRODUCTS: ProductId[] = ['fai_reports']
+
+export function isAvailableWithoutOrg(productKey: ProductId): boolean {
+  return NO_ORG_PRODUCTS.includes(productKey)
+}

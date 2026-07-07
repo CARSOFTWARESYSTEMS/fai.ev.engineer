@@ -25,7 +25,7 @@ import { useProductConfig } from '../config/hooks/useProductConfig'
 import { useUserOrg } from '../hooks/useUserOrg'
 import { useDeveloperAccess } from '../services/useDeveloperAccess'
 import { useDomainContext } from '../modules/website/DomainContextProvider'
-import { PRODUCT_CATALOGUE, type ProductCatalogueEntry } from '../modules/platform/productCatalogue'
+import { PRODUCT_CATALOGUE, isAvailableWithoutOrg, type ProductCatalogueEntry } from '../modules/platform/productCatalogue'
 import type { ProductId } from '../auth/AuthTypes'
 import { UserAvatarMenu } from '../components/ui/UserAvatarMenu'
 import { OrganizationSwitcher } from '../components/ui/OrganizationSwitcher'
@@ -65,12 +65,19 @@ import { useOrgReadOnly } from '../hooks/useOrgReadOnly'
 
 function resolveEffectiveProducts(
   isDeveloper: boolean,
+  hasOrg: boolean,
   orgProducts: ProductId[],
   domainProducts: ProductId[],
   isFallback: boolean,
 ): ProductCatalogueEntry[] {
   if (isDeveloper) {
     return PRODUCT_CATALOGUE.filter(p => p.status === 'active')
+  }
+  // Beta users with no organisation assigned yet (default org config) only get
+  // FAI Reports — the other products aren't ready for general beta access.
+  // Once an admin assigns a real org with its own enabledProducts, that config wins.
+  if (!hasOrg) {
+    return PRODUCT_CATALOGUE.filter(p => isAvailableWithoutOrg(p.productKey) && p.status === 'active')
   }
   let effective = orgProducts
   if (!isFallback && domainProducts.length > 0) {
@@ -215,11 +222,12 @@ export function DashboardPage() {
   const effectiveProducts = useMemo(
     () => resolveEffectiveProducts(
       isDeveloper,
+      !!org,
       org?.enabledProducts ?? [],
       domainContext.enabledProducts,
       isFallback,
     ),
-    [isDeveloper, org?.enabledProducts, domainContext.enabledProducts, isFallback],
+    [isDeveloper, org, domainContext.enabledProducts, isFallback],
   )
 
   const [projects, setProjects]               = useState<FAIProject[]>([])
