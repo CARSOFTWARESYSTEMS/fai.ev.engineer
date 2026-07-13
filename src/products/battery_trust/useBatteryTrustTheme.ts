@@ -4,7 +4,7 @@ const LS_KEY = 'bt_theme'
 
 export function useBatteryTrustTheme() {
   const [isDark, setIsDark] = useState<boolean>(() => {
-    try { return localStorage.getItem(LS_KEY) !== 'light' } catch { return true }
+    try { return localStorage.getItem(LS_KEY) === 'dark' } catch { return false }
   })
 
   const toggle = () => {

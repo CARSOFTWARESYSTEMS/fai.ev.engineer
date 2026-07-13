@@ -19,7 +19,7 @@ export const TRUST_SCORE_COMPONENTS: TrustScoreComponent[] = [
   { label: 'Ownership & Chain of Custody',    weight: 10 },
   { label: 'Configuration & Firmware Trust',  weight: 15 },
   { label: 'Telemetry Integrity',             weight: 15 },
-  { label: 'Cybersecurity Risk',              weight: 15 },
+  { label: 'Cybersecurity Posture',           weight: 15 },
   { label: 'Safety & Health Condition',       weight: 20 },
   { label: 'Maintenance & Mission History',   weight: 10 },
 ]
