@@ -6,7 +6,7 @@ import {
   Bell, Flag, Wrench, ChevronDown, Trash2, Info, RotateCcw,
   Type, UserCog, Search, Filter,
   Database, Play, RotateCw, Download, Package,
-  Handshake, BookUser, BadgeCheck, Zap, Grid3x3,
+  Handshake, BookUser, BadgeCheck, Grid3x3,
 } from 'lucide-react'
 import { ContactsTab } from '../components/developer/ContactsTab'
 import { useAuth } from '../auth/hooks/useAuth'
@@ -2376,13 +2376,6 @@ const PRODUCT_CATALOGUE: ProductCard[] = [
     description: 'Full first article inspection report management with balloon drawings, Form 1, Form 2, and Form 3 inspection data. Supports AS9102 Rev D.',
     status:      'active',
     icon:        BadgeCheck,
-  },
-  {
-    id:          'battery_pm',
-    name:        'Battery Predictive Maintenance',
-    description: 'AI-powered battery health prediction and maintenance scheduling for EV fleets. Real-time SoH monitoring.',
-    status:      'development',
-    icon:        Zap,
   },
   {
     id:          'motor_pm',

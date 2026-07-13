@@ -498,6 +498,7 @@ ProfilePage role toggle       always visible (beta convenience)
 sudarshana.karkala@gmail.com
 sudhan.infotech@gmail.com
 carsoftwaresystems@gmail.com
+bhavyanagasai@gmail.com
 ```
 
 **Minor note:** `developerBootstrap.ts` lowercases the email before comparison (`email.toLowerCase()`), making the client-side check case-insensitive. `firestore.rules` uses a direct `in [...]` check which is case-sensitive. No practical risk — Firebase Auth stores emails as lowercase — but the implementations are asymmetric.

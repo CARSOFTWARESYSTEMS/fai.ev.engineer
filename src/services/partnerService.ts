@@ -12,7 +12,7 @@ import { firestore } from '../firebase/firestore'
 import type { ProductId } from '../auth/AuthTypes'
 
 // All product IDs — used as the default entitlement set when a partner has no explicit list
-const ALL_PRODUCTS: ProductId[] = ['fai_reports', 'battery_pm', 'motor_pm', 'energy_mgmt', 'clean_room']
+const ALL_PRODUCTS: ProductId[] = ['fai_reports', 'motor_pm', 'energy_mgmt', 'clean_room']
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 

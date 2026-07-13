@@ -202,7 +202,6 @@ export function emptySlot(): AdminSlot {
 
 export const PLATFORM_PRODUCTS: { id: ProductId; label: string; description: string }[] = [
   { id: 'fai_reports', label: 'FAI Reports',                    description: 'Balloon drawings + AS9102 First Article Inspection' },
-  { id: 'battery_pm',  label: 'Battery Predictive Maintenance', description: 'AI-powered battery health monitoring for EV fleets'  },
   { id: 'motor_pm',    label: 'Motor Predictive Maintenance',   description: 'Vibration & thermal monitoring for electric motors'  },
   { id: 'energy_mgmt', label: 'Energy Management',              description: 'Fleet-level energy tracking & optimisation'          },
   { id: 'clean_room',  label: 'Clean Room Solutions',           description: 'Cleanroom environmental monitoring & reporting'      },
@@ -225,7 +224,6 @@ export const ORG_STATUS_LABELS: Record<OrgStatus, string> = {
 
 export const ORG_PRODUCT_OPTIONS: { id: ProductId; label: string }[] = [
   { id: 'fai_reports', label: 'Balloon Drawings + AS9102 FAI Reports' },
-  { id: 'battery_pm',  label: 'Battery Predictive Maintenance'        },
   { id: 'motor_pm',    label: 'Motor Predictive Maintenance'          },
   { id: 'energy_mgmt', label: 'Energy Management'                     },
   { id: 'clean_room',  label: 'Clean Room Solutions'                  },

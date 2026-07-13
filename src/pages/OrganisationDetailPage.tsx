@@ -100,7 +100,6 @@ const MEMBERSHIP_STYLES: Record<MembershipStatus, string> = {
 
 const ALL_PRODUCTS: { id: ProductId; label: string; description?: string }[] = [
   { id: 'fai_reports', label: 'Balloon Drawings + AS9102 FAI Reports' },
-  { id: 'battery_pm',  label: 'Battery Intelligence & Cybersecurity', description: 'Battery identity, health, safety, cybersecurity, and predictive intelligence.' },
   { id: 'motor_pm',    label: 'Motor Predictive Maintenance' },
   { id: 'energy_mgmt', label: 'Energy Management' },
   { id: 'clean_room',  label: 'Clean Room Solutions' },

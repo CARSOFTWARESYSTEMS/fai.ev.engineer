@@ -5,6 +5,7 @@ export const BOOTSTRAP_DEVELOPER_EMAILS: readonly string[] = [
   'sudarshana.karkala@gmail.com',
   'sudhan.infotech@gmail.com',
   'carsoftwaresystems@gmail.com',
+  "bhavyanagasai@gmail.com"
 ]
 
 export function isBootstrapDeveloper(email: string | null | undefined): boolean {

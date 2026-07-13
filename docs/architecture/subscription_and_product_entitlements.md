@@ -107,7 +107,6 @@ interface OrgUserLimits {
 | Product ID | Name | Status |
 |-----------|------|--------|
 | `fai_reports` | Balloon Drawings + AS9102 FAI Reports | Production |
-| `battery_pm` | Battery Predictive Maintenance | Dev (placeholder) |
 | `motor_pm` | Motor Predictive Maintenance | Dev (placeholder) |
 | `energy_mgmt` | Energy Management | Dev (placeholder) |
 | `clean_room` | Clean Room Solutions | Dev (placeholder) |

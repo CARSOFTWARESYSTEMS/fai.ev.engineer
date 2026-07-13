@@ -18,6 +18,7 @@ export const BOOTSTRAP_DEVELOPER_EMAILS: string[] = [
   'sudarshana.karkala@gmail.com',
   'sudhan.infotech@gmail.com',
   'carsoftwaresystems@gmail.com',
+  "bhavyanagasai@gmail.com"
 ]
 
 // ─── Permission helpers ────────────────────────────────────────────────────────
