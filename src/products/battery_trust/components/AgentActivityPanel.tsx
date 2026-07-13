@@ -34,25 +34,29 @@ export function AgentActivityPanel({ plan, activity }: Props) {
           <p className="text-xs text-text-primary leading-relaxed">{plan.goal}</p>
         </div>
 
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-1">Plan — Selected Engines</p>
-          <ul className="space-y-1">
-            {plan.steps.map(step => (
-              <li key={step.simulatorId} className="text-xs text-text-secondary">
-                <span className="font-mono font-bold text-text-primary">{step.simulatorId}</span> {step.name} — {step.reason}
-              </li>
-            ))}
-          </ul>
-        </div>
+        {plan.steps.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-1">Plan — Selected Engines</p>
+            <ul className="space-y-1">
+              {plan.steps.map(step => (
+                <li key={step.simulatorId} className="text-xs text-text-secondary">
+                  <span className="font-mono font-bold text-text-primary">{step.simulatorId}</span> {step.name} — {step.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-1">Assumptions</p>
-          <ul className="list-disc list-inside space-y-1">
-            {plan.assumptions.map((a, i) => (
-              <li key={i} className="text-xs text-text-secondary">{a}</li>
-            ))}
-          </ul>
-        </div>
+        {plan.assumptions.length > 0 && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-1">Assumptions</p>
+            <ul className="list-disc list-inside space-y-1">
+              {plan.assumptions.map((a, i) => (
+                <li key={i} className="text-xs text-text-secondary">{a}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {activity.length > 0 && (
           <div className="space-y-3 pt-2 border-t border-border">

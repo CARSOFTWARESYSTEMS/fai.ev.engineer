@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ChevronRight, Play, CheckCircle2, GitCompare, Download, LayoutGrid, MonitorPlay } from 'lucide-react'
+import { ChevronRight, Play, CheckCircle2, GitCompare, Download, LayoutGrid, MonitorPlay, Rocket } from 'lucide-react'
 import { useAuth } from '../../../auth/hooks/useAuth'
 import { useUserOrg } from '../../../hooks/useUserOrg'
 import { UserAvatarMenu } from '../../../components/ui/UserAvatarMenu'
@@ -165,12 +165,12 @@ export function AgenticStudioPage() {
         {/* Center */}
         <main className="flex-1 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0 overflow-y-auto p-4">
-            {mode === 'builder'
-              ? <PipelineCanvas steps={run?.steps ?? []} selectedIndex={selectedStep} onSelect={setSelectedStep} />
-              : <StudioResultPanels run={run} />}
-            {mode === 'builder' && !run && (
-              <p className="text-sm text-text-secondary mt-4">No run yet. Select <strong>Simulate</strong> to execute the nine-step Mission Ready happy-path pipeline (SIM-010 orchestrates; SIM-005 is skipped when no attack scenario is selected).</p>
+            {mode === 'builder' && (
+              run
+                ? <PipelineCanvas steps={run.steps} selectedIndex={selectedStep} onSelect={setSelectedStep} />
+                : <BuilderEmptyState isRunning={isRunning} onSimulate={handleSimulate} />
             )}
+            {mode === 'studio' && <StudioResultPanels run={run} />}
           </div>
           <div className="h-56 shrink-0 border-t border-border">
             <RunConsole run={run} />
@@ -190,13 +190,43 @@ export function AgenticStudioPage() {
   )
 }
 
+function BuilderEmptyState({ isRunning, onSimulate }: { isRunning: boolean; onSimulate: () => void }) {
+  const steps = [
+    'SIM-001 Battery Profile', 'SIM-002 Identity', 'SIM-008 Health', 'SIM-003 Telemetry',
+    'SIM-005 Attack (skipped)', 'SIM-006 Detection & Gates', 'SIM-004 Trust Assessment',
+    'SIM-007 Twin Snapshot', 'SIM-009 Evidence',
+  ]
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center px-6 py-10">
+      <div className="w-14 h-14 rounded-2xl bg-primary-light flex items-center justify-center mb-4">
+        <Rocket className="w-7 h-7 text-primary" />
+      </div>
+      <h3 className="text-base font-bold text-text-primary mb-1.5">Ready to run the Mission Ready happy path</h3>
+      <p className="text-sm text-text-secondary max-w-md mb-5">
+        Nine deterministic steps will run in order — identity, health, and telemetry first, then detection, trust scoring, twin, and evidence. SIM-005 is skipped because no attack scenario is selected.
+      </p>
+      <div className="flex flex-wrap justify-center gap-1.5 max-w-lg mb-6">
+        {steps.map(s => (
+          <span key={s} className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-background border border-border text-text-secondary">{s}</span>
+        ))}
+      </div>
+      <button
+        type="button" onClick={onSimulate} disabled={isRunning}
+        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <Play className="w-4 h-4" /> {isRunning ? 'Simulating…' : 'Simulate Now'}
+      </button>
+    </div>
+  )
+}
+
 function buildIdlePlan() {
   return {
-    goal: `Assess whether ${REF_2W_LFP_51V_V1.profileId} is trusted for the "${SCN_HAPPY_001.name}" scenario.`,
+    goal: `Assess whether ${REF_2W_LFP_51V_V1.profileId} is trusted for the "${SCN_HAPPY_001.name}" scenario. Select Simulate to generate the plan and run the pipeline.`,
     providerLabel: 'Deterministic Local Orchestrator',
     modelLabel: 'Not connected in POC-001',
     approvalRequired: false,
-    assumptions: ['Select Simulate to generate a plan and run the pipeline.'],
+    assumptions: [],
     steps: [],
   }
 }

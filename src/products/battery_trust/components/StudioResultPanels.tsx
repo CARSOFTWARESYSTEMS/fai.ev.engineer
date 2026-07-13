@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, FileJson, FileText } from 'lucide-react'
+import { Download, FileJson, FileText, ClipboardList } from 'lucide-react'
 import type { SimulationRun } from '../domain/types'
 import { evidenceToHtml, evidenceToJson, downloadTextFile } from '../services/evidenceExport'
 
@@ -32,8 +32,14 @@ export function StudioResultPanels({ run }: Props) {
 
   if (!run) {
     return (
-      <div className="flex-1 flex items-center justify-center text-sm text-text-secondary p-8 text-center">
-        Run the Mission Ready happy-path scenario to see mission summary, trust assessment, twin, gate results, and evidence here.
+      <div className="h-full flex flex-col items-center justify-center text-center px-6 py-10">
+        <div className="w-14 h-14 rounded-2xl bg-primary-light flex items-center justify-center mb-4">
+          <ClipboardList className="w-7 h-7 text-primary" />
+        </div>
+        <h3 className="text-base font-bold text-text-primary mb-1.5">No results yet</h3>
+        <p className="text-sm text-text-secondary max-w-md">
+          Switch to Builder and select <strong>Simulate</strong> to populate the mission summary, trust assessment, battery twin, gate results, and evidence here.
+        </p>
       </div>
     )
   }

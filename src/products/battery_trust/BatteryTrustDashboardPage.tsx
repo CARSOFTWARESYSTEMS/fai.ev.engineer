@@ -12,6 +12,9 @@ import {
   Radio,
   Play,
   Sparkles,
+  Gauge,
+  ListChecks,
+  FileCheck2,
 } from 'lucide-react'
 import { useBranding } from '../../hooks/useBranding'
 import { useAuth } from '../../auth/hooks/useAuth'
@@ -105,7 +108,6 @@ export function BatteryTrustDashboardPage() {
                          : 'bg-white border border-border rounded-xl p-4 text-center'
   const statVal      = d ? 'text-2xl font-extrabold text-white' : 'text-2xl font-extrabold text-text-primary'
   const statSub      = d ? 'text-xs text-blue-400 font-semibold' : 'text-xs text-primary font-semibold'
-  const statLbl      = d ? 'text-[10px] text-slate-500 mt-0.5' : 'text-[10px] text-text-secondary mt-0.5'
   const secIcon      = d ? 'w-4 h-4 text-blue-400' : 'w-4 h-4 text-primary'
   const secTitle     = d ? 'text-sm font-bold text-white uppercase tracking-wider' : 'text-sm font-bold text-text-primary uppercase tracking-wider'
   const wpCard       = d ? 'group block bg-slate-900 border border-slate-700 rounded-2xl p-6 sm:p-8 hover:border-blue-600/50 hover:bg-slate-900/80 transition-all duration-200'
@@ -178,64 +180,73 @@ export function BatteryTrustDashboardPage() {
           <div className={`relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 ${d ? '' : 'bg-white'}`}>
             <SyntheticPocBanner className="mb-6 max-w-2xl" />
 
-            <div className="flex flex-col lg:flex-row items-start gap-10">
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <span className={d ? 'text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/40 tracking-widest'
-                                     : 'text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 tracking-widest'}>
-                    PRIVATE · RESTRICTED ACCESS
-                  </span>
-                  <span className={phaseBadge}>POC / BETA — POC-001</span>
-                </div>
-
-                <h1 className={h1Cls}>
-                  <span className={accentCls}>Battery Trust Platform</span>
-                </h1>
-
-                <p className={bodyTxt}>
-                  One Platform. Many Pieces. Infinite Confidence. AI-assisted battery identity, health, safety, cybersecurity, telemetry integrity, and mission-readiness decision support.
-                </p>
-
-                <p className={missionTxt}>Can this battery be trusted for this mission, right now — and what evidence supports that decision?</p>
-
-                <div className="flex flex-wrap items-center gap-3 mb-6">
-                  <Link
-                    to="/battery-trust/studio"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
-                  >
-                    <Sparkles className="w-4 h-4" /> Open Agentic Studio
-                  </Link>
-                  <Link
-                    to="/battery-trust/studio?autorun=1"
-                    className={d ? 'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-blue-700/50 text-blue-300 text-sm font-semibold hover:bg-blue-950/40 transition-colors'
-                                 : 'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-primary text-primary text-sm font-semibold hover:bg-primary-light transition-colors'}
-                  >
-                    <Play className="w-4 h-4" /> Run Mission-Ready Demo
-                  </Link>
-                </div>
-
-                <div className={statusTxt}>
-                  <div className={dotCls} />
-                  <span>Workspace active · Signed in as <span className={emailCls}>{user?.email}</span></span>
-                </div>
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <span className={d ? 'text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-900/50 text-blue-300 border border-blue-700/40 tracking-widest'
+                                   : 'text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 tracking-widest'}>
+                  PRIVATE · RESTRICTED ACCESS
+                </span>
+                <span className={phaseBadge}>POC / BETA — POC-001</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0 w-full lg:w-[420px]">
+              <h1 className={h1Cls}>
+                <span className={accentCls}>Battery Trust Platform</span>
+              </h1>
+
+              <p className={bodyTxt}>
+                One Platform. Many Pieces. Infinite Confidence. AI-assisted battery identity, health, safety, cybersecurity, telemetry integrity, and mission-readiness decision support.
+              </p>
+
+              <p className={missionTxt}>Can this battery be trusted for this mission, right now — and what evidence supports that decision?</p>
+
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <Link
+                  to="/battery-trust/studio"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" /> Open Agentic Studio
+                </Link>
+                <Link
+                  to="/battery-trust/studio?autorun=1"
+                  className={d ? 'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-blue-700/50 text-blue-300 text-sm font-semibold hover:bg-blue-950/40 transition-colors'
+                               : 'inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-primary text-primary text-sm font-semibold hover:bg-primary-light transition-colors'}
+                >
+                  <Play className="w-4 h-4" /> Run Mission-Ready Demo
+                </Link>
+              </div>
+
+              <div className={statusTxt}>
+                <div className={dotCls} />
+                <span>Workspace active · Signed in as <span className={emailCls}>{user?.email}</span></span>
+              </div>
+            </div>
+
+            {/* Mission snapshot — full-width so no value ever needs to be truncated */}
+            <div className="mt-10">
+              <p className={d ? 'text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3' : 'text-[10px] font-bold uppercase tracking-wider text-text-secondary mb-3'}>
+                Mission Snapshot {!lastRun && '· No run yet'}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                  { label: 'Mission Status',        value: lastRun ? lastRun.missionStatus : 'No run yet', sub: lastRun ? (lastRun.hardFailActive ? 'Hard-fail active' : 'Nominal') : 'Run the demo' },
-                  { label: 'Trust Score',            value: lastRun ? String(lastRun.trustScore) : '—',     sub: lastRun ? '/ 100' : 'Not evaluated' },
-                  { label: 'Hard-Fail Gates',         value: lastRun ? (lastRun.hardFailActive ? '1+' : '0') : '11', sub: lastRun ? 'Active' : 'Enforced' },
-                  { label: 'Simulators Completed',    value: lastRun ? `${lastRun.simulatorsCompleted}/${lastRun.simulatorsTotal}` : '0/9', sub: 'Pipeline steps' },
-                  { label: 'Evidence Completeness',   value: lastRun ? `${lastRun.evidenceCompletionPercent}%` : '0%', sub: 'Draft package' },
-                  { label: 'Active Battery Profile',  value: lastRun ? lastRun.activeProfileId : REF_2W_LFP_51V_V1.profileId, sub: REF_2W_LFP_51V_V1.chemistry },
-                ].map(stat => (
-                  <div key={stat.label} className={statCard}>
-                    <p className={`${statVal} truncate`} title={stat.value}>{stat.value}</p>
-                    <p className={statSub}>{stat.sub}</p>
-                    <p className={statLbl}>{stat.label}</p>
-                  </div>
-                ))}
+                  { icon: Radio,        label: 'Mission Status',       value: lastRun ? lastRun.missionStatus : 'No run yet', sub: lastRun ? (lastRun.hardFailActive ? 'Hard-fail active' : 'Nominal') : 'Run the demo' },
+                  { icon: Gauge,        label: 'Trust Score',           value: lastRun ? `${lastRun.trustScore}` : '—',     sub: lastRun ? 'out of 100' : 'Not evaluated' },
+                  { icon: AlertTriangle,label: 'Hard-Fail Gates',       value: lastRun ? (lastRun.hardFailActive ? '1+' : '0') : '11', sub: lastRun ? 'Active now' : 'Enforced' },
+                  { icon: ListChecks,   label: 'Simulators Completed',  value: lastRun ? `${lastRun.simulatorsCompleted}/${lastRun.simulatorsTotal}` : '0/9', sub: 'Pipeline steps' },
+                  { icon: FileCheck2,   label: 'Evidence Completeness', value: lastRun ? `${lastRun.evidenceCompletionPercent}%` : '0%', sub: 'Draft package' },
+                  { icon: Cpu,          label: 'Active Battery Profile',value: lastRun ? lastRun.activeProfileId : REF_2W_LFP_51V_V1.profileId, sub: REF_2W_LFP_51V_V1.chemistry },
+                ].map(stat => {
+                  const Icon = stat.icon
+                  return (
+                    <div key={stat.label} className={statCard}>
+                      <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                        <Icon className={d ? 'w-3.5 h-3.5 text-blue-400' : 'w-3.5 h-3.5 text-primary'} />
+                        <p className={d ? 'text-[10px] font-semibold uppercase tracking-wide text-slate-400' : 'text-[10px] font-semibold uppercase tracking-wide text-text-secondary'}>{stat.label}</p>
+                      </div>
+                      <p className={`${statVal} break-words leading-tight ${stat.value.length > 9 ? 'text-base' : 'text-2xl'}`}>{stat.value}</p>
+                      <p className={statSub}>{stat.sub}</p>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
