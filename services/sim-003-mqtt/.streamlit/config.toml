@@ -1,0 +1,8 @@
+# Loopback-only by default — this is a developer diagnostic surface, never
+# meant to be reachable from the network. Do not override server.address.
+[server]
+address = "127.0.0.1"
+headless = true
+
+[browser]
+gatherUsageStats = false

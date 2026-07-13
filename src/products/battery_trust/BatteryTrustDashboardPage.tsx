@@ -346,8 +346,10 @@ export function BatteryTrustDashboardPage() {
             {SIMULATOR_CATALOG.map(sim => {
               const lastStep = lastRun && sim.id === 'SIM-005' ? 'SKIPPED'
                 : lastRun ? 'PASS' : 'Not run'
+              const targetRoute = sim.id === 'SIM-003' ? '/battery-trust/simulators/sim-003' : '/battery-trust/studio'
+              const linkLabel = sim.id === 'SIM-003' ? 'Open MQTT Simulator →' : 'View in Studio →'
               return (
-                <Link key={sim.id} to="/battery-trust/studio" className={`${pillarCard} hover:border-primary/40 transition-colors`}>
+                <Link key={sim.id} to={targetRoute} className={`${pillarCard} hover:border-primary/40 transition-colors`}>
                   <div className="flex items-center justify-between w-full">
                     <span className={d ? 'text-xs font-mono font-bold text-blue-400' : 'text-xs font-mono font-bold text-primary'}>{sim.id}</span>
                     <span className={d ? 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/40'
@@ -357,7 +359,7 @@ export function BatteryTrustDashboardPage() {
                     <p className={pillarTtl}>{sim.name}{sim.isOrchestrator ? ' (Orchestrator)' : ''}</p>
                     <p className={pillarDsc}>{sim.description}</p>
                   </div>
-                  <span className={d ? 'text-xs font-semibold text-blue-400' : 'text-xs font-semibold text-primary'}>View in Studio →</span>
+                  <span className={d ? 'text-xs font-semibold text-blue-400' : 'text-xs font-semibold text-primary'}>{linkLabel}</span>
                 </Link>
               )
             })}

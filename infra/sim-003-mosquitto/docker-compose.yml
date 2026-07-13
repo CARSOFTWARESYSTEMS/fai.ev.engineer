@@ -1,0 +1,18 @@
+# Reproducible alternative to native Homebrew Mosquitto. Requires running
+# scripts/generate-credentials.sh first (creates ./local/passwd, ./local/acl).
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: sim003-mosquitto
+    ports:
+      - "127.0.0.1:1883:1883"  # loopback-only host bind — never 0.0.0.0
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./local/passwd:/mosquitto/config/local/passwd:ro
+      - ./local/acl:/mosquitto/config/local/acl:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h 127.0.0.1 -p 1883 -t '$$SYS/#' -C 1 -u sim003-subscriber -P ${SIM003_MQTT_SUBSCRIBER_PASSWORD:?} -i healthcheck || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped

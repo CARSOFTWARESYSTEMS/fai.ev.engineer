@@ -4,3 +4,4 @@ export { BatteryStoryDetailPage }       from './battery_stories/BatteryStoryDeta
 export { BatteryTrustThemeToggle }      from './BatteryTrustThemeToggle'
 export { useBatteryTrustTheme }         from './useBatteryTrustTheme'
 export { AgenticStudioPage }            from './pages/AgenticStudioPage'
+export { Sim003Page }                   from './simulators/sim_003/pages/Sim003Page'

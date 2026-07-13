@@ -41,6 +41,7 @@ import {
   BatteryTrustWorkPackagePage,
   BatteryStoryDetailPage,
   AgenticStudioPage,
+  Sim003Page,
 } from '../products/battery_trust'
 
 export const router = createBrowserRouter([
@@ -110,6 +111,16 @@ export const router = createBrowserRouter([
       <ProtectedRoute>
         <BatteryTrustRoute>
           <AgenticStudioPage />
+        </BatteryTrustRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/battery-trust/simulators/sim-003',
+    element: (
+      <ProtectedRoute>
+        <BatteryTrustRoute>
+          <Sim003Page />
         </BatteryTrustRoute>
       </ProtectedRoute>
     ),

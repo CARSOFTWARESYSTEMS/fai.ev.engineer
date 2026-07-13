@@ -18,3 +18,15 @@ downloads/
 temp/
 uploads/
 *.local
+
+# SIM-003 MQTT service (Python)
+services/sim-003-mqtt/.venv/
+services/sim-003-mqtt/.env
+services/sim-003-mqtt/**/__pycache__/
+services/sim-003-mqtt/.pytest_cache/
+services/sim-003-mqtt/.coverage
+services/sim-003-mqtt/htmlcov/
+services/sim-003-mqtt/*.egg-info/
+
+# SIM-003 Mosquitto local credentials — never commit real passwords/ACLs
+infra/sim-003-mosquitto/local/

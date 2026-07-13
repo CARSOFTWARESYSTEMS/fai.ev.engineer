@@ -1,0 +1,10 @@
+# Example ACL — copy to local/acl (git-ignored) and adjust per environment.
+# Least-privilege: publisher may only publish to the demo org namespace;
+# subscriber may only subscribe to the same namespace. Neither can touch
+# other organisations' topics, and neither gets a fleet-wide wildcard.
+
+user sim003-publisher
+topic write ev-engineer/v1/sim/demo-organisation/battery/+/telemetry
+
+user sim003-subscriber
+topic read ev-engineer/v1/sim/demo-organisation/battery/+/telemetry
