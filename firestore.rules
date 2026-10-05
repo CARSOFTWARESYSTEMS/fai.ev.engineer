@@ -97,7 +97,8 @@ service cloud.firestore {
           "sudarshana.karkala@gmail.com",
           "sudhan.infotech@gmail.com",
           "carsoftwaresystems@gmail.com",
-          "bhavyanagasai@gmail.com"
+          "bhavyanagasai@gmail.com",
+          "connect.harshyadav@gmail.com"
         ];
     }
 
