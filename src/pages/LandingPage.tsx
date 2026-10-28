@@ -25,6 +25,9 @@ import {
   Factory,
   Cpu,
   Code2,
+  Satellite,
+  Phone,
+  Globe,
 } from 'lucide-react'
 import { useState } from 'react'
 import { Header } from '../components/layout/Header'
@@ -279,6 +282,41 @@ const partners = [
       'Software platform and technology partner enabling the EV.ENGINEER SaaS infrastructure and product development pipeline.',
     icon: <Code2 className="w-6 h-6 text-primary" />,
     href: 'https://iTelematics.com/',
+  },
+  {
+    name: 'GAMYAA Aero Systems',
+    location: 'Bengaluru, India',
+    type: 'Software & Platform Partner',
+    description: 'Defence Aerospace Quality Intelligence Platform (DAQIP™)',
+    tagline: 'Defence · Aerospace · Space',
+    icon: <Satellite className="w-6 h-6 text-primary" />,
+    href: 'https://www.gamyaa.in/aerosystems',
+  },
+]
+
+// ─── Contact ─────────────────────────────────────────────────────────────────
+
+const contactItems = [
+  {
+    label: 'Phone',
+    value: '+91 98455 61518',
+    href: 'tel:+919845561518',
+    icon: <Phone className="w-5 h-5 text-primary" />,
+    external: false,
+  },
+  {
+    label: 'Website',
+    value: 'fai.ev.engineer',
+    href: 'https://fai.ev.engineer',
+    icon: <Globe className="w-5 h-5 text-primary" />,
+    external: true,
+  },
+  {
+    label: 'Website',
+    value: 'gamyaa.in/aerosystems/daqip',
+    href: 'https://www.gamyaa.in/aerosystems/daqip',
+    icon: <Globe className="w-5 h-5 text-primary" />,
+    external: true,
   },
 ]
 
@@ -1201,6 +1239,48 @@ export function LandingPage() {
           </div>
         </section>
 
+        {/* Contact Us */}
+        <section id="contact" className="py-20 px-4 bg-background scroll-mt-20">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="section-title">Contact Us</h2>
+              <p className="section-subtitle max-w-2xl mx-auto">
+                Talk to us about FAI AS9102 and drawing ballooning automation for your defence and aerospace programs.
+              </p>
+            </div>
+            <div className="max-w-5xl mx-auto">
+              <img
+                src="/contact/sudarshana-karkala.webp"
+                alt="Sudarshana Karkala, EV.ENGINEER, Bengaluru, India — FAI AS9102 & Drawing Ballooning Automation"
+                width={1659}
+                height={948}
+                loading="lazy"
+                className="w-full h-auto rounded-2xl shadow-lg border border-border"
+              />
+              <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {contactItems.map((item) => (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                    className="card p-4 flex items-center gap-3 hover:shadow-md hover:border-primary/30 transition-all duration-200"
+                  >
+                    <div className="w-10 h-10 bg-primary-light rounded-lg flex items-center justify-center shrink-0">
+                      {item.icon}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-xs font-semibold text-primary uppercase tracking-wider">
+                        {item.label}
+                      </span>
+                      <span className="block text-sm font-medium text-text-primary truncate">{item.value}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Engineering & Manufacturing Collaborators */}
         <section className="py-20 px-4 bg-white border-t border-border">
           <div className="max-w-7xl mx-auto">
@@ -1210,7 +1290,7 @@ export function LandingPage() {
                 We are working with engineering, manufacturing, and software organizations to build practical drawing ballooning and inspection workflow solutions.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 max-w-5xl xl:max-w-7xl mx-auto">
               {partners.map((partner) => (
                 <a
                   key={partner.name}
@@ -1236,9 +1316,16 @@ export function LandingPage() {
                       )}
                     </h3>
                   </div>
-                  <p className="text-sm text-text-secondary leading-relaxed flex-1">
-                    {partner.description}
-                  </p>
+                  <div className="flex-1">
+                    <p className="text-sm text-text-secondary leading-relaxed">
+                      {partner.description}
+                    </p>
+                    {'tagline' in partner && partner.tagline && (
+                      <p className="mt-2 text-xs font-semibold text-text-primary tracking-wide">
+                        {partner.tagline}
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5 text-xs text-primary font-semibold group-hover:gap-2.5 transition-all">
                     Visit Partner
                     <ExternalLink className="w-3 h-3" />

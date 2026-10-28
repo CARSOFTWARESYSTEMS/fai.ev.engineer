@@ -13,6 +13,7 @@ const navLinks: NavLink[] = [
   { label: 'Pricing',     sectionId: 'pricing',     type: 'anchor' },
   { label: 'Roadmap',     to: '/roadmap',            type: 'route'  },
   { label: 'FAQ',         sectionId: 'faq',          type: 'anchor' },
+  { label: 'Contact Us',  sectionId: 'contact',      type: 'anchor' },
 ]
 
 function scrollToSection(sectionId: string, afterClose?: () => void) {
